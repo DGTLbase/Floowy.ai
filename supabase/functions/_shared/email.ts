@@ -78,25 +78,19 @@ export function caseStudy(
 }
 
 /**
- * Press / "as featured on" strip — rendered as styled text wordmarks (no
- * external image, so it never breaks or gets blocked by email clients).
- * Each name is lightly styled to evoke its brand while staying cohesive grey.
+ * Press / "as featured on" strip — the real grey logo lockup
+ * (RTL, Videoland, TEDx, FD, Global Search Awards, FONK 150), with alt text as
+ * the fallback for clients that block images.
  */
 export function pressStrip(): string {
-  const G = "#8a96a0"; // wordmark grey
-  const wm = (inner: string, extra = "") =>
-    `<span style="display:inline-block;margin:7px 16px;color:${G};font-family:Arial,Helvetica,sans-serif;vertical-align:middle;${extra}">${inner}</span>`;
   return `
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:30px 0 6px;">
-    <tr><td style="border-top:1px solid #eef1f0;border-bottom:1px solid #eef1f0;padding:18px 0 14px;">
-      <div style="text-align:center;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aa6a0;margin-bottom:12px;">As featured on</div>
-      <div style="text-align:center;line-height:1;">
-        ${wm("RTL", "font-size:17px;font-weight:800;letter-spacing:1px;")}
-        ${wm(`videoland<span style="color:#c2cad0;">.</span>`, "font-size:17px;font-weight:600;")}
-        ${wm(`TED<span style="font-weight:600;">x</span>`, "font-size:17px;font-weight:800;letter-spacing:0.5px;")}
-        ${wm(`fd<span style="color:#c2cad0;">.</span>`, "font-size:18px;font-weight:800;")}
-        ${wm("Global Search Awards", "font-size:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;")}
-        ${wm("FONK 150", "font-size:14px;font-weight:800;letter-spacing:0.5px;")}
+    <tr><td style="border-top:1px solid #eef1f0;border-bottom:1px solid #eef1f0;padding:18px 0 16px;">
+      <div style="text-align:center;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aa6a0;margin-bottom:14px;">As featured on</div>
+      <div style="text-align:center;">
+        <img src="${PRESS_LOGOS_IMG}" width="560"
+          alt="RTL · Videoland · TEDx · FD · Global Search Awards · FONK 150"
+          style="width:100%;max-width:560px;height:auto;display:block;margin:0 auto;" />
       </div>
     </td></tr>
   </table>`;

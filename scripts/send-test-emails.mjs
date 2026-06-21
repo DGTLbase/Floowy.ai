@@ -31,19 +31,11 @@ const statRow = (s) => `
 const caseStudy = (b, d, s) => `
   <div style="margin:24px 0;"><div style="font-size:18px;font-weight:700;color:${INK};">${b}</div>
   <div style="font-size:15px;color:${MUTED};margin:4px 0 6px;">${d}</div>${statRow(s)}</div>`;
-const wm = (inner, extra = "") => `<span style="display:inline-block;margin:7px 16px;color:#8a96a0;font-family:Arial,Helvetica,sans-serif;vertical-align:middle;${extra}">${inner}</span>`;
 const pressStrip = () => `
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:30px 0 6px;">
-    <tr><td style="border-top:1px solid #eef1f0;border-bottom:1px solid #eef1f0;padding:18px 0 14px;">
-      <div style="text-align:center;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aa6a0;margin-bottom:12px;">As featured on</div>
-      <div style="text-align:center;line-height:1;">
-        ${wm("RTL", "font-size:17px;font-weight:800;letter-spacing:1px;")}
-        ${wm(`videoland<span style="color:#c2cad0;">.</span>`, "font-size:17px;font-weight:600;")}
-        ${wm(`TED<span style="font-weight:600;">x</span>`, "font-size:17px;font-weight:800;letter-spacing:0.5px;")}
-        ${wm(`fd<span style="color:#c2cad0;">.</span>`, "font-size:18px;font-weight:800;")}
-        ${wm("Global Search Awards", "font-size:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;")}
-        ${wm("FONK 150", "font-size:14px;font-weight:800;letter-spacing:0.5px;")}
-      </div>
+    <tr><td style="border-top:1px solid #eef1f0;border-bottom:1px solid #eef1f0;padding:18px 0 16px;">
+      <div style="text-align:center;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aa6a0;margin-bottom:14px;">As featured on</div>
+      <div style="text-align:center;"><img src="${PRESS_LOGOS_IMG}" width="560" alt="RTL · Videoland · TEDx · FD · Global Search Awards · FONK 150" style="width:100%;max-width:560px;height:auto;display:block;margin:0 auto;" /></div>
     </td></tr>
   </table>`;
 const layout = (bodyHtml, preview = "", showPress = false) => `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/></head>
