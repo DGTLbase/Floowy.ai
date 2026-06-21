@@ -271,3 +271,9 @@ verify_jwt = false
 
 [functions.confirm-euro1]
 verify_jwt = false
+
+[functions.check-recovery-emails]
+verify_jwt = false
+
+[functions.send-lifecycle-email]
+verify_jwt = false

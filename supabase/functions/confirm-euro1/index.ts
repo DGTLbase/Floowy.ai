@@ -99,6 +99,27 @@ serve(async (req) => {
       .update({ balance: TRIAL_CREDITS })
       .eq("user_id", user.id);
 
+    // Flow D — welcome email, once per user (unique(user_id, flow) guards repeats).
+    try {
+      const { error: dErr } = await supabaseAdmin
+        .from("recovery_email_log")
+        .insert({ user_id: user.id, flow: "D" });
+      if (!dErr) {
+        const firstName =
+          (user.user_metadata?.full_name as string | undefined)?.split(" ")[0] || "there";
+        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-lifecycle-email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({ flow: "D", email: user.email, firstName }),
+        });
+      }
+    } catch (e) {
+      console.error("welcome email failed", e);
+    }
+
     return new Response(JSON.stringify({ success: true, plan, credits: TRIAL_CREDITS }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

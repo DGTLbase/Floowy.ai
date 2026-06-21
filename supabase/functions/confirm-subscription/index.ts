@@ -150,29 +150,31 @@ serve(async (req) => {
 
     console.log("Plan updated successfully to:", planData.plan);
 
-    // Send upgrade email
+    // Email: Flow D welcome on first payment (once), upgrade email thereafter.
     try {
-      console.log("Sending upgrade email to:", user.email);
-      const emailResponse = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-upgrade-email`, {
+      const firstName = user.user_metadata?.full_name?.split(" ")[0] || "";
+      // recovery_email_log has unique(user_id, flow); a clean insert => first payment.
+      const { error: dErr } = await supabaseAdmin
+        .from("recovery_email_log")
+        .insert({ user_id: user.id, flow: "D" });
+      const isFirstPayment = !dErr;
+
+      const fn = isFirstPayment ? "send-lifecycle-email" : "send-upgrade-email";
+      const body = isFirstPayment
+        ? { flow: "D", email: user.email, firstName }
+        : { email: user.email, firstName, plan: planData.plan };
+
+      const emailResponse = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/${fn}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
         },
-        body: JSON.stringify({
-          email: user.email,
-          firstName: user.user_metadata?.full_name?.split(' ')[0] || "",
-          plan: planData.plan,
-        }),
+        body: JSON.stringify(body),
       });
-
-      if (emailResponse.ok) {
-        console.log("Upgrade email sent successfully");
-      } else {
-        console.error("Failed to send upgrade email:", await emailResponse.text());
-      }
+      if (!emailResponse.ok) console.error(`${fn} failed:`, await emailResponse.text());
     } catch (emailError) {
-      console.error("Error sending upgrade email:", emailError);
+      console.error("Error sending confirmation email:", emailError);
       // Don't fail the subscription confirmation if email fails
     }
 
