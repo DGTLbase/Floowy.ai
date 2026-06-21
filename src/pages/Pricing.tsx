@@ -44,12 +44,12 @@ const Pricing = () => {
       <Navigation />
 
       {/* €1 urgency countdown */}
-      <div className="pt-20 md:pt-24">
+      <div className="pt-6 md:pt-8">
         <OfferCountdownSection />
       </div>
 
       {/* Pricing Section */}
-      <div id="pricing" className="scroll-mt-20 pt-8 md:pt-10">
+      <div id="pricing" className="scroll-mt-20 pt-2 md:pt-4">
         <PricingSection
           asH1
           title={
