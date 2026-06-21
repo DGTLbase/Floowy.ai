@@ -17,6 +17,7 @@ const HEADER_IMG = "https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/p
 const PRESS_LOGOS_IMG = "https://floowy.ai/email/press-logos.png";
 const EURO1_URL = "https://floowy.ai/pricing-1-euro-offer";
 const TV_URL = "https://youtu.be/DB9Lrxx7rhs";
+const PLAY = '<span style="display:inline-block;width:0;height:0;border-style:solid;border-width:5px 0 5px 8px;border-color:transparent transparent transparent #ffffff;margin-right:9px;vertical-align:middle;"></span>';
 const GREEN = "#10b981", GREEN_DARK = "#059669", INK = "#0f1f17", MUTED = "#667085";
 
 const button = (t, h) => `
@@ -114,7 +115,7 @@ const emails = [
       p("But we wanted to share something with you before we stop reaching out.") +
       p('For the programme <strong>"De AI Storm"</strong> — a four-part series on national television about how AI is changing Dutch business — the production team came to Floowy to see how brands are using AI to produce content at scale.') +
       p("Not a startup pitch. Not a tech demo. National television, covering real results.") +
-      button("▶ Watch the TV feature", TV_URL) +
+      button(`${PLAY}Watch the TV feature`, TV_URL) +
       `<p style="margin:0 0 8px;font-weight:bold;color:${INK};">Why does this matter to you?</p>` +
       p("Because the brands featured weren't special cases. They were brands exactly like yours — dealing with the same content bottlenecks, the same production costs, the same pressure to keep up.") +
       `<p style="margin:0 0 6px;">Here's what AI-powered content creation is doing for Dutch brands right now:</p>` +
