@@ -32,12 +32,12 @@ const OfferCountdownSection = () => {
         aria-label="€1 offer — start now"
         className="group block max-w-3xl mx-auto"
       >
-        <div className="relative overflow-hidden rounded-2xl border-2 border-accent/40 bg-gradient-to-br from-accent/10 via-background to-primary/5 px-6 py-6 md:px-10 md:py-7 text-center transition-shadow hover:shadow-glow">
-          <div className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-xs md:text-sm font-bold uppercase tracking-wider mb-4 px-4 py-1.5 rounded-full shadow-md">
+        <div className="relative overflow-hidden rounded-2xl border-2 border-accent/40 bg-gradient-to-br from-accent/10 via-background to-primary/5 px-6 py-4 md:px-10 md:py-5 text-center transition-shadow hover:shadow-glow">
+          <div className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-xs md:text-sm font-bold uppercase tracking-wider mb-2.5 px-4 py-1.5 rounded-full shadow-md">
             <Clock className="w-4 h-4" />
             Limited-time launch offer
           </div>
-          <p className="text-lg md:text-xl font-semibold text-foreground mb-4">
+          <p className="text-base md:text-lg font-semibold text-foreground mb-2.5">
             €1 offer expires in
           </p>
           <div className="flex items-center justify-center gap-2 md:gap-3">
@@ -49,7 +49,7 @@ const OfferCountdownSection = () => {
             <span className="text-2xl md:text-3xl font-bold text-muted-foreground pb-5">:</span>
             <Unit value={seconds} label="Sec" />
           </div>
-          <span className="mt-5 inline-flex items-center justify-center rounded-full bg-accent text-accent-foreground font-bold text-sm px-6 py-2.5 transition-transform group-hover:scale-105">
+          <span className="mt-3 inline-flex items-center justify-center rounded-full bg-accent text-accent-foreground font-bold text-sm px-6 py-2 transition-transform group-hover:scale-105">
             {EURO1_OFFER.ctaLabel}
           </span>
         </div>

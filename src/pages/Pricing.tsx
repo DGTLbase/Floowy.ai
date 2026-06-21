@@ -44,7 +44,7 @@ const Pricing = () => {
       <Navigation />
 
       {/* €1 urgency countdown */}
-      <div className="pt-6 md:pt-8">
+      <div className="pt-3 md:pt-4">
         <OfferCountdownSection />
       </div>
 
