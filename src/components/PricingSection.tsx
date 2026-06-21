@@ -138,18 +138,19 @@ const PricingSection = ({ title, subtitle, asH1 = false }: PricingSectionProps =
               }`}
             >
               <CardHeader className="text-center pb-8 pt-8">
-                <div className="flex flex-wrap items-center justify-center gap-2 mb-2">
+                <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
                   <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                  <Badge className="bg-accent text-accent-foreground font-bold rounded-full px-2.5 py-0.5 shadow-sm">
-                    €1 for first 3 days
-                  </Badge>
-                  {plan.highlighted && (
-                    <Badge className="bg-primary text-primary-foreground font-bold rounded-full px-2.5 py-0.5 text-[10px] uppercase tracking-wider shadow-sm">
-                      Best Value
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-accent text-accent-foreground font-bold rounded-full px-2.5 py-0.5 shadow-sm">
+                      €1 first 3 days
                     </Badge>
-                  )}
+                    {plan.highlighted && (
+                      <Badge className="bg-primary text-primary-foreground font-bold rounded-full px-2.5 py-0.5 text-[10px] uppercase tracking-wider shadow-sm">
+                        Best Value
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-                <CardDescription className="text-sm mb-4">{plan.description}</CardDescription>
                 {isAnnual && plan.monthlyPrice > 0 && (
                   <div className="text-lg font-bold text-muted-foreground line-through mb-2">
                     €{plan.monthlyPrice * 12}
@@ -164,6 +165,7 @@ const PricingSection = ({ title, subtitle, asH1 = false }: PricingSectionProps =
                     <span className="text-xs md:text-sm text-muted-foreground">/{isAnnual ? "year" : "month"}</span>
                   </div>
                 </div>
+                <CardDescription className="text-sm mt-4">{plan.description}</CardDescription>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col">
                 <ul className="space-y-3 mb-8 flex-1">
