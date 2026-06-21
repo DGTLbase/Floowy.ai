@@ -138,14 +138,14 @@ const PricingSection = ({ title, subtitle, asH1 = false }: PricingSectionProps =
               }`}
             >
               <CardHeader className="text-center pb-8 pt-8">
-                <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
-                  <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-accent text-accent-foreground font-bold rounded-full px-2.5 py-0.5 shadow-sm">
+                <div className="flex flex-nowrap items-center justify-center gap-1.5 mb-4">
+                  <CardTitle className="text-xl whitespace-nowrap">{plan.name}</CardTitle>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Badge className="bg-accent text-accent-foreground font-bold rounded-full px-2 py-0.5 text-[10px] whitespace-nowrap shadow-sm">
                       €1 first 3 days
                     </Badge>
                     {plan.highlighted && (
-                      <Badge className="bg-primary text-primary-foreground font-bold rounded-full px-2.5 py-0.5 text-[10px] uppercase tracking-wider shadow-sm">
+                      <Badge className="bg-primary text-primary-foreground font-bold rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider whitespace-nowrap shadow-sm">
                         Best Value
                       </Badge>
                     )}
