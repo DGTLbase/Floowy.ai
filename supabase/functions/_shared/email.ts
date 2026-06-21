@@ -77,16 +77,27 @@ export function caseStudy(
   </div>`;
 }
 
-/** A grey press / "as featured on" strip (image + text fallback). */
+/**
+ * Press / "as featured on" strip — rendered as styled text wordmarks (no
+ * external image, so it never breaks or gets blocked by email clients).
+ * Each name is lightly styled to evoke its brand while staying cohesive grey.
+ */
 export function pressStrip(): string {
+  const G = "#8a96a0"; // wordmark grey
+  const wm = (inner: string, extra = "") =>
+    `<span style="display:inline-block;margin:7px 16px;color:${G};font-family:Arial,Helvetica,sans-serif;vertical-align:middle;${extra}">${inner}</span>`;
   return `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:26px 0 6px;">
-    <tr><td align="center" style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:${MUTED};padding-bottom:10px;">
-      As featured on
-    </td></tr>
-    <tr><td align="center">
-      <img src="${PRESS_LOGOS_IMG}" alt="RTL · Videoland · TEDx · FD · Global Search Awards · Fonk 150"
-        style="max-width:520px;width:100%;height:auto;display:block;opacity:0.7;" />
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:30px 0 6px;">
+    <tr><td style="border-top:1px solid #eef1f0;border-bottom:1px solid #eef1f0;padding:18px 0 14px;">
+      <div style="text-align:center;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aa6a0;margin-bottom:12px;">As featured on</div>
+      <div style="text-align:center;line-height:1;">
+        ${wm("RTL", "font-size:17px;font-weight:800;letter-spacing:1px;")}
+        ${wm(`videoland<span style="color:#c2cad0;">.</span>`, "font-size:17px;font-weight:600;")}
+        ${wm(`TED<span style="font-weight:600;">x</span>`, "font-size:17px;font-weight:800;letter-spacing:0.5px;")}
+        ${wm(`fd<span style="color:#c2cad0;">.</span>`, "font-size:18px;font-weight:800;")}
+        ${wm("Global Search Awards", "font-size:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;")}
+        ${wm("FONK 150", "font-size:14px;font-weight:800;letter-spacing:0.5px;")}
+      </div>
     </td></tr>
   </table>`;
 }
@@ -271,7 +282,7 @@ export function layout({ bodyHtml, preview = "", showPress = false }: LayoutOpts
     <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${preview}</span>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f5;padding:24px 0;">
       <tr><td align="center">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;">
+        <table role="presentation" width="680" cellpadding="0" cellspacing="0" style="max-width:680px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;">
           <tr><td>
             <img src="${HEADER_IMG}" alt="Floowy.ai" style="width:100%;display:block;" />
           </td></tr>

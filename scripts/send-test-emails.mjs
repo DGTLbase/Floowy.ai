@@ -31,16 +31,26 @@ const statRow = (s) => `
 const caseStudy = (b, d, s) => `
   <div style="margin:24px 0;"><div style="font-size:18px;font-weight:700;color:${INK};">${b}</div>
   <div style="font-size:15px;color:${MUTED};margin:4px 0 6px;">${d}</div>${statRow(s)}</div>`;
+const wm = (inner, extra = "") => `<span style="display:inline-block;margin:7px 16px;color:#8a96a0;font-family:Arial,Helvetica,sans-serif;vertical-align:middle;${extra}">${inner}</span>`;
 const pressStrip = () => `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:26px 0 6px;">
-    <tr><td align="center" style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:${MUTED};padding-bottom:10px;">As featured on</td></tr>
-    <tr><td align="center"><img src="${PRESS_LOGOS_IMG}" alt="RTL · Videoland · TEDx · FD · Global Search Awards · Fonk 150" style="max-width:520px;width:100%;height:auto;display:block;opacity:0.7;" /></td></tr>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:30px 0 6px;">
+    <tr><td style="border-top:1px solid #eef1f0;border-bottom:1px solid #eef1f0;padding:18px 0 14px;">
+      <div style="text-align:center;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aa6a0;margin-bottom:12px;">As featured on</div>
+      <div style="text-align:center;line-height:1;">
+        ${wm("RTL", "font-size:17px;font-weight:800;letter-spacing:1px;")}
+        ${wm(`videoland<span style="color:#c2cad0;">.</span>`, "font-size:17px;font-weight:600;")}
+        ${wm(`TED<span style="font-weight:600;">x</span>`, "font-size:17px;font-weight:800;letter-spacing:0.5px;")}
+        ${wm(`fd<span style="color:#c2cad0;">.</span>`, "font-size:18px;font-weight:800;")}
+        ${wm("Global Search Awards", "font-size:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;")}
+        ${wm("FONK 150", "font-size:14px;font-weight:800;letter-spacing:0.5px;")}
+      </div>
+    </td></tr>
   </table>`;
 const layout = (bodyHtml, preview = "", showPress = false) => `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/></head>
 <body style="margin:0;padding:0;background:#f4f6f5;font-family:Arial,Helvetica,sans-serif;">
 <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${preview}</span>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f5;padding:24px 0;"><tr><td align="center">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:14px;overflow:hidden;">
+<table role="presentation" width="680" cellpadding="0" cellspacing="0" style="max-width:680px;width:100%;background:#fff;border-radius:14px;overflow:hidden;">
 <tr><td><img src="${HEADER_IMG}" alt="Floowy.ai" style="width:100%;display:block;" /></td></tr>
 <tr><td style="padding:36px 34px 14px;color:${INK};font-size:16px;line-height:1.65;">${bodyHtml}${showPress ? pressStrip() : ""}</td></tr>
 <tr><td style="padding:22px 34px 34px;border-top:1px solid #eef1f0;color:${MUTED};font-size:13px;line-height:1.6;">
