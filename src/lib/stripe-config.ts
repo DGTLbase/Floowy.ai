@@ -64,31 +64,29 @@ export const PERSONAL_PROMO = {
   couponId: "floowy_personal_10off_3mo",
 };
 
-// Upsell #1 — "Secret Ultra" plan (Section 10).
-// priceId/couponId are live Stripe objects created by scripts/setup-stripe-offers.mjs.
-export const ULTRA_UPSELL = {
-  name: "Ultra Monthly Plan",
-  monthlyPrice: 129,
-  credits: 3000,
-  discountPct: 52,        // headline discount vs. standard Ultra price
-  offerType: "ultra_upsell" as const,
-  countdownSeconds: 7 * 60 + 45, // 07:45
-  priceId: "price_1TkbwJKbAjgJzP4OaHqIAkLN",
-  couponId: "floowy_ultra_52off",
-};
+// Post-purchase upsells (Sections 10 & 11) — use the REAL plans/credits.
+// The offer upgrades the user to the next tier above what they bought, applying
+// a discount to the first billing period via existing Stripe coupons.
+const TIER_ORDER = ["lite", "starter", "professional", "enterprise"] as const;
+export type PlanKey = typeof TIER_ORDER[number];
 
-// Upsell #2 — "Save €X / 3X results" add-on (Section 11), shown only if #1 skipped.
-// Modeled as the Ultra subscription with a €74-off-once coupon (first invoice €55).
-// priceId/couponId are live Stripe objects created by scripts/setup-stripe-offers.mjs.
-export const ADDON_UPSELL = {
-  price: 55,
-  originalPrice: 60,
-  savings: 424,           // "Save €424" headline
-  additionalDiscountPct: 8,
-  offerType: "addon_upsell" as const,
-  countdownSeconds: 4 * 60 + 56, // 04:56
-  priceId: "price_1TkbwJKbAjgJzP4OaHqIAkLN",
-  couponId: "floowy_addon_74off",
+/** The next real plan above `plan` (caps at enterprise; defaults to professional). */
+export function nextTier(plan?: string): PlanKey {
+  const i = TIER_ORDER.indexOf((plan || "").toLowerCase() as PlanKey);
+  if (i < 0) return "professional";
+  return TIER_ORDER[Math.min(i + 1, TIER_ORDER.length - 1)];
+}
+
+export const UPSELL = {
+  // #1 — full-page takeover: X% off the first month of the next-tier plan.
+  ultraDiscountPct: 52,
+  ultraCouponId: "floowy_ultra_52off",       // 52% off, once
+  ultraCountdownSeconds: 7 * 60 + 45,        // 07:45
+  // #2 — second-chance: stronger value, 50% off the first 3 months.
+  addonDiscountPct: 50,
+  addonMonths: 3,
+  addonCouponId: PROMO_COUPONS.FIFTY_OFF_3M, // 50% off, repeating 3 months
+  addonCountdownSeconds: 4 * 60 + 56,        // 04:56
 };
 
 // Credit packs. `price` is the real charge; `originalPrice` is the anchor

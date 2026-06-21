@@ -102,6 +102,8 @@ const Payment = () => {
   // After a successful €1 purchase: attach the §9 personal coupon (if claimed)
   // and run the §10/§11 upsell sequence before the dashboard.
   const runPostEuro1Funnel = () => {
+    // Payment done — exit the signup funnel so auth redirects resume normally.
+    sessionStorage.removeItem("floowy_post_signup");
     if (sessionStorage.getItem("floowy_apply_personal_promo") === "1") {
       sessionStorage.removeItem("floowy_apply_personal_promo");
       supabase.functions

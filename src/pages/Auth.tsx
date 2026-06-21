@@ -129,8 +129,16 @@ const Auth = () => {
       console.log("[Auth] User is admin, redirecting to /admin");
       navigate("/admin");
     } else if (!profile?.onboarding_completed) {
-      console.log("[Auth] Onboarding not complete, redirecting to /onboarding");
-      navigate("/onboarding");
+      // €1 funnel: a fresh signup goes to the €1 offer page (with the "You're in
+      // 5%" popup), not onboarding. Flag is durable until payment so the auth
+      // listener's deferred redirect doesn't bounce them to /onboarding.
+      if (sessionStorage.getItem("floowy_post_signup") === "1") {
+        console.log("[Auth] New €1-funnel signup → /pricing-1-euro-offer");
+        navigate("/pricing-1-euro-offer");
+      } else {
+        console.log("[Auth] Onboarding not complete, redirecting to /onboarding");
+        navigate("/onboarding");
+      }
     } else {
       const nextParam = searchParams.get("next");
       const safeNext = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/home";
@@ -290,6 +298,7 @@ const Auth = () => {
 
       // €1 launch funnel: show the "You're in 5%" personal-discount popup on the
       // €1 payment step (Section 9), then proceed to checkout.
+      sessionStorage.setItem("floowy_post_signup", "1");
       sessionStorage.setItem("floowy_show_personal_promo", "1");
       navigate("/pricing-1-euro-offer");
     } catch (error: any) {
