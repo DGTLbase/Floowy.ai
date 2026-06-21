@@ -1,0 +1,267 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const FAL_API_KEY = Deno.env.get('FAL_API_KEY');
+    if (!FAL_API_KEY) {
+      throw new Error('FAL_API_KEY is not configured');
+    }
+
+    const {
+      action,
+      requestId,
+      productImageUrl,
+      referenceImageUrl,
+      labelImageUrl,
+      resolution = "2K",
+      aspectRatio = "1:1",
+      imageUrl,
+      transparentBackground = false,
+      backgroundColor,
+      mode = "reference", // "reference" | "ai-guess"
+      variant = "flatlay", // "flatlay" | "collar-closeup"
+      outputType = "flatlay", // "flatlay" | "halo_bust"
+    } = await req.json();
+
+    // Remove background action - using synchronous API (faster for small images)
+    if (action === 'remove-background' && imageUrl) {
+      console.log('[REMOVE BG] Starting background removal for:', imageUrl);
+      
+      // Use synchronous endpoint instead of queue
+      const response = await fetch('https://fal.run/fal-ai/bria/background/remove', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Key ${FAL_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image_url: imageUrl }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[REMOVE BG] Error:', response.status, errorText);
+        throw new Error(`Background removal failed: ${response.status} - ${errorText}`);
+      }
+
+      const resultData = await response.json();
+      console.log('[REMOVE BG] Result:', JSON.stringify(resultData));
+
+      // Return immediately with COMPLETED status since sync API returns result directly
+      return new Response(JSON.stringify({ status: 'COMPLETED', ...resultData }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Check status of existing generation
+    if (action === 'status' && requestId) {
+      console.log('[STATUS CHECK] Request ID:', requestId);
+      
+      const statusResponse = await fetch(
+        `https://queue.fal.run/fal-ai/nano-banana-pro/requests/${requestId}/status`,
+        {
+          headers: {
+            'Authorization': `Key ${FAL_API_KEY}`,
+          },
+        }
+      );
+
+      if (!statusResponse.ok) {
+        const errorText = await statusResponse.text();
+        console.error('[STATUS CHECK] HTTP Error:', statusResponse.status, errorText);
+        throw new Error(`Status check failed: ${statusResponse.status} - ${errorText}`);
+      }
+
+      const responseText = await statusResponse.text();
+      console.log('[STATUS CHECK] Raw response:', responseText);
+      
+      let statusData;
+      try {
+        statusData = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('[STATUS CHECK] JSON parse error:', parseError);
+        throw new Error(`Failed to parse status response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+      }
+      
+      console.log('[STATUS CHECK] Parsed data:', JSON.stringify(statusData));
+
+      // If COMPLETED, fetch the actual result from response_url
+      if (statusData.status === 'COMPLETED') {
+        console.log('[STATUS CHECK] COMPLETED!');
+        
+        if (statusData.response_url) {
+          console.log('[STATUS CHECK] Fetching result from:', statusData.response_url);
+          
+          const resultResponse = await fetch(statusData.response_url, {
+            headers: {
+              'Authorization': `Key ${FAL_API_KEY}`,
+            },
+          });
+          
+          if (!resultResponse.ok) {
+            console.error('[STATUS CHECK] Failed to fetch result:', resultResponse.status);
+            throw new Error(`Failed to fetch result: ${resultResponse.statusText}`);
+          }
+          
+          const resultData = await resultResponse.json();
+          console.log('[STATUS CHECK] Result Data:', JSON.stringify(resultData));
+          
+          return new Response(JSON.stringify({ status: 'COMPLETED', ...resultData }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          });
+        }
+      }
+
+      return new Response(JSON.stringify(statusData), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    }
+
+    // Start new generation
+    if (action === 'generate' && productImageUrl) {
+      console.log('[GENERATION] Starting flatlay generation');
+      console.log('[GENERATION] Product image:', productImageUrl);
+      console.log('[GENERATION] Reference image:', referenceImageUrl || '(none — AI guess)');
+      console.log('[GENERATION] Label image:', labelImageUrl || '(none)');
+      console.log('[GENERATION] Resolution:', resolution);
+      console.log('[GENERATION] Aspect ratio:', aspectRatio);
+      console.log('[GENERATION] Mode:', mode, 'transparent:', transparentBackground, 'bg:', backgroundColor);
+
+      // Build the prompt for flatlay / halo-bust generation
+      let prompt: string;
+      let imageUrls: string[];
+      const isHalo = outputType === "halo_bust" && variant !== "collar-closeup";
+
+      if (variant === "collar-closeup") {
+        // Closeup of the inner back neck / collar to showcase the brand label
+        prompt = `Extreme close-up macro product photo of the INNER BACK NECK / COLLAR area of the garment shown in the input image. Frame tightly on the collar and upper back neckline so the neck/collar label is clearly visible and readable. The garment is laid flat on a clean surface, smooth and unwrinkled, shot from directly above with sharp focus on the label area. No models, no mannequins, no people, no hands.
+
+ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's original colors, fabric, weave, sheen, texture, stitching color and style exactly as in the input. Do NOT recolor, restyle or reinterpret any detail.`;
+        imageUrls = [productImageUrl];
+      } else if (isHalo && referenceImageUrl) {
+        prompt = `Professional e-commerce GHOST-MANNEQUIN ("halo bust" / invisible mannequin) product photo. Image 1 = POSE / ORIENTATION / SILHOUETTE TEMPLATE ONLY. Image 2 = THE GARMENT — the single source of truth for ALL visual properties.
+
+ABSOLUTE ORIENTATION & POSE RULE (HIGHEST PRIORITY — DO NOT VIOLATE): Match image 1's orientation pixel-for-pixel. This includes view angle (strictly front / strict back / strict 3/4 left / strict 3/4 right / strict side — pick whichever image 1 shows and replicate exactly), camera height and tilt, vertical axis, body rotation around the vertical axis, shoulder line angle, asymmetry, lean, twist, sleeve position (down at sides / one raised / crossed / behind / on hips — copy exactly), hem line angle, garment crop and framing within the frame, scale and centering on the canvas. Do NOT mirror, flip, rotate, re-pose, straighten, "normalize", front-ify, or change the viewing angle of image 1 in any way. If image 1 shows the back, output the back. If image 1 shows a 3/4 view from the left, output a 3/4 view from the left at the exact same degree of rotation. If image 1 shows the garment tilted, output it tilted at the same angle. Treat image 1's silhouette as a hard constraint that the garment from image 2 must be re-skinned onto without altering shape, angle or proportions.
+
+ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY — DO NOT VIOLATE): The garment in the output MUST be a pixel-faithful, 1:1 reproduction of the garment in image 2. Retain 100% of: every color, hue, saturation, brightness, contrast, tone, undertone, color temperature, gradient, ombré, color block, stripe, panel color, trim color, print, pattern, motif, graphic, text, typography, logo, label, tag, emblem, badge, stitching color and style, button color, zipper teeth and pulls, hardware, fabric type, weave, sheen, texture and material finish exactly as in image 2. Do NOT recolor, tint, shift hue, desaturate, oversaturate, restyle, simplify, smooth, "clean up", reinterpret, stylize, or invent any visual property. Completely IGNORE all colors, prints, patterns, materials, trims, hardware, stitching, logos and labels from image 1 — image 1 contributes ZERO visual/color/identity information. If any detail is ambiguous, copy it 1:1 from image 2. Do NOT add or hallucinate any stitching, branding, logos, badges, buttons, zippers, pockets or trims that are not present in image 2.
+
+HALO-BUST SHAPE RULE (STRICT): Render the garment from image 2 as if worn by an invisible human body — natural three-dimensional body shape, realistic volume in the chest/shoulders/torso/arms (and legs/hips for bottoms), correctly draped fabric, soft inner shadow at the neckline opening, inside the sleeves and at the hem, and gentle shading along seams and folds to convey depth. The garment must look filled-out and lifelike, NOT flat. ZERO model, mannequin, person, hands, skin, hair, head, neck, legs or feet may be visible anywhere — only the garment, floating in space with realistic body-shaped volume. The collar, zipper, buttons, plackets, cuffs, pockets and hem must sit in the correct anatomical position and proportion as defined by the garment in image 2, while the overall pose and viewing angle remain identical to image 1.
+
+FINAL REINFORCEMENT (HIGHEST PRIORITY): The output must copy image 1's POSITION, POSE, ORIENTATION, ANGLE, ROTATION, FRAMING, SCALE and CENTERING EXACTLY — pixel-for-pixel, 1:1, with zero deviation. Treat image 1 as a hard positional template. The ONLY thing that may change versus image 1 is the garment identity (which comes 100% from image 2). Do not re-pose, re-angle, re-frame, re-center, rescale, mirror, flip or "normalize" image 1 in any way.`;
+        imageUrls = [referenceImageUrl, productImageUrl];
+      } else if (isHalo) {
+        prompt = `Professional e-commerce GHOST-MANNEQUIN ("halo bust" / invisible mannequin) product photo of the garment shown in the input image. Render it as if worn by an invisible human body: natural three-dimensional shape with realistic volume in the chest/shoulders/torso/arms (and legs/hips for bottoms), correctly draped fabric, soft inner shadow at the neckline opening, inside the sleeves and at the hem, and gentle shading along seams and folds to convey depth. The garment must look filled-out and lifelike, NOT flat. ZERO model, mannequin, person, hands, skin, hair, head, neck, legs or feet may be visible — only the garment with realistic body-shaped volume, shot front-on at eye level for a clean e-commerce look.
+
+ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's original colors, hues, saturation, brightness, tone, color temperature, gradients, color blocks, stripes, panel colors, trims, prints, patterns, graphics, text, logos, labels, stitching color and style, buttons, zippers, hardware, fabric type, weave, sheen, texture and finish exactly as in the input. Do NOT recolor, restyle, simplify, "clean up" or reinterpret any detail. Do NOT add or hallucinate any stitching, branding, logos, badges, buttons, zippers, pockets or trims that are not present in the input. The collar, zipper, buttons, plackets, cuffs, pockets and hem must sit in the correct anatomical position and proportion.`;
+        imageUrls = [productImageUrl];
+      } else if (referenceImageUrl) {
+        prompt = `Flatlay product photo. Image 1 = LAYOUT / POSE TEMPLATE ONLY. Image 2 = THE GARMENT — the single source of truth for ALL visual properties.
+
+ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY — DO NOT VIOLATE): The garment in the output MUST be a pixel-faithful, 1:1 reproduction of the garment in image 2. Retain 100% of: every color, hue, saturation, brightness, contrast, tone, undertone, color temperature, gradient, ombré, color block, stripe, panel color, trim color, print, pattern, motif, graphic, text, typography, logo, label, tag, emblem, badge, stitching color and style, button color, zipper color, hardware, fabric type, weave, sheen, texture, and material finish exactly as in image 2. Do NOT recolor, tint, shift hue, desaturate, oversaturate, brighten, darken, warm up, cool down, restyle, simplify, smooth, "clean up", reinterpret, stylize, or invent any visual property. The output color of every pixel of the garment must be identical to image 2 under neutral studio lighting. Completely IGNORE all colors, prints, patterns, materials and trims from image 1 — image 1 contributes ZERO visual/color information. If any detail is ambiguous, copy it 1:1 from image 2.
+
+LAYOUT RULE (STRICT 1:1 MATCH): Reproduce image 1's exact pose, fold, position, orientation, rotation, angle, framing, perspective, crop and composition pixel-for-pixel — treat image 1 as a precise template that the garment from image 2 must be re-skinned onto. Every sleeve placement, hem position, collar angle, fold line, overlap and silhouette must match image 1 exactly. The only thing changing from image 1 is the garment identity (which comes 100% from image 2); the arrangement, shape on the surface and camera framing must be indistinguishable from image 1. If image 1 shows folds, replicate the same folds; if image 1 shows the garment fully spread, fully spread it. No models, no mannequins, no people, no hands.`;
+        imageUrls = [referenceImageUrl, productImageUrl];
+      } else {
+        prompt = `Professional e-commerce flatlay product photo of the garment shown in the input image. Arrange it in the most flattering, natural flat-lay position for an online store, completely flat, smooth and unwrinkled — sleeves, hem and all panels fully spread and visible with no folds, creases, or bunching.
+
+ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's original colors, hues, saturation, brightness, contrast, tone, color temperature, gradients, color blocks, stripes, panel colors, trims, prints, patterns, graphics, text, logos, labels, stitching, buttons, zippers, hardware, fabric, weave, sheen, texture and finish exactly as in the input. Do NOT recolor, tint, shift hue, desaturate, oversaturate, restyle, simplify, "clean up" or reinterpret any color or detail. No models, no mannequins, no people.`;
+        imageUrls = [productImageUrl];
+      }
+
+      // Background handling — only when transparent flow is NOT requested,
+      // we bake the background into the prompt. Transparent removes bg later.
+      if (!transparentBackground) {
+        if (backgroundColor) {
+          prompt += ` Background: a clean solid ${backgroundColor} surface, evenly lit, no texture, no shadows beyond a soft natural drop shadow under the garment.`;
+        } else {
+          prompt += ` Clean, neutral background only.`;
+        }
+      } else {
+        prompt += ` Clean, neutral background only.`;
+      }
+
+      if (typeof labelImageUrl === 'string' && labelImageUrl.length > 0) {
+        const labelImageIndex = imageUrls.length + 1;
+        if (variant === "collar-closeup") {
+          prompt += ` Image ${imageUrls.length + 1} = NECK COLLAR / BRAND LABEL. Composite this label onto the inner back neckline / collar of the garment so it is the clear focal point of the closeup. Align it perfectly with the curve of the collar, follow the fabric drape, and match the garment's lighting and perspective so it looks naturally sewn in. The label must be sharp, fully visible and centered in the frame. Preserve the label's exact colors, typography, logo, graphics, stitching and proportions 1:1 — do NOT redesign, recolor, translate, restyle, simplify or invent any detail of the label.`;
+        } else {
+          prompt += ` Image ${labelImageIndex} = NECK COLLAR / BRAND LABEL. Composite this label onto the garment exactly where the inner back neckline / collar sits. Align it perfectly with the curve of the collar, follow the fabric drape, and match the garment's lighting and perspective so it looks naturally sewn in. Preserve the label's exact colors, typography, logo, graphics, stitching and proportions 1:1 — do NOT redesign, recolor, translate, restyle, simplify or invent any detail of the label. Keep its size realistic and subtle.`;
+        }
+        imageUrls.push(labelImageUrl);
+      }
+
+      const requestBody: any = {
+        prompt,
+        image_urls: imageUrls,
+        num_images: 1,
+        aspect_ratio: aspectRatio,
+        output_format: "webp",
+        resolution,
+      };
+
+      console.log('[GENERATION] Request body:', JSON.stringify(requestBody));
+
+      const response = await fetch('https://queue.fal.run/fal-ai/nano-banana-pro/edit', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Key ${FAL_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('FAL API error:', response.status, errorText);
+        throw new Error(`FAL API error: ${response.status} ${errorText}`);
+      }
+
+      const responseText = await response.text();
+      console.log('[GENERATION] Response text:', responseText);
+      
+      let queueData;
+      try {
+        queueData = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        throw new Error(`Failed to parse generation response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+      }
+      
+      console.log('[GENERATION] Queued:', queueData);
+
+      return new Response(JSON.stringify(queueData), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(
+      JSON.stringify({ error: 'Invalid action or missing parameters' }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+
+  } catch (error) {
+    console.error('Error in generate-flatlay function:', error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
+  }
+});

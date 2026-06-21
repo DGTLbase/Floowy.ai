@@ -1,0 +1,117 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, admin-token, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+};
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const adminToken = req.headers.get('admin-token');
+    if (!adminToken) {
+      return new Response(JSON.stringify({ error: 'Admin token required' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+
+    const { data: session } = await supabase
+      .from('admin_sessions')
+      .select('id')
+      .eq('token', adminToken)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle();
+
+    if (!session) {
+      return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const { action, id, ...payload } = await req.json();
+
+    if (action === 'list') {
+      const { data, error } = await supabase
+        .from('industry_pages')
+        .select('*, case_categories(id, name, slug)')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return new Response(JSON.stringify({ pages: data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'list-cases') {
+      const { data, error } = await supabase
+        .from('cases')
+        .select('id, slug, client_name, subtitle, hero_image_url, client_logo_url, stats, category_id, is_published')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return new Response(JSON.stringify({ cases: data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'duplicate' && id) {
+      const { data: src, error: getErr } = await supabase
+        .from('industry_pages').select('*').eq('id', id).single();
+      if (getErr) throw getErr;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id: _id, created_at, updated_at, slug, ...rest } = src as Record<string, unknown>;
+      const newSlug = `${slug}-copy-${Date.now().toString(36)}`;
+      const { data, error } = await supabase
+        .from('industry_pages')
+        .insert({
+          ...rest,
+          slug: newSlug,
+          is_published: false,
+          published_at: null,
+          industry_name: `${(rest as { industry_name: string }).industry_name} (Copy)`
+        })
+        .select().single();
+      if (error) throw error;
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'delete' && id) {
+      const { error } = await supabase.from('industry_pages').delete().eq('id', id);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (id) {
+      const { data, error } = await supabase
+        .from('industry_pages').update(payload).eq('id', id).select().single();
+      if (error) throw error;
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const { data, error } = await supabase
+      .from('industry_pages').insert(payload).select().single();
+    if (error) throw error;
+    return new Response(JSON.stringify(data), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    console.error('admin-save-industry-page error:', error);
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+});

@@ -1,0 +1,237 @@
+[
+  {
+    "path": "/",
+    "title": "AI Product Image Generator for Ecommerce | Floowy AI",
+    "description": "Create product images, ad creatives, and marketing visuals with AI. No photoshoots needed. Scale your ecommerce content with Floowy.ai.",
+    "keywords": "AI product image generator, AI content creation, marketing visuals, AI photoshoots, ecommerce",
+    "breadcrumbs": [{ "name": "Home", "url": "https://floowy.ai" }]
+  },
+  {
+    "path": "/pricing",
+    "title": "AI content platform pricing for scalable content plans | Floowy",
+    "description": "Explore AI content platform pricing and choose a plan that fits your marketing goals. Create visuals, shoots and concepts quickly with AI power.",
+    "keywords": "AI content platform pricing, AI marketing pricing, content creation pricing",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Pricing", "url": "https://floowy.ai/pricing" }
+    ]
+  },
+  {
+    "path": "/solutions",
+    "title": "AI Content Creation Tools for Ecommerce | Floowy.ai",
+    "description": "Generate product images, ad creatives, and fashion photography with AI. Create marketplace-ready ecommerce visuals in seconds with Floowy.ai.",
+    "keywords": "AI content creation platform ecommerce, ecommerce tools, fashion photography AI, ad creative generator",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Solutions", "url": "https://floowy.ai/solutions" }
+    ]
+  },
+  {
+    "path": "/fashion-studio",
+    "title": "AI Fashion Image Generator for Ecommerce | Floowy AI",
+    "description": "Generate on-model product images and ad creatives with AI. No photoshoots needed. Scale your ecommerce visuals with Floowy.ai.",
+    "keywords": "AI fashion image generator, AI photoshoot, fashion mockups, ai model photography",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Fashion Studio", "url": "https://floowy.ai/fashion-studio" }
+    ]
+  },
+  {
+    "path": "/ambience-studio",
+    "title": "AI Product Background Generator for Ecommerce | Floowy AI",
+    "description": "Generate stunning product backgrounds and lifestyle scenes with AI. No studio needed. Scale your ecommerce visuals with Floowy.ai.",
+    "keywords": "AI product background generator, atmospheric product photos, AI product photography",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Ambience Studio", "url": "https://floowy.ai/ambience-studio" }
+    ]
+  },
+  {
+    "path": "/creator-studio",
+    "title": "AI Product Video Generator for Ecommerce | Floowy AI",
+    "description": "Turn product images into scroll-stopping videos with AI. Create TikTok, Reels, and ad videos in seconds. No editing skills needed.",
+    "keywords": "AI product video generator, UGC content creator, AI video creator, user generated content",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Creator Studio", "url": "https://floowy.ai/creator-studio" }
+    ]
+  },
+  {
+    "path": "/idea-studio",
+    "title": "AI Creative Content Rewriter for Ecommerce | Floowy AI",
+    "description": "Recreate winning ad concepts, hooks, and copy variations with AI. Scale your creative output without starting from scratch every time.",
+    "keywords": "AI creative content rewriter, AI image recreation, AI product recreation, creative concepts",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Idea Studio", "url": "https://floowy.ai/idea-studio" }
+    ]
+  },
+  {
+    "path": "/ads-studio",
+    "title": "AI Ad Creative Generator for Ecommerce | Floowy AI",
+    "description": "Generate high-converting ad creatives, copy, and variations with AI. Scale your ecommerce ads across Meta, TikTok, and Google.",
+    "keywords": "AI ad creative generator, ads ai, ai powered ads, facebook ads ai, tiktok ai ads, ai social media ad generator",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Ads Studio", "url": "https://floowy.ai/ads-studio" }
+    ]
+  },
+  {
+    "path": "/listing-studio",
+    "title": "AI Product Listing Image Generator for Ecommerce | Floowy AI",
+    "description": "Generate marketplace-ready product listing images with AI. White backgrounds, lifestyle shots, and packshots for Amazon, bol.com, Ebay & more.",
+    "keywords": "AI product listing image generator, ai listing image generator, ai ecommerce product images, amazon listing generator ai, bol.com listing generator",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Listing Studio", "url": "https://floowy.ai/listing-studio" }
+    ]
+  },
+  {
+    "path": "/flatlay-studio",
+    "title": "AI Flat Lay Photography for Ecommerce | Floowy AI",
+    "description": "Create professional flat lay product photos with AI. No studio setup needed. Scale your ecommerce product images with Floowy AI.",
+    "keywords": "AI flat lay photography, ai flat lay generator, flat lay generator ai, ai product photography for fashion",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Flat Lay Studio", "url": "https://floowy.ai/flatlay-studio" }
+    ]
+  },
+  {
+    "path": "/virtual-video-studio",
+    "title": "AI Video From Images for Ecommerce & Property | Floowy AI",
+    "description": "Turn photos into cinematic showcase videos with AI. Upload images, add music, and get a fully rendered video in minutes. Try Floowy AI.",
+    "keywords": "ai video generator from images, ai vertical video generator, ai marketing video generator, ai product video generator",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Virtual Video Studio", "url": "https://floowy.ai/virtual-video-studio" }
+    ]
+  },
+  {
+    "path": "/fashion-studio-pro",
+    "title": "AI Fashion Campaign & Lookbook Generator | Floowy AI",
+    "description": "Create high-end fashion campaigns, lookbooks, and catalog visuals with AI. Scale your brand photography without studios or agencies.",
+    "keywords": "ai fashion image generator, ai fashion photography generator, ai fashion model generator, ai clothing image generator",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Fashion Studio Pro", "url": "https://floowy.ai/fashion-studio-pro" }
+    ]
+  },
+  {
+    "path": "/social-media-scraper",
+    "title": "Social media scraper tool for competitive intelligence | Floowy",
+    "description": "Analyze organic content and paid ads across TikTok, Facebook and Instagram. Transform social media data into actionable creative and marketing insights.",
+    "keywords": "social media scraper tool, social media intelligence tool, social media analytics ai, social media competitor analysis tool",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Social Media Scraper", "url": "https://floowy.ai/social-media-scraper" }
+    ]
+  },
+  {
+    "path": "/cases",
+    "title": "See AI content creation cases from leading modern brands | Floowy",
+    "description": "Explore AI content creation cases and learn how brands scale marketing visuals. See real results from companies using AI for creative production.",
+    "keywords": "AI content creation cases, AI marketing case studies, brand content cases",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Cases", "url": "https://floowy.ai/cases" }
+    ]
+  },
+  {
+    "path": "/blog",
+    "title": "AI content creation blog for modern marketing teams | Floowy",
+    "description": "Read the AI content creation blog to learn how brands use AI for marketing visuals. Get insights on photoshoots, concepts and creative workflows.",
+    "keywords": "AI content creation blog, marketing blog, AI marketing insights, content creation tips",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Blog", "url": "https://floowy.ai/blog" }
+    ]
+  },
+  {
+    "path": "/our-story",
+    "title": "Learn our story and how we improve content creation with AI | Floowy",
+    "description": "Discover how Floowy started and how we help brands create better marketing content. Learn why AI is becoming the core of modern content production.",
+    "keywords": "Floowy story, AI content production, marketing content AI, brand storytelling",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Our Story", "url": "https://floowy.ai/our-story" }
+    ]
+  },
+  {
+    "path": "/our-mission",
+    "title": "Our mission to improve creative marketing content with AI | Floowy",
+    "description": "Read how our mission focuses on transforming marketing content with AI. We help brands produce visuals and concepts faster and more efficiently.",
+    "keywords": "Floowy mission, AI marketing vision, sustainable content creation, AI content mission",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Our Mission", "url": "https://floowy.ai/our-mission" }
+    ]
+  },
+  {
+    "path": "/team",
+    "title": "Meet the Floowy team building next generation AI content | Floowy",
+    "description": "Meet the people behind Floowy who design the AI tools used to create modern marketing content. A team focused on speed, quality and creativity.",
+    "keywords": "Floowy team, AI content team, marketing AI experts, creative AI team",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Team", "url": "https://floowy.ai/team" }
+    ]
+  },
+  {
+    "path": "/industries",
+    "title": "AI content for industries that need stronger marketing | Floowy",
+    "description": "See how AI content for industries supports marketing teams in fashion, retail and ecommerce. Create fast, consistent visuals tailored to your sector.",
+    "keywords": "AI content for industries, fashion AI content, retail AI marketing, ecommerce AI tools",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Industries", "url": "https://floowy.ai/industries" }
+    ]
+  },
+  {
+    "path": "/contact",
+    "title": "Contact Floowy for support with AI marketing content | Floowy",
+    "description": "Contact our team for questions or demo access. Learn how Floowy helps brands create marketing visuals, concepts and photoshoots with AI power.",
+    "keywords": "contact Floowy, AI content support, marketing AI demo",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Contact", "url": "https://floowy.ai/contact" }
+    ]
+  },
+  {
+    "path": "/request-demo",
+    "title": "Submit your AI content demo request and start creating | Floowy",
+    "description": "Send your AI content demo request and discover how Floowy helps create marketing visuals, photoshoots and concepts with speed and consistency.",
+    "keywords": "AI content demo request, Floowy demo, marketing content demo, AI marketing demo",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Request Demo", "url": "https://floowy.ai/request-demo" }
+    ]
+  },
+  {
+    "path": "/knowledge-base",
+    "title": "Floowy AI knowledge base for clear creation tutorials | Floowy",
+    "description": "Use the Floowy AI knowledge base to learn how to create marketing visuals and concepts. Clear guides that help you get the best results with AI.",
+    "keywords": "Floowy knowledge base, AI tutorials, marketing content guides, AI creation guides",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Knowledge Base", "url": "https://floowy.ai/knowledge-base" }
+    ]
+  },
+  {
+    "path": "/privacy-policy",
+    "title": "Privacy Policy | Floowy AI",
+    "description": "Read the Floowy privacy policy to understand how we collect, use and protect your data when you use our AI content creation platform.",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Privacy Policy", "url": "https://floowy.ai/privacy-policy" }
+    ]
+  },
+  {
+    "path": "/terms-conditions",
+    "title": "Terms & Conditions | Floowy AI",
+    "description": "Review the terms and conditions that govern your use of Floowy.ai and our AI content creation platform.",
+    "breadcrumbs": [
+      { "name": "Home", "url": "https://floowy.ai" },
+      { "name": "Terms", "url": "https://floowy.ai/terms-conditions" }
+    ]
+  }
+]

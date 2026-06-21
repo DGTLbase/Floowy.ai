@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN referral_source text DEFAULT NULL;

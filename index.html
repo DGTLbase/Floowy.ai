@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-TS3FZFMF');</script>
+    <!-- End Google Tag Manager -->
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-7M4TCZCVF7"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+
+      // Google Consent Mode v2 - default to denied
+      gtag('consent', 'default', {
+        'analytics_storage': 'denied',
+        'ad_storage': 'denied',
+        'ad_user_data': 'denied',
+        'ad_personalization': 'denied',
+        'functionality_storage': 'granted',
+        'security_storage': 'granted',
+        'wait_for_update': 500
+      });
+
+      // Restore consent from previous session
+      (function() {
+        try {
+          var prefs = JSON.parse(localStorage.getItem('cookiePreferences') || '{}');
+          if (prefs.analytics || prefs.marketing) {
+            gtag('consent', 'update', {
+              'analytics_storage': prefs.analytics ? 'granted' : 'denied',
+              'ad_storage': prefs.marketing ? 'granted' : 'denied',
+              'ad_user_data': prefs.marketing ? 'granted' : 'denied',
+              'ad_personalization': prefs.marketing ? 'granted' : 'denied'
+            });
+          }
+        } catch(e) {}
+      })();
+
+      gtag('js', new Date());
+      gtag('config', 'G-7M4TCZCVF7');
+    </script>
+    
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    
+    <!-- Favicon Configuration for Search Engines -->
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon.png">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#8B5CF6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Floowy.ai">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="preload" href="/favicon.png" as="image" type="image/png">
+
+    <meta name="google-site-verification" content="WqoMq_aG2SgcJU9UNSW5RyoHG0Hudi35TDAVxylgfPg" />
+    <meta name="google-site-verification" content="BICLu-5kovVtYDXr2z4aONeMuXRux0RJoEYR1yIkEgU" />
+    <link rel="canonical" href="https://floowy.ai/" data-rh="true" />
+    <title data-rh="true">AI Product Image Generator for Ecommerce | Floowy AI</title>
+    <meta name="description" content="Create product images, ad creatives, and marketing visuals with AI. No photoshoots needed. Scale your ecommerce content with Floowy.ai." data-rh="true">
+    <meta name="author" content="Floowy.ai" />
+</head>
+
+  <body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TS3FZFMF"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+    
+    <!-- Loading Screen -->
+    <div id="initial-loading-screen" style="position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: hsl(0 0% 100%); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem;">
+        <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+          <div style="position: absolute; z-index: 10; display: flex; align-items: center; justify-content: center; width: 4rem; height: 4rem; border-radius: 9999px; background: hsl(142.1 76.2% 36.3%);">
+            <img src="/favicon.png" alt="Floowy AI" style="width: 2.5rem; height: 2.5rem; filter: brightness(0) invert(1);" />
+          </div>
+          <svg style="width: 6rem; height: 6rem; animation: spin 1s linear infinite;" viewBox="0 0 96 96">
+            <circle cx="48" cy="48" r="40" fill="none" stroke="hsl(142.1 76.2% 36.3%)" stroke-width="4" stroke-dasharray="180 60" stroke-linecap="round" opacity="0.3" />
+          </svg>
+        </div>
+        <p style="font-size: 0.875rem; font-weight: 500; color: hsl(240 3.8% 46.1%);">Floowy AI</p>
+      </div>
+    </div>
+    <style>
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      .dark #initial-loading-screen {
+        background: hsl(222.2 84% 4.9%);
+      }
+    </style>
+    
+
+
+
+    <div id="root-container"><div id="root"></div></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

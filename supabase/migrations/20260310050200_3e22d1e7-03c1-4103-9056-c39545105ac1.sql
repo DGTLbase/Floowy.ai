@@ -1,0 +1,32 @@
+
+-- Update models that still have old /models/ paths with the new storage URLs
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Anil-2.png' WHERE name = 'Anil' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Ava-2.png' WHERE name = 'Ava' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Bas-2.png' WHERE name = 'Bas' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Benjamin-3.png' WHERE name = 'Benjamin' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Camila-3.png' WHERE name = 'Camila' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Camila_2-2.png' WHERE name = 'Camila 2' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Carlos-3.png' WHERE name = 'Carlos' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Charlotte-3.png' WHERE name = 'Charlotte' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Chen-3.png' WHERE name = 'Chen' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Chloe-3.png' WHERE name = 'Chloe' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Clara-3.png' WHERE name = 'Clara' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Daniela-3.png' WHERE name = 'Daniela' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Delphin-3.png' WHERE name = 'Delphin' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Diego-3.png' WHERE name = 'Diego' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Dion-5.png' WHERE name = 'Dion' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Elin-2.png' WHERE name = 'Elin' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Emanuel-2.png' WHERE name = 'Emanuel' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Emily-2.png' WHERE name = 'Emily' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Emma-2.png' WHERE name = 'Emma' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Ethan-2.png' WHERE name = 'Ethan' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Eva-2.png' WHERE name = 'Eva' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Farah-2.png' WHERE name = 'Farah' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Farid-2.png' WHERE name = 'Farid' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Freya-2.png' WHERE name = 'Freya' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Gabriela-2.png' WHERE name = 'Gabriela' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Hamza-2.png' WHERE name = 'Hamza' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Hanna-2.png' WHERE name = 'Hanna' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Hassan-2.png' WHERE name = 'Hassan' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Huda-2.png' WHERE name = 'Huda' AND image_url LIKE '/models/%';
+UPDATE default_models SET image_url = 'https://fjzifykgvdsownlscgct.supabase.co/storage/v1/object/public/products/default-models/Iris-2.png' WHERE name = 'Iris' AND image_url LIKE '/models/%';

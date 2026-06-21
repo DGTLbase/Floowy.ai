@@ -1,0 +1,273 @@
+project_id = "wjihknoszyjwmpotsnda"
+
+[api]
+enabled = true
+port = 54321
+max_rows = 1000
+schemas = ["public", "graphql_public"]
+
+[storage]
+file_size_limit = "50MB"
+
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+
+[functions.admin-add-credits]
+verify_jwt = false
+
+[functions.admin-manage-gallery]
+verify_jwt = false
+
+[functions.admin-auth]
+verify_jwt = false
+
+[functions.admin-get-user-generations]
+verify_jwt = false
+
+[functions.admin-get-users]
+verify_jwt = false
+
+[functions.admin-update-plan]
+verify_jwt = false
+
+[functions.admin-update-settings]
+verify_jwt = false
+
+[functions.admin-update-tool-access]
+verify_jwt = false
+
+[functions.admin-update-user]
+verify_jwt = false
+
+[functions.admin-create-account]
+verify_jwt = false
+
+[functions.admin-create-user]
+verify_jwt = false
+
+[functions.admin-get-accounts]
+verify_jwt = false
+
+[functions.check-batch-status]
+verify_jwt = false
+
+[functions.check-signup-eligibility]
+verify_jwt = false
+
+[functions.check-subscription]
+verify_jwt = false
+
+[functions.confirm-payment]
+verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.create-payment]
+verify_jwt = false
+
+[functions.create-payment-intent]
+verify_jwt = false
+
+[functions.create-subscription-intent]
+verify_jwt = false
+
+[functions.customer-portal]
+verify_jwt = false
+
+[functions.delete-ineligible-user]
+verify_jwt = false
+
+[functions.edit-fashion-image]
+verify_jwt = false
+
+[functions.generate-idea-image]
+verify_jwt = false
+
+[functions.generate-mood]
+verify_jwt = false
+
+[functions.generate-ugc-image]
+verify_jwt = false
+
+[functions.generate-ugc-video]
+verify_jwt = false
+
+[functions.process-batch-mockups]
+verify_jwt = false
+
+[functions.reframe-image]
+verify_jwt = false
+
+[functions.request-password-reset]
+verify_jwt = false
+
+[functions.reset-password]
+verify_jwt = false
+
+[functions.resize-image-exact]
+verify_jwt = false
+
+[functions.send-auth-email]
+verify_jwt = false
+
+[functions.send-contact-email]
+verify_jwt = false
+
+[functions.send-demo-request]
+verify_jwt = false
+
+[functions.send-out-of-credits-email]
+verify_jwt = false
+
+[functions.send-password-reset-email]
+verify_jwt = false
+
+[functions.send-purchase-confirmation]
+verify_jwt = false
+
+[functions.send-upgrade-email]
+verify_jwt = false
+
+[functions.send-welcome-email]
+verify_jwt = false
+
+[functions.test-email-header]
+verify_jwt = false
+
+[functions.test-subscription-email]
+verify_jwt = false
+
+[functions.track-user-ip]
+verify_jwt = false
+
+[functions.upload-to-imgbb]
+verify_jwt = false
+
+[functions.upscale-image]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.backfill-bulk-generations]
+verify_jwt = false
+
+[functions.analyze-hair-length]
+verify_jwt = false
+
+[functions.generate-creator-product-image]
+verify_jwt = false
+
+[functions.send-signup-reminder-email]
+verify_jwt = false
+
+[functions.check-signup-reminders]
+verify_jwt = false
+
+[functions.optimize-prompt]
+verify_jwt = false
+
+[functions.send-admin-signup-notification]
+verify_jwt = false
+
+[functions.generate-ad-image]
+verify_jwt = false
+
+[functions.generate-product-video]
+verify_jwt = false
+
+[functions.generate-flatlay]
+verify_jwt = false
+
+[functions.purchase-model]
+verify_jwt = false
+
+[functions.confirm-model-purchase]
+verify_jwt = false
+
+[functions.get-invoices]
+verify_jwt = false
+
+[functions.generate-simple-pose]
+verify_jwt = false
+
+[functions.apply-retention-discount]
+verify_jwt = false
+
+[functions.generate-blog-post]
+verify_jwt = false
+
+[functions.admin-save-blog-post]
+verify_jwt = false
+
+[functions.inpaint-image]
+verify_jwt = false
+
+[functions.remove-object-bria]
+verify_jwt = false
+
+[functions.generate-virtual-tour]
+verify_jwt = false
+
+[functions.admin-delete-account]
+verify_jwt = false
+
+[functions.cancel-subscription]
+verify_jwt = false
+
+[functions.change-subscription]
+verify_jwt = false
+
+[functions.confirm-subscription]
+verify_jwt = false
+
+[functions.remove-object]
+verify_jwt = false
+
+[functions.send-admin-newsletter]
+verify_jwt = false
+
+[functions.send-plan-change-email]
+verify_jwt = false
+
+[functions.send-scheduled-emails]
+verify_jwt = false
+
+[functions.schedule-newsletter]
+verify_jwt = false
+
+[functions.stripe-webhook-subscription]
+verify_jwt = false
+
+[functions.admin-get-analytics]
+verify_jwt = false
+
+[functions.generate-remix-image]
+verify_jwt = false
+
+[functions.admin-manage-kb-videos]
+verify_jwt = false
+
+[functions.generate-fashion-video]
+verify_jwt = false
+
+[functions.send-admin-purchase-notification]
+verify_jwt = false
+
+[functions.create-promo-code]
+verify_jwt = false
+
+[functions.admin-get-credit-history]
+verify_jwt = false
+
+[functions.apply-personal-promo]
+verify_jwt = false
+
+[functions.create-euro1-checkout]
+verify_jwt = false
+
+[functions.confirm-euro1]
+verify_jwt = false

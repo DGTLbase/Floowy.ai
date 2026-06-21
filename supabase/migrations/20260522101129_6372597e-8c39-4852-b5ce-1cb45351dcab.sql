@@ -1,0 +1,1 @@
+UPDATE public.profiles SET tool_walkthroughs_seen = tool_walkthroughs_seen - 'fashion-2.0' WHERE email = 'jefcgealon@gmail.com';

@@ -1,0 +1,1 @@
+ALTER TABLE public.cancellation_feedback ENABLE ROW LEVEL SECURITY;
