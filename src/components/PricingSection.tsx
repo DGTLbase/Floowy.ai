@@ -78,11 +78,11 @@ const PricingSection = ({ title, subtitle, asH1 = false }: PricingSectionProps =
   ];
 
   return (
-    <section className="container mx-auto px-4 pt-10 pb-12 md:pt-[52px] md:pb-16 bg-gradient-card">
+    <section className="container mx-auto px-4 pt-4 pb-12 md:pt-6 md:pb-16 bg-gradient-card">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-10 px-4">
+        <div className="text-center mb-5 px-4">
           {asH1 ? (
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6 max-w-3xl mx-auto leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 max-w-3xl mx-auto leading-tight">
               {title || (
                 <>
                   <span className="text-header-dark">Scale Your Ecommerce Content, </span>
@@ -91,7 +91,7 @@ const PricingSection = ({ title, subtitle, asH1 = false }: PricingSectionProps =
               )}
             </h1>
           ) : (
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6 max-w-3xl mx-auto leading-tight">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 max-w-3xl mx-auto leading-tight">
               {title || (
                 <>
                   <span className="text-header-dark">Scale Your Ecommerce Content, </span>
@@ -127,7 +127,7 @@ const PricingSection = ({ title, subtitle, asH1 = false }: PricingSectionProps =
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-stretch pt-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-stretch pt-2 max-w-5xl mx-auto">
           {plans.map((plan) => (
             <Card
               key={plan.name}
