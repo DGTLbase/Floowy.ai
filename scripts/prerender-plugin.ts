@@ -12,9 +12,9 @@ const staticRoutes = JSON.parse(
 const SITE_URL = "https://floowy.ai";
 const DEFAULT_OG = "https://storage.googleapis.com/gpt-engineer-file-uploads/jiw4ULwE27QKeFTbZfvzJa8DA213/social-images/social-1764335311016-Screenshot 2025-11-28 210811.png";
 
-const SUPABASE_URL = "https://fjzifykgvdsownlscgct.supabase.co";
+const SUPABASE_URL = "https://wjihknoszyjwmpotsnda.supabase.co";
 const SUPABASE_ANON =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqemlmeWtndmRzb3dubHNjZ2N0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTEzMzQsImV4cCI6MjA3NzQ4NzMzNH0.Lqt32v1ZqdazW_m_xlvTfqDO93aJVymyh51MyhWS5G4";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqaWhrbm9zenlqd21wb3RzbmRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MzQyNTYsImV4cCI6MjA5NzAxMDI1Nn0.s8HRjZxX8OBKwrJ4d2fpAiryKz8n27AlxQGV3hkUHjs";
 
 type Breadcrumb = { name: string; url: string };
 type RouteMeta = {
@@ -144,12 +144,45 @@ function writeRoute(distDir: string, routePath: string, html: string) {
   writeFileSync(filePath, html, "utf-8");
 }
 
-async function fetchSlugs(table: "blog_posts" | "cases"): Promise<Array<Record<string, any>>> {
+function faqLd(items: Array<{ question?: string; answer?: string; q?: string; a?: string }>): string {
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items
+      .map((it) => ({ q: it.question ?? it.q, a: it.answer ?? it.a }))
+      .filter((it) => it.q && it.a)
+      .map((it) => ({
+        "@type": "Question",
+        name: it.q,
+        acceptedAnswer: { "@type": "Answer", text: it.a },
+      })),
+  });
+}
+
+function writeSitemap(distDir: string, urls: Array<{ path: string; lastmod?: string }>): void {
+  // De-dupe by path and build absolute, valid loc URLs.
+  const seen = new Set<string>();
+  const entries = urls
+    .filter((u) => (seen.has(u.path) ? false : (seen.add(u.path), true)))
+    .map((u) => {
+      const loc = `${SITE_URL}${u.path === "/" ? "" : u.path}`;
+      const lastmod = u.lastmod ? `\n    <lastmod>${new Date(u.lastmod).toISOString().slice(0, 10)}</lastmod>` : "";
+      return `  <url>\n    <loc>${escapeHtml(loc)}</loc>${lastmod}\n  </url>`;
+    })
+    .join("\n");
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
+  writeFileSync(join(distDir, "sitemap.xml"), xml, "utf-8");
+  console.log(`[prerender] sitemap.xml written with ${seen.size} URLs`);
+}
+
+async function fetchSlugs(table: "blog_posts" | "cases" | "industry_pages"): Promise<Array<Record<string, any>>> {
   try {
     const fields =
       table === "blog_posts"
         ? "slug,title,meta_title,meta_description,excerpt,cover_image_url,published_at,updated_at"
-        : "slug,client_name,subtitle,meta_title,meta_description,hero_image_url,og_image_url,published_at,updated_at";
+        : table === "cases"
+        ? "slug,client_name,subtitle,meta_title,meta_description,hero_image_url,og_image_url,published_at,updated_at"
+        : "slug,industry_name,meta_title,meta_description,meta_keywords,hero_image_url,og_image_url,faq_items,published_at,updated_at";
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/${table}?select=${fields}&is_published=eq.true`,
       {
@@ -184,11 +217,15 @@ export function seoPrerenderPlugin(): Plugin {
       }
       const baseHtml = readFileSync(indexPath, "utf-8");
 
+      // URLs collected here become the sitemap (static + all dynamic slugs).
+      const urls: Array<{ path: string; lastmod?: string }> = [];
+
       const routes: RouteMeta[] = staticRoutes as RouteMeta[];
       let count = 0;
       for (const route of routes) {
         const html = bakeHead(baseHtml, route);
         writeRoute(distDir, route.path, html);
+        urls.push({ path: route.path });
         count++;
       }
 
@@ -198,6 +235,7 @@ export function seoPrerenderPlugin(): Plugin {
         const slug = post.slug as string;
         if (!slug) continue;
         const path = `/blog/${slug}`;
+        urls.push({ path, lastmod: (post.updated_at || post.published_at) as string | undefined });
         const title = (post.meta_title as string) || (post.title as string) || "Floowy Blog";
         const description =
           (post.meta_description as string) ||
@@ -233,6 +271,7 @@ export function seoPrerenderPlugin(): Plugin {
         const slug = c.slug as string;
         if (!slug) continue;
         const path = `/cases/${slug}`;
+        urls.push({ path, lastmod: (c.updated_at || c.published_at) as string | undefined });
         const title = (c.meta_title as string) || `${c.client_name} | Floowy Case Study`;
         const description =
           (c.meta_description as string) ||
@@ -254,7 +293,40 @@ export function seoPrerenderPlugin(): Plugin {
         count++;
       }
 
-      console.log(`[prerender] Generated ${count} static HTML files for SEO`);
+      // Dynamic industry pages
+      const industries = await fetchSlugs("industry_pages");
+      for (const ind of industries) {
+        const slug = ind.slug as string;
+        if (!slug) continue;
+        const path = `/industries/${slug}`;
+        const title = (ind.meta_title as string) || `${ind.industry_name} | Floowy`;
+        const description =
+          (ind.meta_description as string) ||
+          `AI content creation for ${ind.industry_name} — scale visuals with Floowy.`;
+        const ogImage = (ind.og_image_url as string) || (ind.hero_image_url as string) || undefined;
+        const meta: RouteMeta = {
+          path,
+          title,
+          description,
+          keywords: (ind.meta_keywords as string) || undefined,
+          ogImage,
+          breadcrumbs: [
+            { name: "Home", url: SITE_URL },
+            { name: "Industries", url: `${SITE_URL}/industries` },
+            { name: ind.industry_name as string, url: `${SITE_URL}${path}` },
+          ],
+        };
+        const faq = Array.isArray(ind.faq_items) && ind.faq_items.length > 0 ? [faqLd(ind.faq_items)] : [];
+        writeRoute(distDir, path, bakeHead(baseHtml, meta, faq));
+        urls.push({ path, lastmod: (ind.updated_at || ind.published_at) as string | undefined });
+        count++;
+      }
+
+      // Generate sitemap.xml from every URL we just produced (overwrites the
+      // static one copied from public/), so new content is always discoverable.
+      writeSitemap(distDir, urls);
+
+      console.log(`[prerender] Generated ${count} static HTML files + sitemap for SEO`);
     },
   };
 }
