@@ -125,8 +125,16 @@ const Auth = () => {
       return;
     }
     
+    // Existing/admin/onboarded accounts are not in the €1 signup funnel — drop
+    // any funnel flags a Google signup-button click may have set.
+    const clearFunnelFlags = () => {
+      sessionStorage.removeItem("floowy_post_signup");
+      sessionStorage.removeItem("floowy_show_personal_promo");
+    };
+
     if (data) {
       console.log("[Auth] User is admin, redirecting to /admin");
+      clearFunnelFlags();
       navigate("/admin");
     } else if (!profile?.onboarding_completed) {
       // €1 funnel: a fresh signup goes to the €1 offer page (with the "You're in
@@ -140,6 +148,7 @@ const Auth = () => {
         navigate("/onboarding");
       }
     } else {
+      clearFunnelFlags();
       const nextParam = searchParams.get("next");
       const safeNext = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/home";
       console.log("[Auth] All checks passed, redirecting to", safeNext);
@@ -362,6 +371,14 @@ const Auth = () => {
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
+    // €1 funnel: when signing UP with Google, flag so the post-OAuth redirect
+    // lands on the €1 page with the "You're in 5%" popup. Cleared again in
+    // checkRoleAndRedirect if the returning user turns out to be an existing
+    // (already-onboarded) account, so logins don't get the funnel.
+    if (!isLogin) {
+      sessionStorage.setItem("floowy_post_signup", "1");
+      sessionStorage.setItem("floowy_show_personal_promo", "1");
+    }
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
