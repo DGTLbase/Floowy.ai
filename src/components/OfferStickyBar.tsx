@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Zap, ChevronRight } from "lucide-react";
 import { EURO1_OFFER } from "@/lib/stripe-config";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Global sticky promo bar (Section 2).
@@ -8,8 +10,31 @@ import { EURO1_OFFER } from "@/lib/stripe-config";
  * sends the user straight into the signup flow with the €1 offer attached.
  * Rendered inside the shared sticky header (see Navigation) so it stays fixed
  * during scroll on every marketing page, on both desktop and mobile.
+ *
+ * Gated to NON-existing users only: the €1 acquisition offer is shown to
+ * logged-out visitors and hidden from anyone with an account/session.
  */
 const OfferStickyBar = () => {
+  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) setLoggedIn(!!data.session);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setLoggedIn(!!session);
+    });
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  // Show only to logged-out visitors. While the session is still resolving
+  // (null) keep it hidden so existing users never see a flash of the offer.
+  if (loggedIn !== false) return null;
+
   return (
     <Link
       to={EURO1_OFFER.signupHref}
