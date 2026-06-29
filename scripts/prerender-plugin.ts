@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
+import { legalDocs, legalToHtml } from "../src/content/legal";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -137,6 +138,19 @@ function bakeHead(html: string, meta: RouteMeta, extraJsonLd: string[] = []): st
   return out;
 }
 
+/**
+ * Inject crawlable body content into the empty SPA shell for a route. The app
+ * uses createRoot().render() (not hydration), so React replaces #root's children
+ * on load — users see the normal page, while no-JS crawlers (e.g. Google's OAuth
+ * verifier) read the baked-in content.
+ */
+function bakeBody(html: string, bodyHtml: string): string {
+  return html.replace(
+    /<div id="root">\s*<\/div>/i,
+    `<div id="root">${bodyHtml}</div>`,
+  );
+}
+
 function writeRoute(distDir: string, routePath: string, html: string) {
   const cleanPath = routePath.replace(/^\//, "");
   const filePath = cleanPath === "" ? join(distDir, "index.html") : join(distDir, cleanPath, "index.html");
@@ -223,7 +237,11 @@ export function seoPrerenderPlugin(): Plugin {
       const routes: RouteMeta[] = staticRoutes as RouteMeta[];
       let count = 0;
       for (const route of routes) {
-        const html = bakeHead(baseHtml, route);
+        let html = bakeHead(baseHtml, route);
+        // Legal pages: bake the full policy text into the static HTML so crawlers
+        // (and Google's OAuth privacy-policy verifier) read it without JS.
+        const legal = legalDocs[route.path];
+        if (legal) html = bakeBody(html, legalToHtml(legal));
         writeRoute(distDir, route.path, html);
         urls.push({ path: route.path });
         count++;
