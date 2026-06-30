@@ -28,9 +28,9 @@
   },
   {
     "path": "/fashion-studio",
-    "title": "AI Fashion Image Generator for Ecommerce | Floowy AI",
-    "description": "Generate on-model product images and ad creatives with AI. No photoshoots needed. Scale your ecommerce visuals with Floowy.ai.",
-    "keywords": "AI fashion image generator, AI photoshoot, fashion mockups, ai model photography",
+    "title": "AI Fashion Image Generator & On-Model Photos | Floowy",
+    "description": "Generate AI fashion images, on-model photography and lookbooks — no photoshoot. Put clothing on realistic AI models and scale your fashion ecommerce visuals.",
+    "keywords": "AI fashion image generator, AI on model photography, AI fashion model generator, AI virtual fashion model, AI clothing image generator, AI fashion visuals, AI fashion lookbook, AI ecommerce fashion images",
     "breadcrumbs": [
       { "name": "Home", "url": "https://floowy.ai" },
       { "name": "Fashion Studio", "url": "https://floowy.ai/fashion-studio" }
@@ -38,9 +38,9 @@
   },
   {
     "path": "/ambience-studio",
-    "title": "AI Product Background Generator for Ecommerce | Floowy AI",
-    "description": "Generate stunning product backgrounds and lifestyle scenes with AI. No studio needed. Scale your ecommerce visuals with Floowy.ai.",
-    "keywords": "AI product background generator, atmospheric product photos, AI product photography",
+    "title": "AI Product Background Generator & Scenes | Floowy AI",
+    "description": "Create photorealistic AI product backgrounds, scenes & lifestyle shots — no studio. Place any product in a realistic setting and scale your ecommerce visuals.",
+    "keywords": "AI product background generator, AI scene generator, AI product scene, AI lifestyle product photos, AI ecommerce visuals, AI ambiance generator, AI product lifestyle images, AI photo background",
     "breadcrumbs": [
       { "name": "Home", "url": "https://floowy.ai" },
       { "name": "Ambience Studio", "url": "https://floowy.ai/ambience-studio" }
@@ -48,9 +48,9 @@
   },
   {
     "path": "/creator-studio",
-    "title": "AI Product Video Generator for Ecommerce | Floowy AI",
-    "description": "Turn product images into scroll-stopping videos with AI. Create TikTok, Reels, and ad videos in seconds. No editing skills needed.",
-    "keywords": "AI product video generator, UGC content creator, AI video creator, user generated content",
+    "title": "AI Product Video Generator | Image to Video | Floowy",
+    "description": "Turn product images into scroll-stopping videos with AI — no filming. Create ecommerce, TikTok, Reels & ad videos from one photo. Image to video in seconds.",
+    "keywords": "AI product video generator, image to video AI, AI image to video generator, AI video creator, AI ecommerce video, AI social media video generator, AI video ads generator, AI tiktok video generator",
     "breadcrumbs": [
       { "name": "Home", "url": "https://floowy.ai" },
       { "name": "Creator Studio", "url": "https://floowy.ai/creator-studio" }
@@ -58,9 +58,9 @@
   },
   {
     "path": "/idea-studio",
-    "title": "AI Creative Content Rewriter for Ecommerce | Floowy AI",
-    "description": "Recreate winning ad concepts, hooks, and copy variations with AI. Scale your creative output without starting from scratch every time.",
-    "keywords": "AI creative content rewriter, AI image recreation, AI product recreation, creative concepts",
+    "title": "AI Content Rewriter & Creative Idea Generator | Floowy",
+    "description": "Rewrite and recreate your best content with AI — hooks, captions, ad copy and campaign concepts. Generate on-brand creative variations at scale with Floowy.",
+    "keywords": "AI content rewriter, AI creative content rewriter, AI creative idea generator, AI concept generator, AI hook generator, AI caption rewriter, AI ad copy rewriter, AI content variations generator",
     "breadcrumbs": [
       { "name": "Home", "url": "https://floowy.ai" },
       { "name": "Idea Studio", "url": "https://floowy.ai/idea-studio" }
@@ -68,9 +68,9 @@
   },
   {
     "path": "/ads-studio",
-    "title": "AI Ad Creative Generator for Ecommerce | Floowy AI",
-    "description": "Generate high-converting ad creatives, copy, and variations with AI. Scale your ecommerce ads across Meta, TikTok, and Google.",
-    "keywords": "AI ad creative generator, ads ai, ai powered ads, facebook ads ai, tiktok ai ads, ai social media ad generator",
+    "title": "AI Ad Generator & Creative Variations | Floowy AI",
+    "description": "Generate high-converting ad creatives, copy and variations with AI for Facebook, Instagram, Google and TikTok. Scale ecommerce ads and A/B tests with Floowy.",
+    "keywords": "AI ad generator, AI ads generator, AI ad creative generator, AI ad copy generator, AI facebook ads generator, AI google ads generator, AI product ads generator, AI ad variations generator",
     "breadcrumbs": [
       { "name": "Home", "url": "https://floowy.ai" },
       { "name": "Ads Studio", "url": "https://floowy.ai/ads-studio" }
@@ -78,9 +78,9 @@
   },
   {
     "path": "/listing-studio",
-    "title": "AI Product Listing Image Generator for Ecommerce | Floowy AI",
-    "description": "Generate marketplace-ready product listing images with AI. White backgrounds, lifestyle shots, and packshots for Amazon, bol.com, Ebay & more.",
-    "keywords": "AI product listing image generator, ai listing image generator, ai ecommerce product images, amazon listing generator ai, bol.com listing generator",
+    "title": "AI Listing Image Generator for Amazon & Bol | Floowy",
+    "description": "Create marketplace-ready listing images with AI — white-background packshots, lifestyle shots and variations for Amazon, Bol & eBay. No photoshoot needed.",
+    "keywords": "AI listing image generator, AI product listing image generator, AI amazon listing image generator, AI ecommerce product images, AI packshot generator, AI white background product images, AI lifestyle product images, AI product image variations",
     "breadcrumbs": [
       { "name": "Home", "url": "https://floowy.ai" },
       { "name": "Listing Studio", "url": "https://floowy.ai/listing-studio" }
