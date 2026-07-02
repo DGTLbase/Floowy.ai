@@ -13,6 +13,7 @@ import Landing from "./pages/Landing";
 import ToolPageLayout from "./components/ToolPageLayout";
 import ScrollToTop from "./components/ScrollToTop";
 import OfferStickyBar from "./components/OfferStickyBar";
+import UpgradePlanBanner from "./components/UpgradePlanBanner";
 import ScrollToHash from "./components/ScrollToHash";
 import { useAuthErrorHandler } from "./hooks/useAuthErrorHandler";
 import WalkthroughTour from "./components/WalkthroughTour";
@@ -219,6 +220,7 @@ const App = () => {
             <NewVersionDialog />
             <BrowserRouter>
               <OfferStickyBar />
+              <UpgradePlanBanner />
               <AppContent />
             </BrowserRouter>
           </TooltipProvider>

@@ -500,6 +500,11 @@ const Auth = () => {
 
           {/* Heading */}
           <div className="text-center mb-8">
+            {!isLogin && sessionStorage.getItem("pendingOffer") && (
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                Step 2 of 3 — your details
+              </p>
+            )}
             <h1 className="text-3xl font-bold text-foreground mb-2">
               {isLogin ? "Welcome back" : "Create account"}
             </h1>

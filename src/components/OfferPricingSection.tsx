@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,6 +68,28 @@ const OfferPricingSection = ({ offerKind, returnPath }: OfferPricingSectionProps
 
   const ctaLabel = offerKind === "euro1" ? "Start for €1" : "Start with 50% Off";
 
+  // Reverse-flow resume (UX briefing Feature 2): a logged-out visitor picks a
+  // plan first, signs up (details captured), and lands back here — continue
+  // straight into checkout for the stashed plan. No re-click, zero extra steps.
+  const resumed = useRef(false);
+  useEffect(() => {
+    (async () => {
+      if (resumed.current) return;
+      const raw = sessionStorage.getItem("pendingOffer");
+      if (!raw) return;
+      try {
+        const pending = JSON.parse(raw);
+        if (pending?.offerKind !== offerKind || !planKeys.includes(pending?.plan)) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        resumed.current = true;
+        sessionStorage.removeItem("pendingOffer");
+        handleClick(pending.plan as PlanKey);
+      } catch { /* corrupt stash — ignore */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offerKind]);
+
   const handleClick = async (plan: PlanKey) => {
     setLoadingPlan(plan);
     try {
@@ -123,6 +145,9 @@ const OfferPricingSection = ({ offerKind, returnPath }: OfferPricingSectionProps
   return (
     <section className="container mx-auto px-4 pt-10 pb-12 md:pt-[52px] md:pb-16 bg-gradient-card">
       <div className="max-w-5xl mx-auto">
+        <p className="mb-4 text-center text-xs font-semibold uppercase tracking-wide text-primary">
+          Step 1 of 3 — choose your plan
+        </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
           {planKeys.map((key) => {
             const plan = SUBSCRIPTION_PLANS[key];

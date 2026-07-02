@@ -76,10 +76,34 @@ serve(async (req) => {
       logStep("No active subscription found");
     }
 
+    // €1-offer trials: not "active" yet — the plan only fully activates (and
+    // full credits are granted) when the trial converts. The upgrade banner
+    // uses this to offer one-click early activation.
+    let trialing = false;
+    let trialPriceId: string | null = null;
+    let trialEnd: string | null = null;
+    if (!hasActiveSub) {
+      const trialSubs = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "trialing",
+        limit: 1,
+      });
+      if (trialSubs.data.length > 0) {
+        const t = trialSubs.data[0];
+        trialing = true;
+        trialPriceId = t.items.data[0].price.id;
+        trialEnd = t.trial_end ? new Date(t.trial_end * 1000).toISOString() : null;
+        logStep("Trialing subscription found", { subscriptionId: t.id, trialPriceId, trialEnd });
+      }
+    }
+
     return new Response(JSON.stringify({
       subscribed: hasActiveSub,
       product_id: productId,
-      subscription_end: subscriptionEnd
+      subscription_end: subscriptionEnd,
+      trialing,
+      trial_price_id: trialPriceId,
+      trial_end: trialEnd
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

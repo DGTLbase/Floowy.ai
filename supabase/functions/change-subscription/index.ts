@@ -65,7 +65,36 @@ serve(async (req) => {
     logStep("User authenticated", { email: user.email });
 
     // Get request body
-    const { priceId, couponId } = await req.json();
+    const { priceId, couponId, activateNow } = await req.json();
+
+    // One-click early activation of a €1-offer trial (upgrade banner):
+    // end the trial now so Stripe invoices the full plan price immediately.
+    // The invoice.paid webhook then grants the plan's full credits — same
+    // path as the automatic day-3 conversion, just user-triggered.
+    if (activateNow) {
+      const stripeEarly = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
+        apiVersion: "2025-08-27.basil",
+      });
+      const custs = await stripeEarly.customers.list({ email: user.email, limit: 1 });
+      if (custs.data.length === 0) throw new Error("No Stripe customer found");
+      const trialSubs = await stripeEarly.subscriptions.list({
+        customer: custs.data[0].id,
+        status: "trialing",
+        limit: 1,
+      });
+      if (trialSubs.data.length === 0) throw new Error("No trialing subscription to activate");
+      const trialSub = trialSubs.data[0];
+      logStep("Activating trial now", { subscriptionId: trialSub.id });
+      await stripeEarly.subscriptions.update(trialSub.id, {
+        trial_end: "now",
+        proration_behavior: "none",
+      });
+      return new Response(JSON.stringify({ success: true, activated: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     if (!priceId) throw new Error("Price ID is required");
 
     const planData = PRICE_TO_PLAN_AND_CREDITS[priceId];
