@@ -12,6 +12,7 @@ import BackendLayout from "@/components/BackendLayout";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import ApiKeysSection from "@/components/ApiKeysSection";
 
 const nameSchema = z.string().trim().min(1, "Name is required").max(100, "Name must be less than 100 characters");
 const emailSchema = z.string().trim().email("Invalid email address").max(255, "Email must be less than 255 characters");
@@ -279,6 +280,11 @@ const Settings = () => {
             Restart walkthrough
           </Button>
         </div>
+
+        <Separator />
+
+        {/* API Access Section */}
+        <ApiKeysSection plan={plan} />
       </div>
     </BackendLayout>
   );

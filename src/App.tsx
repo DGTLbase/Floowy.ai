@@ -76,6 +76,7 @@ const Contact = lazy(() => import("./pages/Contact"));
 const RequestDemo = lazy(() => import("./pages/RequestDemo"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsConditions = lazy(() => import("./pages/TermsConditions"));
+const ApiDocs = lazy(() => import("./pages/ApiDocs"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const UploadEmailHeader = lazy(() => import("./pages/UploadEmailHeader"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -154,6 +155,7 @@ const allRoutes = (
     {langRoutes("request-demo", <RequestDemo />)}
     {langRoutes("privacy-policy", <PrivacyPolicy />)}
     {langRoutes("terms-conditions", <TermsConditions />)}
+    <Route path="api-docs" element={<ApiDocs />} />
     <Route path="tool/atmospheric" element={<ToolPageLayout><AtmosphericGenerator /></ToolPageLayout>} />
     <Route path="tool/fashion" element={<ToolPageLayout><FashionGenerator /></ToolPageLayout>} />
     <Route path="tool/fashion-v2" element={<ToolPageLayout><BulkMockupGenerator /></ToolPageLayout>} />

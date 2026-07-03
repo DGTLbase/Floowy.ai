@@ -17,7 +17,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, admin-token",
 };
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -43,11 +43,15 @@ serve(async (req) => {
 
     // ---------- Admin management ----------
     if (body.admin === true) {
-      const { data: userData, error } = await db.auth.getUser(token);
-      if (error || !userData.user) return json({ error: "Unauthorized" }, 401);
-      const { data: role } = await db.from("user_roles")
-        .select("role").eq("user_id", userData.user.id).eq("role", "admin").maybeSingle();
-      if (!role) return json({ error: "Admin only" }, 403);
+      // Matches the rest of the admin panel: an admin-token header validated
+      // against admin_sessions (not a Supabase user JWT).
+      const adminToken = req.headers.get("admin-token") || "";
+      const { data: adminSession } = await db.from("admin_sessions")
+        .select("admin_id, expires_at").eq("token", adminToken).maybeSingle();
+      if (!adminSession || new Date(adminSession.expires_at) < new Date()) {
+        return json({ error: "Invalid or expired admin token" }, 401);
+      }
+      const adminId = adminSession.admin_id;
 
       if (body.action === "create_key") {
         // Admin may create a key on behalf of a specific user (by id or email).
@@ -67,7 +71,7 @@ serve(async (req) => {
           user_id: ownerId,
           price_per_credit: body.price_per_credit ?? 0.20,
           allowed_tools: body.allowed_tools ?? ["ambience"],
-          created_by: userData.user.id,
+          created_by: adminId,
         }).select("id, key_prefix").single();
         if (e) return json({ error: e.message }, 400);
         // plaintext returned ONCE — never stored
@@ -82,7 +86,7 @@ serve(async (req) => {
       if (body.action === "topup") {
         const { error: e1 } = await db.from("api_credit_purchases").insert({
           api_key_id: body.key_id, credits: body.credits, amount_eur: body.amount_eur,
-          note: body.note ?? null, created_by: userData.user.id,
+          note: body.note ?? null, created_by: adminId,
         });
         if (e1) return json({ error: e1.message }, 400);
         const { data, error: e2 } = await db.rpc("api_topup_credits", { p_key_id: body.key_id, p_credits: body.credits });

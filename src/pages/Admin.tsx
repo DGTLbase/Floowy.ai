@@ -17,6 +17,7 @@ import { AdminCommunityPanel } from "@/components/AdminCommunityPanel";
 import { AdminGalleryPanel } from "@/components/AdminGalleryPanel";
 import { AdminModelsPanel } from "@/components/AdminModelsPanel";
 import { AdminFlatlayStylesPanel } from "@/components/AdminFlatlayStylesPanel";
+import { AdminApiKeysPanel } from "@/components/AdminApiKeysPanel";
 
 import {
   AlertDialog,
@@ -71,7 +72,7 @@ const Admin = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
-  const [activeTab, setActiveTab] = useState<"users" | "tools" | "team" | "email" | "kb-videos" | "community" | "gallery" | "models" | "flatlay-styles">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "tools" | "team" | "email" | "kb-videos" | "community" | "gallery" | "models" | "flatlay-styles" | "api-keys">("users");
   const [adminAccounts, setAdminAccounts] = useState<any[]>([]);
   const [userModalTab, setUserModalTab] = useState("account");
   const [userGenerations, setUserGenerations] = useState<any[]>([]);
@@ -112,7 +113,7 @@ const Admin = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
-    if (tab === 'users' || tab === 'tools' || tab === 'team' || tab === 'email' || tab === 'kb-videos' || tab === 'community' || tab === 'gallery' || tab === 'models' || tab === 'flatlay-styles') {
+    if (tab === 'users' || tab === 'tools' || tab === 'team' || tab === 'email' || tab === 'kb-videos' || tab === 'community' || tab === 'gallery' || tab === 'models' || tab === 'flatlay-styles' || tab === 'api-keys') {
       setActiveTab(tab as any);
     } else if (!tab) {
       // Redirect to dashboard if no tab is specified
@@ -2139,6 +2140,10 @@ const Admin = () => {
 
         {activeTab === "flatlay-styles" && (
           <AdminFlatlayStylesPanel />
+        )}
+
+        {activeTab === "api-keys" && (
+          <AdminApiKeysPanel />
         )}
       </div>
 

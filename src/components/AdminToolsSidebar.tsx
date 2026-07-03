@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Users, Settings, Shield, LogOut, Wand2, BarChart3, Mail, FileText, Briefcase } from "lucide-react";
+import { Users, Settings, Shield, LogOut, Wand2, BarChart3, Mail, FileText, Briefcase, Key } from "lucide-react";
 import logoImage from "@/assets/floowy-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import { useTheme } from "next-themes";
@@ -87,6 +87,18 @@ export function AdminToolsSidebar() {
         title="Email Users"
       >
         <Mail className="w-5 h-5" />
+      </button>
+
+      <button
+        onClick={() => navigate("/admin?tab=api-keys")}
+        className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+          currentPath === "/admin" && location.search.includes("tab=api-keys")
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:bg-muted"
+        }`}
+        title="API Keys"
+      >
+        <Key className="w-5 h-5" />
       </button>
 
       <button
