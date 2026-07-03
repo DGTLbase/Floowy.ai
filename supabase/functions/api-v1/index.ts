@@ -50,6 +50,13 @@ serve(async (req) => {
       if (!role) return json({ error: "Admin only" }, 403);
 
       if (body.action === "create_key") {
+        // Admin may create a key on behalf of a specific user (by id or email).
+        let ownerId: string | null = body.user_id ?? null;
+        if (!ownerId && body.user_email) {
+          const { data: p } = await db.from("profiles").select("id").eq("email", body.user_email).maybeSingle();
+          if (!p) return json({ error: `No user found for ${body.user_email}` }, 404);
+          ownerId = p.id;
+        }
         const raw = new Uint8Array(24); crypto.getRandomValues(raw);
         const secret = "flw_live_" + Array.from(raw).map((b) => b.toString(16).padStart(2, "0")).join("");
         const { data, error: e } = await db.from("api_keys").insert({
@@ -57,6 +64,7 @@ serve(async (req) => {
           key_prefix: secret.slice(0, 16) + "…",
           partner_name: body.partner_name,
           partner_email: body.partner_email ?? null,
+          user_id: ownerId,
           price_per_credit: body.price_per_credit ?? 0.20,
           allowed_tools: body.allowed_tools ?? ["ambience"],
           created_by: userData.user.id,
@@ -98,13 +106,62 @@ serve(async (req) => {
       return json({ error: "Unknown admin action" }, 400);
     }
 
+    // ---------- Self-serve (Professional/Enterprise users, Supabase JWT) ----------
+    if (body.self === true) {
+      const { data: userData, error } = await db.auth.getUser(token);
+      if (error || !userData.user) return json({ error: "Unauthorized" }, 401);
+      const uid = userData.user.id;
+      const { data: prof } = await db.from("profiles").select("plan").eq("id", uid).maybeSingle();
+      const plan = prof?.plan ?? "free";
+      if (!["professional", "enterprise"].includes(plan)) {
+        return json({ error: "API access is available on Professional and Enterprise plans." }, 403);
+      }
+
+      if (body.action === "create_my_key") {
+        const raw = new Uint8Array(24); crypto.getRandomValues(raw);
+        const secret = "flw_live_" + Array.from(raw).map((b) => b.toString(16).padStart(2, "0")).join("");
+        const { data, error: e } = await db.from("api_keys").insert({
+          key_hash: await sha256(secret),
+          key_prefix: secret.slice(0, 16) + "…",
+          partner_name: userData.user.email ?? "user",
+          partner_email: userData.user.email ?? null,
+          user_id: uid,
+          allowed_tools: ["ambience"],
+          created_by: uid,
+        }).select("id, key_prefix").single();
+        if (e) return json({ error: e.message }, 400);
+        return json({ ...data, api_key: secret }); // plaintext shown once
+      }
+      if (body.action === "my_keys") {
+        const { data } = await db.from("api_keys")
+          .select("id, key_prefix, credits_balance, allowed_tools, status, created_at, last_used_at")
+          .eq("user_id", uid).order("created_at", { ascending: false });
+        return json({ keys: data ?? [] });
+      }
+      if (body.action === "revoke_my_key") {
+        await db.from("api_keys").update({ status: "revoked" }).eq("id", body.key_id).eq("user_id", uid);
+        return json({ success: true });
+      }
+      return json({ error: "Unknown action" }, 400);
+    }
+
     // ---------- Partner API ----------
     if (!token.startsWith("flw_live_")) return json({ error: "Invalid API key" }, 401);
     const keyHash = await sha256(token);
     const { data: key } = await db.from("api_keys")
-      .select("id, status, allowed_tools, credits_balance, price_per_credit")
+      .select("id, status, allowed_tools, credits_balance, price_per_credit, user_id")
       .eq("key_hash", keyHash).maybeSingle();
     if (!key || key.status !== "active") return json({ error: "Invalid or revoked API key" }, 401);
+
+    // User-owned keys are a Professional/Enterprise perk — enforce at call time
+    // so a downgraded account's keys stop working. Admin partner keys
+    // (user_id null) are exempt.
+    if (key.user_id) {
+      const { data: ownerProf } = await db.from("profiles").select("plan").eq("id", key.user_id).maybeSingle();
+      if (!["professional", "enterprise"].includes(ownerProf?.plan ?? "")) {
+        return json({ error: "API access requires a Professional or Enterprise plan." }, 403);
+      }
+    }
 
     if (body.action === "balance") return json({ credits_remaining: key.credits_balance });
 
