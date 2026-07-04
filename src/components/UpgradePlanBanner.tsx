@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Zap, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SUBSCRIPTION_PLANS, EURO1_OFFER, type PlanKey } from "@/lib/stripe-config";
@@ -27,6 +28,7 @@ function planFromPriceId(priceId: string | null): PlanKey | null {
  * Snoozable for 24h; disappears permanently once the plan is fully active.
  */
 const UpgradePlanBanner = () => {
+  const { pathname } = useLocation();
   const [plan, setPlan] = useState<PlanKey | null>(null);
   const [visible, setVisible] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -98,6 +100,7 @@ const UpgradePlanBanner = () => {
     setVisible(false);
   };
 
+  if (pathname.startsWith("/admin")) return null;
   if (!visible || !plan) return null;
 
   const total = SUBSCRIPTION_PLANS[plan].monthly.credits;

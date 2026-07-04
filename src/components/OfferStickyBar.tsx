@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Zap, ChevronRight } from "lucide-react";
 import { EURO1_OFFER } from "@/lib/stripe-config";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
  * logged-out visitors and hidden from anyone with an account/session.
  */
 const OfferStickyBar = () => {
+  const { pathname } = useLocation();
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -30,6 +31,10 @@ const OfferStickyBar = () => {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  // Never on the admin panel (admins use their own auth and would otherwise
+  // see the logged-out acquisition bar there).
+  if (pathname.startsWith("/admin")) return null;
 
   // Show only to logged-out visitors. While the session is still resolving
   // (null) keep it hidden so existing users never see a flash of the offer.
