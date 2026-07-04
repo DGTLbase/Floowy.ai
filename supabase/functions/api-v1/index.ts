@@ -83,6 +83,13 @@ serve(async (req) => {
           .order("created_at", { ascending: false });
         return json({ keys: data ?? [] });
       }
+      if (body.action === "user_keys") {
+        if (!body.user_id) return json({ error: "user_id required" }, 400);
+        const { data } = await db.from("api_keys")
+          .select("id, key_prefix, price_per_credit, credits_balance, allowed_tools, status, created_at, last_used_at")
+          .eq("user_id", body.user_id).order("created_at", { ascending: false });
+        return json({ keys: data ?? [] });
+      }
       if (body.action === "topup") {
         const { error: e1 } = await db.from("api_credit_purchases").insert({
           api_key_id: body.key_id, credits: body.credits, amount_eur: body.amount_eur,
