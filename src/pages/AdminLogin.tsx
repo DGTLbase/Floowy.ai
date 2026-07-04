@@ -78,7 +78,17 @@ const AdminLogin = () => {
       });
 
       if (error || !data || data.error) {
-        throw new Error(data?.error || error?.message || 'Login failed');
+        // supabase-js hides the response body of a non-2xx in error.context —
+        // surface the function's actual error message instead of the generic
+        // "Edge Function returned a non-2xx status code".
+        let detail = data?.error || null;
+        if (!detail && error && (error as any).context) {
+          try {
+            const body = await (error as any).context.json();
+            detail = body?.error || body?.message || null;
+          } catch { /* body not JSON */ }
+        }
+        throw new Error(detail || error?.message || 'Login failed');
       }
 
       // Store token
