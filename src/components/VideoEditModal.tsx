@@ -65,7 +65,15 @@ const VideoEditModal = ({ open, onClose, videoUrl, onEdited }: VideoEditModalPro
       const { data, error } = await supabase.functions.invoke("edit-video", {
         body: { video_url: active.url, prompt: prompt.trim() },
       });
-      if (error) throw new Error(error.message);
+      if (error) {
+        // supabase-js hides the real error body in error.context — surface it.
+        let detail = error.message;
+        try {
+          const body = await (error as any).context?.json?.();
+          if (body?.error) detail = body.error;
+        } catch { /* not JSON */ }
+        throw new Error(detail);
+      }
       if (data?.error) throw new Error(data.error);
       const newUrl: string | undefined = data?.video_url ?? data?.url;
       if (!newUrl) throw new Error("No edited video returned");

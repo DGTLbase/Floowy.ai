@@ -57,24 +57,31 @@ serve(async (req) => {
       body: JSON.stringify({ video_url, prompt }),
     });
     const submitData = await submit.json();
-    const requestId = submitData.request_id;
-    if (!submit.ok || !requestId) return json({ error: "Failed to submit edit", detail: submitData }, 502);
+    if (!submit.ok) return json({ error: "Failed to submit edit", detail: submitData }, 502);
+    // fal returns the canonical status/response URLs — use them (hand-built paths
+    // break for sub-path models like ".../edit").
+    const statusUrl: string | undefined = submitData.status_url;
+    const responseUrl: string | undefined = submitData.response_url;
+    if (!statusUrl || !responseUrl) {
+      return json({ error: "Unexpected submit response", detail: submitData }, 502);
+    }
+
+    const extract = (o: any): string | null =>
+      o?.video?.url ?? o?.video_url ?? o?.output?.url ?? o?.output?.video?.url
+      ?? o?.videos?.[0]?.url ?? o?.output?.videos?.[0]?.url ?? null;
 
     // Poll to completion (bounded).
     const started = Date.now();
     let resultUrl: string | null = null;
     while (Date.now() - started < POLL_TIMEOUT_MS) {
       await new Promise((r) => setTimeout(r, 4000));
-      const st = await fetch(`https://queue.fal.run/${MODEL}/requests/${requestId}/status`, {
-        headers: { Authorization: `Key ${FAL_API_KEY}` },
-      });
-      const stData = await st.json();
+      const st = await fetch(statusUrl, { headers: { Authorization: `Key ${FAL_API_KEY}` } });
+      const stData = await st.json().catch(() => ({}));
       if (stData.status === "COMPLETED") {
-        const res = await fetch(`https://queue.fal.run/${MODEL}/requests/${requestId}`, {
-          headers: { Authorization: `Key ${FAL_API_KEY}` },
-        });
-        const out = await res.json();
-        resultUrl = out?.video?.url ?? out?.video_url ?? out?.output?.url ?? null;
+        const res = await fetch(responseUrl, { headers: { Authorization: `Key ${FAL_API_KEY}` } });
+        const out = await res.json().catch(() => ({}));
+        resultUrl = extract(out);
+        if (!resultUrl) return json({ error: "Edit finished but no video URL", detail: out }, 502);
         break;
       }
       if (stData.status === "FAILED" || stData.status === "ERROR") {
