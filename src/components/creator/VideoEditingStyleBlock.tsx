@@ -1,4 +1,4 @@
-import { Check, Smartphone, Monitor } from "lucide-react";
+import { Check, Smartphone, Monitor, Clock } from "lucide-react";
 import {
   ASPECT_RATIOS, CUT_STYLES, DURATION_PILLS, cutStyleById,
   type AspectRatioId, type DurationSec, type CutStyle,
@@ -113,7 +113,7 @@ const VideoEditingStyleBlock = ({
       {/* Duration pills */}
       <div>
         <div className="mb-2 text-sm font-medium text-foreground">Video duration</div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {DURATION_PILLS.map((p) => {
             const active = p.seconds === duration;
             return (
@@ -121,15 +121,20 @@ const VideoEditingStyleBlock = ({
                 key={p.seconds}
                 type="button"
                 onClick={() => onDuration(p.seconds)}
-                className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition ${
-                  active ? "border-primary bg-primary text-primary-foreground"
-                         : "border-border text-foreground hover:border-primary/50"
+                className={`flex w-full items-center gap-3 rounded-xl border p-4 text-left transition ${
+                  active ? "border-primary ring-2 ring-primary/30 bg-primary/5"
+                         : "border-border hover:border-primary/50"
                 }`}
               >
-                {p.seconds} sec
-                <span className={`ml-1.5 text-xs font-normal ${active ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                  {p.credits} cr
-                </span>
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${
+                  active ? "bg-primary/10" : "bg-muted"
+                }`}>
+                  <Clock className={`h-5 w-5 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-foreground">{p.seconds} sec</div>
+                  <span className="block text-xs text-muted-foreground">{p.credits} credits</span>
+                </div>
               </button>
             );
           })}
