@@ -3,12 +3,12 @@ import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, LogOut, Settings, Sparkles, Download, RotateCcw, Info, Loader2, Shield, Upload, Wand2, Video, Lock } from "lucide-react";
+import { ArrowLeft, LogOut, Settings, Sparkles, Download, RotateCcw, Info, Loader2, Shield, Upload, Wand2, Video, Lock, AlertTriangle } from "lucide-react";
 import { Pencil } from "lucide-react";
 import VoicePerformanceBlock from "@/components/creator/VoicePerformanceBlock";
 import VideoEditingStyleBlock from "@/components/creator/VideoEditingStyleBlock";
 import VideoEditModal from "@/components/VideoEditModal";
-import { cutStyleById, creditsForDuration, voicePerformanceById, type AspectRatioId, type DurationSec } from "@/lib/creator-studio-config";
+import { cutStyleById, creditsForDuration, voicePerformanceById, maxVoiceoverWords, countWords, type AspectRatioId, type DurationSec } from "@/lib/creator-studio-config";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -1204,22 +1204,42 @@ const CreatorStudioGenerator = () => {
                       )}
                     </Button>
                     
-                    {previewedVoiceover && (
-                      <div className="p-4 rounded-lg bg-muted/50 border space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm text-foreground flex-1 leading-relaxed">{previewedVoiceover}</p>
-                          <Button
-                            onClick={handlePreviewVoiceover}
-                            variant="ghost"
-                            size="sm"
-                            className="shrink-0"
-                            title="Regenerate voiceover"
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                          </Button>
+                    {previewedVoiceover && (() => {
+                      // Exact + warn: the script is spoken word-for-word; we only
+                      // flag when it looks too long for the selected clip length.
+                      const words = countWords(previewedVoiceover);
+                      const maxWords = maxVoiceoverWords(language, duration);
+                      const tooLong = words > maxWords + 1;
+                      return (
+                        <div className="p-4 rounded-lg bg-muted/50 border space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm text-foreground flex-1 leading-relaxed">{previewedVoiceover}</p>
+                            <Button
+                              onClick={handlePreviewVoiceover}
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0"
+                              title="Regenerate voiceover"
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {words} words · spoken exactly as shown
+                          </p>
+                          {tooLong && (
+                            <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-800">
+                              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                              <span>
+                                This script may be too long to fit {duration} seconds (aim for ~{maxWords} words).
+                                It will still be spoken exactly as written, but speech could feel rushed or get cut off —
+                                consider a longer duration or regenerate for a shorter script.
+                              </span>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 )}
                 

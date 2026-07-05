@@ -425,38 +425,10 @@ Return ONLY the voiceover script, no analysis or explanations.`
     const safeDuration = [6, 8, 10].includes(Number(duration_seconds)) ? Number(duration_seconds) : 8;
     const allowCuts = isOmni && !!cut_style && cut_style !== 'no-cuts';
 
-    // Guarantee the spoken script fits the SELECTED duration. A previewed or custom
-    // voiceover may have been written for a different length (the preview is
-    // calibrated to 8s), so if it runs long for the chosen clip we tighten it to a
-    // realistic word budget for that duration — otherwise speech overruns the video.
-    if (enhancedVoiceover && ANTHROPIC_API_KEY) {
-      const fitBudget8s: { [k: string]: number } = {
-        english: 20, dutch: 19, spanish: 22, french: 20, german: 18,
-        italian: 22, portuguese: 21, british: 20, american: 20,
-      };
-      const maxWords = Math.round((fitBudget8s[(language || 'english').toLowerCase()] ?? 20) * (safeDuration / 8));
-      const words = enhancedVoiceover.trim().split(/\s+/).filter(Boolean);
-      if (words.length > maxWords + 1) {
-        try {
-          const fitAnthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
-          const fit = await fitAnthropic.messages.create({
-            model: 'claude-haiku-4-5',
-            max_tokens: 256,
-            messages: [{
-              role: 'user',
-              content: `Shorten this UGC voiceover so a person can say it naturally in about ${safeDuration} seconds — no more than ${maxWords} words. Keep it ENTIRELY in ${spokenLang} (no English mixed in except the brand/product name), keep the same meaning and energy. Return ONLY the shortened script — no quotes, no notes:\n\n${enhancedVoiceover}`,
-            }],
-          });
-          const shortened = fit.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('').trim();
-          if (shortened) {
-            console.log(`Trimmed voiceover to fit ${safeDuration}s (<=${maxWords} words): ${shortened}`);
-            enhancedVoiceover = shortened;
-          }
-        } catch (e) {
-          console.error('Voiceover fit-trim failed, keeping original:', e);
-        }
-      }
-    }
+    // A previewed or custom voiceover is spoken EXACTLY as written — we never
+    // rewrite it here. The UI warns the user if a script looks too long for the
+    // selected duration so they can re-preview or shorten it themselves. (Only the
+    // auto-generated script, when no voiceover is provided, is scaled to duration.)
 
     // Cut styles need multiple SEQUENTIAL shots, so the "single continuous shot"
     // rule only applies when cuts are not wanted. Duration follows the selection.

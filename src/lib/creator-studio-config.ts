@@ -113,6 +113,21 @@ export const creditsForDuration = (seconds: DurationSec): number =>
 export const cutStyleById = (id: string): CutStyle =>
   CUT_STYLES.find((c) => c.id === id) ?? CUT_STYLES[0];
 
+// Realistic natural UGC speaking pace (~2.3-2.5 words/sec), calibrated per 8s and
+// scaled to the clip length. Used ONLY to warn the user when a previewed/custom
+// voiceover looks too long for the selected duration — the script itself is always
+// spoken exactly as written (never auto-rewritten).
+const VOICEOVER_WORDS_PER_8S: Record<string, number> = {
+  english: 20, dutch: 19, spanish: 22, french: 20, german: 18,
+  italian: 22, portuguese: 21, british: 20, american: 20,
+};
+
+export const maxVoiceoverWords = (language: string, duration: DurationSec): number =>
+  Math.round((VOICEOVER_WORDS_PER_8S[(language || "english").toLowerCase()] ?? 20) * (duration / 8));
+
+export const countWords = (text: string): number =>
+  text.trim().split(/\s+/).filter(Boolean).length;
+
 // ── Voice Performance (new block #6) ────────────────────────────────────────
 // Controls how the voiceover is delivered (per the mockup). The `icon` maps to
 // a lucide icon in VoicePerformanceBlock.
