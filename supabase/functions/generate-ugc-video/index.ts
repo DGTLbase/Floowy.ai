@@ -19,6 +19,11 @@ serve(async (req) => {
     // Video model base (Veo -> Omni swap). Set the FAL_VIDEO_MODEL secret to
     // switch without a code change; submit + status paths both derive from it.
     const VIDEO_MODEL = Deno.env.get('FAL_VIDEO_MODEL') || 'fal-ai/veo3.1';
+    // Human-readable spoken language for prompts (keeps generation consistent).
+    const spokenLang = language === 'dutch' ? 'Dutch' : language === 'spanish' ? 'Spanish'
+      : language === 'french' ? 'French' : language === 'german' ? 'German'
+      : language === 'italian' ? 'Italian' : language === 'portuguese' ? 'Portuguese'
+      : language === 'british' ? 'British English' : language === 'american' ? 'American English' : 'English';
     const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 
     if (!FAL_API_KEY) {
@@ -83,6 +88,7 @@ Requirements:
 - No hashtags, no "swipe up", no call-to-action phrases
 - Start directly with the content (no "Hey guys" or similar)
 - ${languageInstruction}
+- CRITICAL LANGUAGE RULE: write the ENTIRE script in ${languageName} ONLY. Do NOT mix in any English words or phrases (the brand/product name may stay as-is). Output must be 100% ${languageName}.
 
 Example good scripts${language === 'british' ? ' (British English)' : ''}:
 ${language === 'british' ? `- "This moisturiser is absolutely brilliant! Proper lightweight and keeps my skin hydrated all day long."
@@ -467,7 +473,7 @@ An approximately ${safeDuration}-second smooth, natural product video. ${prompt}
       enhancedPrompt += 'UGC aesthetic with natural lighting. ONE continuous take, no cuts. ';
 
       if (enhancedVoiceover) {
-        enhancedPrompt += `The creator says: "${enhancedVoiceover}" - delivered naturally over 8 seconds with comfortable pacing. `;
+        enhancedPrompt += `SPOKEN LANGUAGE (CRITICAL): the creator speaks ENTIRELY in ${spokenLang}. Every spoken word MUST be in ${spokenLang} - absolutely NO English words or phrases mixed in, except the brand/product name. The creator says exactly, word-for-word in ${spokenLang}: "${enhancedVoiceover}" - delivered naturally over ${safeDuration} seconds with comfortable pacing. `;
       }
     } else if (has_model && modelImageUrl) {
       // Silent video WITH model (no voiceover option but model selected)
