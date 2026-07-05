@@ -246,19 +246,22 @@ Write ONLY the voiceover script, nothing else.`;
       try {
         console.log('Generating product-specific voiceover for:', productName);
         
-        // Language-specific word count guidelines for 8-second audio
-        const wordCountGuidelines: { [key: string]: string } = {
-          'english': '25-30 words',
-          'dutch': '22-26 words',
-          'spanish': '28-32 words',
-          'french': '26-30 words',
-          'german': '22-26 words',
-          'italian': '28-32 words',
-          'portuguese': '28-32 words',
+        // Language-specific word counts, calibrated per 8 seconds then scaled to
+        // the selected video duration (6 / 8 / 10 sec) so speech fits the clip.
+        const wordCountBase8s: { [key: string]: [number, number] } = {
+          'english': [25, 30],
+          'dutch': [22, 26],
+          'spanish': [28, 32],
+          'french': [26, 30],
+          'german': [22, 26],
+          'italian': [28, 32],
+          'portuguese': [28, 32],
         };
-        
         const normalizedLang = (language || 'english').toLowerCase();
-        const wordCount = wordCountGuidelines[normalizedLang] || '25-30 words';
+        const scriptDuration = [6, 8, 10].includes(Number(duration_seconds)) ? Number(duration_seconds) : 8;
+        const [wMin, wMax] = wordCountBase8s[normalizedLang] || [25, 30];
+        const scale = scriptDuration / 8;
+        const wordCount = `${Math.round(wMin * scale)}-${Math.round(wMax * scale)} words`;
         const languageName = language === 'dutch' ? 'Dutch' : language === 'spanish' ? 'Spanish' : language === 'french' ? 'French' : language === 'german' ? 'German' : language === 'italian' ? 'Italian' : language === 'portuguese' ? 'Portuguese' : 'English';
 
         // Get language-specific instructions
@@ -300,13 +303,13 @@ STEP 1 - Analyze this product:
 - Determine if it's explicitly gendered (men's/women's product) or neutral
 - List 3-4 key benefits specific to this product type
 
-STEP 2 - Write a natural ${languageName} voiceover script for an 8-second UGC video (EXACTLY ${wordCount}).
+STEP 2 - Write a natural ${languageName} voiceover script for a ${scriptDuration}-second UGC video (EXACTLY ${wordCount}).
 
 Requirements:
 - Talk about SPECIFIC product qualities and benefits based on your analysis
 - Use conversational language like recommending to a friend
 - Be enthusiastic but genuine
-- Keep it SHORT to fit 8 seconds of clear speech
+- Keep it SHORT to fit ${scriptDuration} seconds of clear speech
 - CRITICAL: Use gender-neutral language ("you", "people", "everyone") UNLESS the product name clearly indicates it's for men (e.g., "Men's Beard Oil") or women (e.g., "Women's Maternity Vitamins")
 - ${languageInstruction}
 
