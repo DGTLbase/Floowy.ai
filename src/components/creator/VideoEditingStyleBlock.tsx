@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check, Smartphone, Monitor } from "lucide-react";
 import {
   ASPECT_RATIOS, CUT_STYLES, DURATION_PILLS, cutStyleById,
   type AspectRatioId, type DurationSec, type CutStyle,
@@ -33,25 +33,33 @@ const VideoEditingStyleBlock = ({
         </p>
       </div>
 
-      {/* Aspect ratio — button options */}
-      <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+      {/* Aspect ratio — full-width button options with icons */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {ASPECT_RATIOS.map((r) => {
           const active = r.id === aspectRatio;
+          const Icon = r.id === "9:16" ? Smartphone : Monitor;
           return (
             <button
               key={r.id}
               type="button"
               onClick={() => onAspectRatio(r.id)}
-              className={`flex flex-col items-start rounded-xl border p-3 text-left transition ${
+              className={`flex w-full items-center gap-3 rounded-xl border p-4 text-left transition ${
                 active ? "border-primary ring-2 ring-primary/30 bg-primary/5"
                        : "border-border hover:border-primary/50"
               }`}
             >
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-foreground">{r.label}</span>
-                <span className="text-xs text-muted-foreground">{r.orientation}</span>
+              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${
+                active ? "bg-primary/10" : "bg-muted"
+              }`}>
+                <Icon className={`h-5 w-5 ${active ? "text-primary" : "text-muted-foreground"}`} />
               </div>
-              <span className="mt-0.5 text-xs text-muted-foreground">{r.platforms}</span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-foreground">{r.label}</span>
+                  <span className="text-xs text-muted-foreground">{r.orientation}</span>
+                </div>
+                <span className="block truncate text-xs text-muted-foreground">{r.platforms}</span>
+              </div>
             </button>
           );
         })}
