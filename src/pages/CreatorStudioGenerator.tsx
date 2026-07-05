@@ -4,6 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, LogOut, Settings, Sparkles, Download, RotateCcw, Info, Loader2, Shield, Upload, Wand2, Video, Lock } from "lucide-react";
+import { Pencil } from "lucide-react";
+import VoicePerformanceBlock from "@/components/creator/VoicePerformanceBlock";
+import VideoEditingStyleBlock from "@/components/creator/VideoEditingStyleBlock";
+import VideoEditModal from "@/components/VideoEditModal";
+import { cutStyleById, creditsForDuration, type AspectRatioId, type DurationSec } from "@/lib/creator-studio-config";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,6 +65,12 @@ const CreatorStudioGenerator = () => {
   const [isPreviewingVoiceover, setIsPreviewingVoiceover] = useState(false);
   const [sceneBackground, setSceneBackground] = useState("");
   const [modelBehavior, setModelBehavior] = useState("");
+  // Creator Studio v2 (Omni) — Video Editing Style + Voice Performance
+  const [aspectRatio, setAspectRatio] = useState<AspectRatioId>("9:16");
+  const [cutStyleId, setCutStyleId] = useState<string>("no-cuts");
+  const [duration, setDuration] = useState<DurationSec>(6);
+  const [voicePerformance, setVoicePerformance] = useState<string>("natural");
+  const [videoEditOpen, setVideoEditOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -547,6 +558,14 @@ const CreatorStudioGenerator = () => {
         videoPrompt = `${stylePrompt}. ${backgroundPrompt} UGC video with creator speaking. No text overlays, no captions. Clean and authentic.`;
       }
 
+      // Video Editing Style (Omni): fold the chosen cut style + duration into the
+      // prompt, and add the voice-performance delivery when there's a voiceover.
+      const cutStyle = cutStyleById(cutStyleId);
+      videoPrompt += ` Editing style: ${cutStyle.name} — ${cutStyle.description} Target length about ${duration} seconds. Aspect ratio ${aspectRatio}.`;
+      if (voiceoverOption !== "none") {
+        videoPrompt += ` Voice performance: ${voicePerformance} delivery.`;
+      }
+
       const { data: generateData, error: generateError } = await supabase.functions.invoke(
         'generate-ugc-video',
         {
@@ -561,6 +580,10 @@ const CreatorStudioGenerator = () => {
             generate_audio: voiceoverOption !== "none", // Disable audio when no voiceover selected
             has_model: hasModelInVideo, // Pass whether model is present (for silent videos with model)
             modelBehavior: modelBehavior.trim() || undefined, // Pass model behavior/scene direction for no-voiceover mode
+            aspect_ratio: aspectRatio,        // Omni: '9:16' | '16:9'
+            cut_style: cutStyleId,            // Omni: chosen cut style id
+            duration_seconds: duration,       // Omni: 6 | 8 | 10
+            voice_performance: voicePerformance,
           },
         }
       );
@@ -1238,6 +1261,11 @@ const CreatorStudioGenerator = () => {
             </div>
           </div>
 
+          {/* Block 6 (NEW): Voice Performance */}
+          <div className="bg-card rounded-xl border border-border p-6">
+            <VoicePerformanceBlock value={voicePerformance} onChange={setVoicePerformance} />
+          </div>
+
           {/* Second Section: Select Avatar + Upload Your Own Avatar */}
           <div className="grid grid-cols-1 md:grid-cols-10 gap-6">
             {/* Model Selector with integrated upload */}
@@ -1293,6 +1321,18 @@ const CreatorStudioGenerator = () => {
             </RadioGroup>
           </div>
 
+          {/* Block 9 (NEW): Video Editing Style */}
+          <div className="bg-card rounded-xl border border-border p-6">
+            <VideoEditingStyleBlock
+              aspectRatio={aspectRatio}
+              cutStyleId={cutStyleId}
+              duration={duration}
+              onAspectRatio={setAspectRatio}
+              onCutStyle={(id) => { setCutStyleId(id); setDuration(cutStyleById(id).defaultDuration); }}
+              onDuration={setDuration}
+            />
+          </div>
+
           {/* Fourth Section: Scene Background Prompt */}
           <div className="bg-card rounded-xl border border-border p-6 space-y-4" data-walkthrough-target="tool-prompt">
             <div className="flex items-center gap-2">
@@ -1320,12 +1360,19 @@ const CreatorStudioGenerator = () => {
           <div className="flex justify-center" data-walkthrough-target="tool-output">
             <Button
               onClick={handleGenerate}
-              disabled={!productFile || (voiceoverOption !== "none" && !selectedModel && !modelFile) || !selectedStyle || (!isAdmin && !adminMode && credits < 10) || isGenerating}
+              disabled={!productFile || (voiceoverOption !== "none" && !selectedModel && !modelFile) || !selectedStyle || (!isAdmin && !adminMode && credits < creditsForDuration(duration)) || isGenerating}
               size="lg"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow h-14 text-lg px-12"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow h-auto py-3 text-lg px-12 flex-col gap-0.5"
             >
-              <Sparkles className="w-5 h-5 mr-2" />
-              {isAdmin || adminMode ? "Generate UGC Video (Admin - Free)" : "Generate UGC Video (10 Credits)"}
+              <span className="flex items-center">
+                <Sparkles className="w-5 h-5 mr-2" />
+                {isAdmin || adminMode
+                  ? "Generate UGC video (Admin - Free)"
+                  : `Generate UGC video (${creditsForDuration(duration)} credits)`}
+              </span>
+              <span className="text-xs font-normal opacity-80">
+                {duration} sec · {aspectRatio} · {cutStyleById(cutStyleId).name}
+              </span>
             </Button>
           </div>
         </div>
@@ -1390,6 +1437,10 @@ const CreatorStudioGenerator = () => {
                     {canExport ? <Download className="w-4 h-4 mr-2" /> : <Lock className="w-4 h-4 mr-2" />}
                     {canExport ? "Download Video" : "Unlock to Download"}
                   </Button>
+                  <Button variant="outline" onClick={() => setVideoEditOpen(true)}>
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Edit Video
+                  </Button>
                   <Button variant="outline" onClick={handleCloseModal}>
                     <RotateCcw className="w-4 h-4 mr-2" />
                     Generate Another
@@ -1408,6 +1459,15 @@ const CreatorStudioGenerator = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {generatedVideoUrl && (
+        <VideoEditModal
+          open={videoEditOpen}
+          onClose={() => setVideoEditOpen(false)}
+          videoUrl={generatedVideoUrl}
+          onEdited={(url) => setGeneratedVideoUrl(url)}
+        />
+      )}
       </div>
 
       <CreditsPurchaseDialog 
