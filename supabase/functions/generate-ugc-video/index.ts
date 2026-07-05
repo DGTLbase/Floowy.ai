@@ -394,21 +394,31 @@ Return ONLY the voiceover script, no analysis or explanations.`
     const isFashionOrAccessory = ['jacket', 'shoes', 'bag', 'watch', 'jewelry', 'clothing'].some(word => productLower.includes(word));
     const isTechOrGadget = ['headphones', 'phone', 'tech', 'gadget', 'device'].some(word => productLower.includes(word));
 
-    // Build the enhanced prompt for veo3 - STRICTLY 8 seconds with NO TEXT
-    // CRITICAL: Prevent multiple frames/panels being generated in a single frame
+    // Video config (Omni supports multi-shot cuts; Veo is single-shot). Computed
+    // once so the prompt and request body stay consistent.
+    const isOmni = VIDEO_MODEL.includes('omni');
+    const safeAspect = (aspect_ratio === '16:9' || aspect_ratio === '9:16') ? aspect_ratio : '9:16';
+    const safeDuration = [6, 8, 10].includes(Number(duration_seconds)) ? Number(duration_seconds) : 8;
+    const allowCuts = isOmni && !!cut_style && cut_style !== 'no-cuts';
+
+    // Cut styles need multiple SEQUENTIAL shots, so the "single continuous shot"
+    // rule only applies when cuts are not wanted. Duration follows the selection.
     let enhancedPrompt = `CRITICAL VIDEO RULES:
 1. ABSOLUTELY NO TEXT, NO CAPTIONS, NO OVERLAYS, NO SUBTITLES, NO GRAPHICS of any kind.
-2. SINGLE CONTINUOUS SHOT ONLY - NO split screens, NO multiple frames, NO collage layouts, NO before/after panels, NO side-by-side views.
-3. ONE perspective throughout the entire video - do NOT show multiple camera angles or views simultaneously.
-4. This is a REAL continuous video recording, NOT a slideshow or montage.
+${allowCuts
+  ? '2. Use clean, deliberate hard CUTS and angle changes over time as described. Cuts are SEQUENTIAL in time - NEVER split screens, collage/grid, picture-in-picture, or side-by-side panels shown at once.'
+  : '2. SINGLE CONTINUOUS SHOT ONLY - NO split screens, NO multiple frames, NO collage layouts, NO before/after panels, NO side-by-side views.\n3. ONE perspective throughout the entire video - do NOT show multiple camera angles or views simultaneously.'}
+This is a REAL video recording, NOT a slideshow or montage.
 
-An EXACTLY 8-second smooth, natural product video. ${prompt}. `;
+An approximately ${safeDuration}-second smooth, natural product video. ${prompt}. `;
     
     // CRITICAL PRODUCT INTEGRITY RULES
     enhancedPrompt += 'PRODUCT INTEGRITY: Keep the product in its EXACT original form - NO warping, NO distortion, NO morphing, NO transformation of the product. ';
     
     // CRITICAL CAMERA INSTRUCTIONS - Emphasis on natural, continuous footage
-    enhancedPrompt += 'CAMERA: Gentle, natural handheld feel like a real phone recording. Slight natural micro-movements are OK but NO dramatic zooms, NO pans, NO artificial camera effects. ';
+    enhancedPrompt += allowCuts
+      ? 'CAMERA: Natural, motivated camera work with purposeful moves between cuts (orbits, push-ins, reframes) as the style calls for. Keep it authentic, not gimmicky. '
+      : 'CAMERA: Gentle, natural handheld feel like a real phone recording. Slight natural micro-movements are OK but NO dramatic zooms, NO pans, NO artificial camera effects. ';
     
     // NATURAL FLOW - Not robotic
     enhancedPrompt += 'NATURAL FLOW: Smooth, organic motion throughout. Movements should feel genuine and spontaneous, not staged or mechanical. Real-life pacing and rhythm. ';
@@ -529,18 +539,12 @@ An EXACTLY 8-second smooth, natural product video. ${prompt}. `;
       );
     }
     
-    // Omni params from Creator Studio v2 (aspect ratio + duration are user-chosen;
-    // cut_style / voice_performance are already folded into the prompt).
-    const safeAspect = (aspect_ratio === '16:9' || aspect_ratio === '9:16') ? aspect_ratio : '9:16';
-    const safeDuration = [6, 8, 10].includes(Number(duration_seconds)) ? Number(duration_seconds) : 8;
-    const requestBody: Record<string, unknown> = {
-      image_url: imageForVideo,
-      prompt: enhancedPrompt,
-      resolution: "720p",
-      aspect_ratio: safeAspect,
-      duration: `${safeDuration}s`,
-    };
-    console.log('Omni config:', { aspect_ratio: safeAspect, duration: safeDuration, cut_style, voice_performance });
+    // Omni: send only the confirmed params (prompt, image_url, aspect_ratio) —
+    // duration is conveyed via the prompt. Veo keeps its fuller body.
+    const requestBody: Record<string, unknown> = isOmni
+      ? { image_url: imageForVideo, prompt: enhancedPrompt, aspect_ratio: safeAspect }
+      : { image_url: imageForVideo, prompt: enhancedPrompt, resolution: "720p", aspect_ratio: safeAspect, duration: `${safeDuration}s` };
+    console.log('Video config:', { model: VIDEO_MODEL, aspect_ratio: safeAspect, duration: safeDuration, cut_style, allowCuts, voice_performance });
 
     console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
