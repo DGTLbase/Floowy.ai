@@ -279,3 +279,6 @@ verify_jwt = false
 verify_jwt = false
 [functions.api-v1]
 verify_jwt = false
+
+[functions.edit-video]
+verify_jwt = false

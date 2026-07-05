@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, requestId, modelImageUrl, productImageUrl, prompt, language, voiceover, productName, categoryPreset, generate_audio = true, has_model = false, modelBehavior = '' } = await req.json();
+    const { action, requestId, modelImageUrl, productImageUrl, prompt, language, voiceover, productName, categoryPreset, generate_audio = true, has_model = false, modelBehavior = '', aspect_ratio = '9:16', duration_seconds = 8, cut_style = '', voice_performance = '' } = await req.json();
     const FAL_API_KEY = Deno.env.get('FAL_API_KEY');
     const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 
@@ -526,12 +526,18 @@ An EXACTLY 8-second smooth, natural product video. ${prompt}. `;
       );
     }
     
-    const requestBody = {
+    // Omni params from Creator Studio v2 (aspect ratio + duration are user-chosen;
+    // cut_style / voice_performance are already folded into the prompt).
+    const safeAspect = (aspect_ratio === '16:9' || aspect_ratio === '9:16') ? aspect_ratio : '9:16';
+    const safeDuration = [6, 8, 10].includes(Number(duration_seconds)) ? Number(duration_seconds) : 8;
+    const requestBody: Record<string, unknown> = {
       image_url: imageForVideo,
       prompt: enhancedPrompt,
       resolution: "720p",
-      aspect_ratio: "9:16"
+      aspect_ratio: safeAspect,
+      duration: `${safeDuration}s`,
     };
+    console.log('Omni config:', { aspect_ratio: safeAspect, duration: safeDuration, cut_style, voice_performance });
 
     console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
