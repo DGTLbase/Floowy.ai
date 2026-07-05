@@ -33,8 +33,8 @@ const VideoEditingStyleBlock = ({
         </p>
       </div>
 
-      {/* Aspect ratio toggle */}
-      <div className="inline-flex rounded-xl border border-border bg-muted/40 p-1">
+      {/* Aspect ratio — button options */}
+      <div className="grid grid-cols-2 gap-3 sm:max-w-md">
         {ASPECT_RATIOS.map((r) => {
           const active = r.id === aspectRatio;
           return (
@@ -42,12 +42,16 @@ const VideoEditingStyleBlock = ({
               key={r.id}
               type="button"
               onClick={() => onAspectRatio(r.id)}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition ${
-                active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              className={`flex flex-col items-start rounded-xl border p-3 text-left transition ${
+                active ? "border-primary ring-2 ring-primary/30 bg-primary/5"
+                       : "border-border hover:border-primary/50"
               }`}
             >
-              <span>{r.label}</span>
-              <span className="hidden text-xs font-normal text-muted-foreground sm:inline">· {r.platforms}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-foreground">{r.label}</span>
+                <span className="text-xs text-muted-foreground">{r.orientation}</span>
+              </div>
+              <span className="mt-0.5 text-xs text-muted-foreground">{r.platforms}</span>
             </button>
           );
         })}
