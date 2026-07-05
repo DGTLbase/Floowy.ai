@@ -16,6 +16,9 @@ serve(async (req) => {
   try {
     const { action, requestId, modelImageUrl, productImageUrl, prompt, language, voiceover, productName, categoryPreset, generate_audio = true, has_model = false, modelBehavior = '', aspect_ratio = '9:16', duration_seconds = 8, cut_style = '', voice_performance = '' } = await req.json();
     const FAL_API_KEY = Deno.env.get('FAL_API_KEY');
+    // Video model base (Veo -> Omni swap). Set the FAL_VIDEO_MODEL secret to
+    // switch without a code change; submit + status paths both derive from it.
+    const VIDEO_MODEL = Deno.env.get('FAL_VIDEO_MODEL') || 'fal-ai/veo3.1';
     const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 
     if (!FAL_API_KEY) {
@@ -134,7 +137,7 @@ Write ONLY the voiceover script, nothing else.`;
     if (action === 'status' && requestId) {
       console.log('Checking status for request:', requestId);
       
-      const statusResponse = await fetch(`https://queue.fal.run/fal-ai/veo3.1/requests/${requestId}`, {
+      const statusResponse = await fetch(`https://queue.fal.run/${VIDEO_MODEL}/requests/${requestId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Key ${FAL_API_KEY}`,
@@ -541,7 +544,7 @@ An EXACTLY 8-second smooth, natural product video. ${prompt}. `;
 
     console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
-    const response = await fetch('https://queue.fal.run/fal-ai/veo3.1/image-to-video', {
+    const response = await fetch(`https://queue.fal.run/${VIDEO_MODEL}/image-to-video`, {
       method: 'POST',
       headers: {
         'Authorization': `Key ${FAL_API_KEY}`,
