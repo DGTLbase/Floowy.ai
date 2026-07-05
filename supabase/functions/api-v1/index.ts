@@ -70,7 +70,7 @@ serve(async (req) => {
           partner_email: body.partner_email ?? null,
           user_id: ownerId,
           price_per_credit: body.price_per_credit ?? 0.20,
-          allowed_tools: body.allowed_tools ?? ["ambience"],
+          allowed_tools: body.allowed_tools ?? ["ambience", "fashion", "listing", "ads"],
           created_by: adminId,
         }).select("id, key_prefix").single();
         if (e) return json({ error: e.message }, 400);
@@ -137,7 +137,7 @@ serve(async (req) => {
           partner_name: userData.user.email ?? "user",
           partner_email: userData.user.email ?? null,
           user_id: uid,
-          allowed_tools: ["ambience"],
+          allowed_tools: ["ambience", "fashion", "listing", "ads"],
           created_by: uid,
         }).select("id, key_prefix").single();
         if (e) return json({ error: e.message }, 400);
@@ -192,10 +192,27 @@ serve(async (req) => {
       return json({ status: stData.status?.toLowerCase() ?? "unknown" });
     }
 
-    // Generation request
+    // Generation request. All image tools run on the same fal model; the tool
+    // name drives key permissions, usage logging and (later) per-tool pricing.
+    const TOOLS: Record<string, { maxImages: number }> = {
+      ambience: { maxImages: 2 },  // product [+ scene reference]
+      fashion:  { maxImages: 3 },  // garment [+ model photo(s)]
+      listing:  { maxImages: 2 },  // product [+ style reference]
+      ads:      { maxImages: 2 },  // product [+ brand reference]
+    };
     const tool = body.tool ?? "ambience";
-    if (tool !== "ambience") return json({ error: `Unknown tool '${tool}'. Available: ambience` }, 400);
-    if (!body.prompt || !body.image_url) return json({ error: "prompt and image_url are required" }, 400);
+    if (!TOOLS[tool]) {
+      return json({ error: `Unknown tool '${tool}'. Available: ${Object.keys(TOOLS).join(", ")}` }, 400);
+    }
+    const imageUrls: string[] = Array.isArray(body.image_urls)
+      ? body.image_urls
+      : body.image_url ? [body.image_url] : [];
+    if (!body.prompt || imageUrls.length === 0) {
+      return json({ error: "prompt and image_url (or image_urls) are required" }, 400);
+    }
+    if (imageUrls.length > TOOLS[tool].maxImages) {
+      return json({ error: `${tool} accepts at most ${TOOLS[tool].maxImages} images` }, 400);
+    }
 
     // Atomic charge: rejects if revoked, tool not allowed, or balance empty.
     const { data: charged, error: chErr } = await db.rpc("api_consume_credit", {
@@ -211,7 +228,7 @@ serve(async (req) => {
       headers: { Authorization: `Key ${FAL_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt: body.prompt,
-        image_urls: [body.image_url],
+        image_urls: imageUrls,
         aspect_ratio: body.aspect_ratio ?? "1:1",
         resolution: body.resolution ?? "1K",
       }),
