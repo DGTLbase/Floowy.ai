@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, requestId, modelImageUrl, productImageUrl, prompt, language, voiceover, productName, categoryPreset, generate_audio = true, has_model = false, modelBehavior = '', aspect_ratio = '9:16', duration_seconds = 8, cut_style = '', voice_performance = '' } = await req.json();
+    const { action, requestId, modelImageUrl, productImageUrl, prompt, language, voiceover, productName, categoryPreset, generate_audio = true, has_model = false, modelBehavior = '', aspect_ratio = '9:16', duration_seconds = 8, cut_style = '', voice_performance = '', voice_performance_directive = '' } = await req.json();
     const FAL_API_KEY = Deno.env.get('FAL_API_KEY');
     // Video model base (Veo -> Omni swap). Set the FAL_VIDEO_MODEL secret to
     // switch without a code change; submit + status paths both derive from it.
@@ -304,6 +304,7 @@ STEP 1 - Analyze this product:
 - List 3-4 key benefits specific to this product type
 
 STEP 2 - Write a natural ${languageName} voiceover script for a ${scriptDuration}-second UGC video (EXACTLY ${wordCount}).
+${voice_performance_directive ? `Delivery style — write the words to match this voice performance: ${voice_performance_directive}` : ''}
 
 Requirements:
 - Talk about SPECIFIC product qualities and benefits based on your analysis

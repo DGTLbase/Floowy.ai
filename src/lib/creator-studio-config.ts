@@ -114,21 +114,28 @@ export const cutStyleById = (id: string): CutStyle =>
   CUT_STYLES.find((c) => c.id === id) ?? CUT_STYLES[0];
 
 // ── Voice Performance (new block #6) ────────────────────────────────────────
-// The briefing lists this as a new block but its options live only in the
-// (image-only) mockups. These are sensible defaults — confirm against the mockup.
+// Controls how the voiceover is delivered (per the mockup). The `icon` maps to
+// a lucide icon in VoicePerformanceBlock.
 export interface VoicePerformance {
   id: string;
   label: string;
   description: string;
+  icon: string;
 }
 
 export const VOICE_PERFORMANCES: VoicePerformance[] = [
-  { id: "natural", label: "Natural", description: "Relaxed, conversational everyday tone." },
-  { id: "energetic", label: "Energetic", description: "Upbeat and lively — great for scroll-stopping UGC." },
-  { id: "confident", label: "Confident", description: "Assured, polished delivery for premium brands." },
-  { id: "calm", label: "Calm", description: "Soft, soothing pace for a considered feel." },
-  { id: "excited", label: "Excited", description: "High-energy hype for launches and offers." },
+  { id: "enthusiast", label: "Enthusiast", icon: "Zap", description: "High energy, genuine excitement. Sounds like a real fan of the product." },
+  { id: "gen-z", label: "Gen-Z", icon: "Gamepad2", description: "Casual, fast-paced, trend-native. Built for TikTok and Reels." },
+  { id: "narrator", label: "Narrator", icon: "BookOpen", description: "Clear, warm and measured. Classic voiceover feel for any product." },
+  { id: "authoritative", label: "Authoritative", icon: "Crown", description: "Confident and direct. Commands trust. Suits premium and tech brands." },
+  { id: "asmr", label: "ASMR", icon: "Feather", description: "Soft, close and intimate. Whisper-quiet delivery that pulls people in." },
+  { id: "storyteller", label: "Storyteller", icon: "Heart", description: "Emotional and personal. Feels like a recommendation from a friend." },
+  { id: "educator", label: "Educator", icon: "ListChecks", description: "Step-by-step, clear and helpful. Perfect for tutorials and how-tos." },
+  { id: "hype", label: "Hype", icon: "Flame", description: "Punchy, loud energy, short lines. Built for drops, launches and promos." },
 ];
+
+export const voicePerformanceById = (id: string): VoicePerformance =>
+  VOICE_PERFORMANCES.find((v) => v.id === id) ?? VOICE_PERFORMANCES[0];
 
 // ── Post-generation Video Editing Tool ──────────────────────────────────────
 export const VIDEO_EDIT_CREDITS = 5;

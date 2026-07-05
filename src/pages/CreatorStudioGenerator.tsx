@@ -8,7 +8,7 @@ import { Pencil } from "lucide-react";
 import VoicePerformanceBlock from "@/components/creator/VoicePerformanceBlock";
 import VideoEditingStyleBlock from "@/components/creator/VideoEditingStyleBlock";
 import VideoEditModal from "@/components/VideoEditModal";
-import { cutStyleById, creditsForDuration, type AspectRatioId, type DurationSec } from "@/lib/creator-studio-config";
+import { cutStyleById, creditsForDuration, voicePerformanceById, type AspectRatioId, type DurationSec } from "@/lib/creator-studio-config";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -69,7 +69,7 @@ const CreatorStudioGenerator = () => {
   const [aspectRatio, setAspectRatio] = useState<AspectRatioId>("9:16");
   const [cutStyleId, setCutStyleId] = useState<string>("no-cuts");
   const [duration, setDuration] = useState<DurationSec>(6);
-  const [voicePerformance, setVoicePerformance] = useState<string>("natural");
+  const [voicePerformance, setVoicePerformance] = useState<string>("enthusiast");
   const [videoEditOpen, setVideoEditOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -563,7 +563,8 @@ const CreatorStudioGenerator = () => {
       const cutStyle = cutStyleById(cutStyleId);
       videoPrompt += ` Editing style: ${cutStyle.name} — ${cutStyle.description} Target length about ${duration} seconds. Aspect ratio ${aspectRatio}.`;
       if (voiceoverOption !== "none") {
-        videoPrompt += ` Voice performance: ${voicePerformance} delivery.`;
+        const vp = voicePerformanceById(voicePerformance);
+        videoPrompt += ` Voice performance: ${vp.label} — ${vp.description}`;
       }
 
       const { data: generateData, error: generateError } = await supabase.functions.invoke(
@@ -584,6 +585,7 @@ const CreatorStudioGenerator = () => {
             cut_style: cutStyleId,            // Omni: chosen cut style id
             duration_seconds: duration,       // Omni: 6 | 8 | 10
             voice_performance: voicePerformance,
+            voice_performance_directive: `${voicePerformanceById(voicePerformance).label}: ${voicePerformanceById(voicePerformance).description}`,
           },
         }
       );
