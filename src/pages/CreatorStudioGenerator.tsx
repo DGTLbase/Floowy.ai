@@ -220,8 +220,18 @@ const CreatorStudioGenerator = () => {
         }
       });
 
-      if (functionError) throw functionError;
-      
+      if (functionError) {
+        // supabase-js hides the real error body in error.context — surface it.
+        let detail = functionError.message;
+        try {
+          const body = await (functionError as any).context?.json?.();
+          if (body?.error) detail = body.error;
+        } catch { /* not JSON */ }
+        throw new Error(detail);
+      }
+
+      if (data?.error) throw new Error(data.error);
+
       if (data.voiceover) {
         setPreviewedVoiceover(data.voiceover);
         toast({

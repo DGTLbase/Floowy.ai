@@ -88,7 +88,7 @@ Requirements:
 - No hashtags, no "swipe up", no call-to-action phrases
 - Start directly with the content (no "Hey guys" or similar)
 - ${languageInstruction}
-- CRITICAL LANGUAGE RULE: write the ENTIRE script in ${languageName} ONLY. Do NOT mix in any English words or phrases (the brand/product name may stay as-is). Output must be 100% ${languageName}.
+- CRITICAL LANGUAGE RULE: write the ENTIRE script in ${spokenLang} ONLY. Do NOT mix in any English words or phrases (the brand/product name may stay as-is). Output must be 100% ${spokenLang}.
 
 Example good scripts${language === 'british' ? ' (British English)' : ''}:
 ${language === 'british' ? `- "This moisturiser is absolutely brilliant! Proper lightweight and keeps my skin hydrated all day long."
@@ -117,8 +117,9 @@ Write ONLY the voiceover script, nothing else.`;
         });
       } catch (err: any) {
         console.error('AI API error:', err?.status, err?.message);
+        const detail = err?.message || err?.error?.message || (err?.status ? `AI error ${err.status}` : 'unknown AI error');
         return new Response(
-          JSON.stringify({ error: 'Failed to generate voiceover preview' }),
+          JSON.stringify({ error: `Voiceover preview failed: ${detail}`, status: err?.status ?? null }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
