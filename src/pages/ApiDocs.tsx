@@ -120,7 +120,7 @@ const ApiDocs = () => (
     <Navigation />
 
     {/* Hero */}
-    <section className="border-b border-border bg-gradient-to-b from-primary/5 to-transparent px-4 pt-32 pb-12">
+    <section className="border-b border-border bg-gradient-to-b from-primary/5 to-transparent px-4 pt-10 pb-12">
       <div className="container mx-auto max-w-5xl">
         <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary">
           <Zap className="h-3.5 w-3.5" /> Developer API
