@@ -26,6 +26,18 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // KILL SWITCH — the €1 non-payer recovery / "expiration" email sequence
+    // (Flows A/B/C/E) is DISABLED. It no longer sends anything, even though the
+    // hourly cron still fires. Set RECOVERY_EMAILS_ENABLED=true (function secret)
+    // to turn it back on. Flow D (welcome, sent on purchase) is unaffected.
+    if (Deno.env.get("RECOVERY_EMAILS_ENABLED") !== "true") {
+      log("recovery/expiration emails disabled — skipping run");
+      return new Response(JSON.stringify({ disabled: true, sent: 0 }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
