@@ -76,12 +76,22 @@ serve(async (req) => {
 
       const languageInstruction = getLanguageInstruction(language);
 
+      // Scale the preview script to the SELECTED duration so it fits the clip the
+      // user is about to generate (realistic ~2.3-2.5 words/sec speaking pace).
+      const previewSeconds = [6, 8, 10].includes(Number(duration_seconds)) ? Number(duration_seconds) : 8;
+      const previewBudget8s: { [k: string]: number } = {
+        english: 20, dutch: 19, spanish: 22, french: 20, german: 18,
+        italian: 22, portuguese: 21, british: 20, american: 20,
+      };
+      const previewMax = Math.round((previewBudget8s[(language || 'english').toLowerCase()] ?? 20) * (previewSeconds / 8));
+      const previewMin = Math.max(6, previewMax - 5);
+
       const voiceoverPrompt = `You are creating a short, authentic voiceover script for a UGC (user-generated content) video promoting "${productName}".
 
 ${categoryInstruction}
 
 Requirements:
-- 15-20 words maximum (must fit in 8 seconds)
+- ${previewMin}-${previewMax} words maximum (must be speakable naturally in ${previewSeconds} seconds)
 - Sound like a real person sharing their genuine experience
 - Use casual, conversational language
 - Be specific about the product
@@ -255,14 +265,17 @@ Write ONLY the voiceover script, nothing else.`;
         
         // Language-specific word counts, calibrated per 8 seconds then scaled to
         // the selected video duration (6 / 8 / 10 sec) so speech fits the clip.
+        // Realistic natural speaking pace ≈ 2.3-2.5 words/sec for UGC delivery, so
+        // an 8s clip is ~16-20 words. Higher counts overflow the clip (speech gets
+        // cut off / rushed). These are per-8s and scaled to the chosen duration.
         const wordCountBase8s: { [key: string]: [number, number] } = {
-          'english': [25, 30],
-          'dutch': [22, 26],
-          'spanish': [28, 32],
-          'french': [26, 30],
-          'german': [22, 26],
-          'italian': [28, 32],
-          'portuguese': [28, 32],
+          'english': [16, 20],
+          'dutch': [15, 19],
+          'spanish': [18, 22],
+          'french': [16, 20],
+          'german': [14, 18],
+          'italian': [18, 22],
+          'portuguese': [17, 21],
         };
         const normalizedLang = (language || 'english').toLowerCase();
         const scriptDuration = [6, 8, 10].includes(Number(duration_seconds)) ? Number(duration_seconds) : 8;
@@ -412,6 +425,39 @@ Return ONLY the voiceover script, no analysis or explanations.`
     const safeDuration = [6, 8, 10].includes(Number(duration_seconds)) ? Number(duration_seconds) : 8;
     const allowCuts = isOmni && !!cut_style && cut_style !== 'no-cuts';
 
+    // Guarantee the spoken script fits the SELECTED duration. A previewed or custom
+    // voiceover may have been written for a different length (the preview is
+    // calibrated to 8s), so if it runs long for the chosen clip we tighten it to a
+    // realistic word budget for that duration — otherwise speech overruns the video.
+    if (enhancedVoiceover && ANTHROPIC_API_KEY) {
+      const fitBudget8s: { [k: string]: number } = {
+        english: 20, dutch: 19, spanish: 22, french: 20, german: 18,
+        italian: 22, portuguese: 21, british: 20, american: 20,
+      };
+      const maxWords = Math.round((fitBudget8s[(language || 'english').toLowerCase()] ?? 20) * (safeDuration / 8));
+      const words = enhancedVoiceover.trim().split(/\s+/).filter(Boolean);
+      if (words.length > maxWords + 1) {
+        try {
+          const fitAnthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+          const fit = await fitAnthropic.messages.create({
+            model: 'claude-haiku-4-5',
+            max_tokens: 256,
+            messages: [{
+              role: 'user',
+              content: `Shorten this UGC voiceover so a person can say it naturally in about ${safeDuration} seconds — no more than ${maxWords} words. Keep it ENTIRELY in ${spokenLang} (no English mixed in except the brand/product name), keep the same meaning and energy. Return ONLY the shortened script — no quotes, no notes:\n\n${enhancedVoiceover}`,
+            }],
+          });
+          const shortened = fit.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('').trim();
+          if (shortened) {
+            console.log(`Trimmed voiceover to fit ${safeDuration}s (<=${maxWords} words): ${shortened}`);
+            enhancedVoiceover = shortened;
+          }
+        } catch (e) {
+          console.error('Voiceover fit-trim failed, keeping original:', e);
+        }
+      }
+    }
+
     // Cut styles need multiple SEQUENTIAL shots, so the "single continuous shot"
     // rule only applies when cuts are not wanted. Duration follows the selection.
     let enhancedPrompt = `CRITICAL VIDEO RULES:
@@ -434,8 +480,11 @@ An approximately ${safeDuration}-second smooth, natural product video. ${prompt}
     // NATURAL FLOW - Not robotic
     enhancedPrompt += 'NATURAL FLOW: Smooth, organic motion throughout. Movements should feel genuine and spontaneous, not staged or mechanical. Real-life pacing and rhythm. ';
     
-    // REINFORCE SINGLE FRAME RULE
-    enhancedPrompt += 'SINGLE FRAME ONLY: The entire video must be ONE continuous view - absolutely NO grid layouts, NO picture-in-picture, NO split compositions. ';
+    // REINFORCE SINGLE FRAME RULE (composition, not timeline). With cuts allowed
+    // we still forbid simultaneous multi-panel layouts, but permit shots over time.
+    enhancedPrompt += allowCuts
+      ? 'FULL-FRAME COMPOSITION: every shot fills the whole frame - absolutely NO grid layouts, NO picture-in-picture, NO split screens, NO side-by-side panels shown at once. Sequential cuts over time are fine; simultaneous multi-panel layouts are not. '
+      : 'SINGLE FRAME ONLY: The entire video must be ONE continuous view - absolutely NO grid layouts, NO picture-in-picture, NO split compositions. ';
     
     // Check if we're generating with audio/model or product-only
     // Use has_model flag to determine if a model was selected (for no-voiceover + model case)
@@ -444,11 +493,11 @@ An approximately ${safeDuration}-second smooth, natural product video. ${prompt}
       const languageInstruction = language && language !== 'english' ? `in ${languageName} ` : '';
       
       if (isMaleProduct) {
-        enhancedPrompt += `A male creator speaks ${languageInstruction}naturally and authentically for EXACTLY 8 seconds. `;
+        enhancedPrompt += `A male creator speaks ${languageInstruction}naturally and authentically for EXACTLY ${safeDuration} seconds. `;
       } else if (isFemaleProduct) {
-        enhancedPrompt += `A female creator speaks ${languageInstruction}naturally and authentically for EXACTLY 8 seconds. `;
+        enhancedPrompt += `A female creator speaks ${languageInstruction}naturally and authentically for EXACTLY ${safeDuration} seconds. `;
       } else {
-        enhancedPrompt += `A creator speaks ${languageInstruction}naturally and authentically for EXACTLY 8 seconds. `;
+        enhancedPrompt += `A creator speaks ${languageInstruction}naturally and authentically for EXACTLY ${safeDuration} seconds. `;
       }
       
       // Natural delivery style
@@ -471,7 +520,9 @@ An approximately ${safeDuration}-second smooth, natural product video. ${prompt}
         enhancedPrompt += 'Natural gestures while discussing the product. Genuine, relatable content creator style. ';
       }
       
-      enhancedPrompt += 'UGC aesthetic with natural lighting. ONE continuous take, no cuts. ';
+      enhancedPrompt += allowCuts
+        ? 'UGC aesthetic with natural lighting. Apply the editing/cut style described above, keeping the SAME creator and their speech continuous across the cuts. '
+        : 'UGC aesthetic with natural lighting. ONE continuous take, no cuts. ';
 
       if (enhancedVoiceover) {
         enhancedPrompt += `SPOKEN LANGUAGE (CRITICAL): the creator speaks ENTIRELY in ${spokenLang}. Every spoken word MUST be in ${spokenLang} - absolutely NO English words or phrases mixed in, except the brand/product name. The creator says exactly, word-for-word in ${spokenLang}: "${enhancedVoiceover}" - delivered naturally over ${safeDuration} seconds with comfortable pacing. `;
@@ -505,7 +556,9 @@ An approximately ${safeDuration}-second smooth, natural product video. ${prompt}
         }
       }
       
-      enhancedPrompt += 'Soft, natural lighting. Smooth continuous footage. No text overlays. ';
+      enhancedPrompt += allowCuts
+        ? 'Soft, natural lighting. Apply the editing/cut style described above with clean, deliberate sequential cuts. No text overlays. '
+        : 'Soft, natural lighting. Smooth continuous footage. No text overlays. ';
     } else {
       // Product-only video without model - ABSOLUTELY NO HUMANS
       enhancedPrompt += 'PRODUCT-ONLY VIDEO: ABSOLUTELY NO humans, NO people, NO models, NO faces, NO hands, NO body parts. ';
@@ -532,7 +585,9 @@ An approximately ${safeDuration}-second smooth, natural product video. ${prompt}
         enhancedPrompt += 'Professional product display with elegant lighting and premium feel. ';
       }
       
-      enhancedPrompt += 'Cinematic quality. ONE continuous shot. ZERO human elements. ';
+      enhancedPrompt += allowCuts
+        ? 'Cinematic quality. Apply the editing/cut style described above with clean, deliberate sequential cuts. ZERO human elements. '
+        : 'Cinematic quality. ONE continuous shot. ZERO human elements. ';
     }
     
     // Add product context if available

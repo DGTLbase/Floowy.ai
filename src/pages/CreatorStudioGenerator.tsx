@@ -216,7 +216,8 @@ const CreatorStudioGenerator = () => {
           action: 'preview_voiceover',
           productName: productName.trim(),
           categoryPreset: categoryPreset,
-          language: language
+          language: language,
+          duration_seconds: duration   // scale the preview script to the selected clip length
         }
       });
 
