@@ -31,10 +31,18 @@ const Navigation = () => {
   const [showCreditsDialog, setShowCreditsDialog] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
+  const [authResolved, setAuthResolved] = useState(false);
+
+  // The global €1 offer bar (OfferStickyBar) is only shown to confirmed
+  // logged-out visitors off the admin panel. Reserve the 40px sticky offset for
+  // it only when it's actually visible — otherwise the nav floats with an empty
+  // band above it (e.g. for logged-in users).
+  const offerBarVisible = authResolved && !user && !location.pathname.startsWith("/admin");
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      setAuthResolved(true);
       if (session?.user) {
         fetchUserData(session.user.id);
       }
@@ -96,7 +104,7 @@ const Navigation = () => {
 
   return (
     <>
-      <nav className="bg-background/80 backdrop-blur-sm sticky top-10 z-40 py-4">
+      <nav className={`bg-background/80 backdrop-blur-sm sticky ${offerBarVisible ? "top-10" : "top-0"} z-40 py-4`}>
         <div className="container mx-auto px-4">
           <div className="bg-card/90 backdrop-blur-md rounded-full shadow-lg border border-border/50 px-4 lg:px-6 py-3 flex items-center justify-between max-w-6xl mx-auto">
             <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0">
