@@ -68,9 +68,13 @@ serve(async (req) => {
     const { priceId, couponId, activateNow } = await req.json();
 
     // One-click early activation of a €1-offer trial (upgrade banner):
-    // end the trial now so Stripe invoices the full plan price immediately.
-    // The invoice.paid webhook then grants the plan's full credits — same
-    // path as the automatic day-3 conversion, just user-triggered.
+    // end the trial now so Stripe invoices the full plan price immediately,
+    // AND grant the plan's full credits right here. We do NOT rely on the
+    // invoice.paid webhook alone — its billing_reason gate ("subscription_cycle")
+    // can miss early trial-ends, which caused users to be charged with no credits.
+    // The grant is idempotent via a credit_history "subscription_refresh" row for
+    // the current billing period — the same marker the webhook and backfill use —
+    // so a later invoice.paid for this same period is a no-op (granted exactly once).
     if (activateNow) {
       const stripeEarly = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
         apiVersion: "2025-08-27.basil",
@@ -81,15 +85,73 @@ serve(async (req) => {
         customer: custs.data[0].id,
         status: "trialing",
         limit: 1,
+        expand: ["data.items.data.price"],
       });
       if (trialSubs.data.length === 0) throw new Error("No trialing subscription to activate");
       const trialSub = trialSubs.data[0];
       logStep("Activating trial now", { subscriptionId: trialSub.id });
-      await stripeEarly.subscriptions.update(trialSub.id, {
+      const activated = await stripeEarly.subscriptions.update(trialSub.id, {
         trial_end: "now",
         proration_behavior: "none",
       });
-      return new Response(JSON.stringify({ success: true, activated: true }), {
+
+      // Deterministically grant the plan's full credits now.
+      let creditsGranted = false;
+      try {
+        const priceId = activated.items.data[0]?.price?.id;
+        const planData = priceId ? PRICE_TO_PLAN_AND_CREDITS[priceId] : null;
+        const periodStart =
+          (activated as any).current_period_start ||
+          (activated.items.data[0] as any)?.current_period_start;
+        if (planData && periodStart) {
+          const admin = createClient(
+            Deno.env.get("SUPABASE_URL") ?? "",
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+          );
+          const periodStartIso = new Date(periodStart * 1000).toISOString();
+          // Already granted for this billing period? (idempotency guard)
+          const { data: existing } = await admin
+            .from("credit_history")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("action_type", "subscription_refresh")
+            .gte("created_at", periodStartIso)
+            .limit(1);
+
+          if (!existing || existing.length === 0) {
+            const { data: creditRow } = await admin
+              .from("credits")
+              .select("balance")
+              .eq("user_id", user.id)
+              .maybeSingle();
+            const oldBalance = creditRow?.balance ?? 0;
+
+            await admin.from("credits").update({ balance: planData.credits }).eq("user_id", user.id);
+            await admin.from("profiles").update({ plan: planData.plan }).eq("id", user.id);
+            await admin.from("credit_history").insert({
+              user_id: user.id,
+              amount: planData.credits - oldBalance,
+              balance_after: planData.credits,
+              action_type: "subscription_refresh",
+              description: `Early activation: ${planData.plan} plan — credits set to ${planData.credits} (period ${periodStartIso})`,
+            });
+            creditsGranted = true;
+            logStep("Granted plan credits on early activation", { plan: planData.plan, credits: planData.credits });
+          } else {
+            logStep("Credits already granted this period — skipping", { periodStartIso });
+          }
+        } else {
+          logStep("Could not resolve plan/period for early activation — leaving to webhook", { priceId });
+        }
+      } catch (e) {
+        // Never fail the activation on a credit-grant hiccup; the webhook/backfill
+        // will still reconcile via the same idempotent marker.
+        logStep("Early-activation credit grant failed (webhook will retry)", {
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, activated: true, creditsGranted }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });

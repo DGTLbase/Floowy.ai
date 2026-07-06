@@ -301,6 +301,31 @@ serve(async (req) => {
       const userId = profile.id;
       console.log("[stripe-webhook-subscription] Monthly renewal for user:", userId, "plan:", planData.plan, "credits:", planData.credits);
 
+      // Idempotency: if credits were already refreshed/granted for this billing
+      // period — e.g. by early activation in change-subscription, the backfill,
+      // or a duplicate invoice event — do nothing. Credits are granted exactly
+      // once per period. (Same "subscription_refresh" marker used everywhere.)
+      const periodStart =
+        (subscription as any).current_period_start ||
+        (subscription.items.data[0] as any)?.current_period_start;
+      if (periodStart) {
+        const periodStartIso = new Date(periodStart * 1000).toISOString();
+        const { data: alreadyRefreshed } = await supabaseClient
+          .from("credit_history")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("action_type", "subscription_refresh")
+          .gte("created_at", periodStartIso)
+          .limit(1);
+        if (alreadyRefreshed && alreadyRefreshed.length > 0) {
+          console.log("[stripe-webhook-subscription] Credits already refreshed this period, skipping");
+          return new Response(JSON.stringify({ received: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          });
+        }
+      }
+
       // Get current balance before refresh
       const { data: currentCredits } = await supabaseClient
         .from("credits")
