@@ -22,10 +22,13 @@ const Payment = () => {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
   const [isChangingPlan, setIsChangingPlan] = useState(false);
+  // Enterprise is only offered to logged-in users (plan-switching), never on the
+  // public price overview or during signup.
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const plans = [
+  const basePlans = [
     {
       id: "lite",
       name: "Lite",
@@ -87,6 +90,33 @@ const Payment = () => {
       ],
     },
   ];
+
+  // Enterprise — shown ONLY to logged-in users so they can switch up to it.
+  // €229/month (from config). Feature list swaps Creator Studio for API access.
+  const enterprisePlan = {
+    id: "enterprise",
+    name: "Enterprise",
+    monthlyPrice: SUBSCRIPTION_PLANS.enterprise.monthly.price,
+    yearlyPrice: SUBSCRIPTION_PLANS.enterprise.yearly.price,
+    monthlyCredits: SUBSCRIPTION_PLANS.enterprise.monthly.credits,
+    yearlyCredits: SUBSCRIPTION_PLANS.enterprise.yearly.credits,
+    monthlyPriceId: SUBSCRIPTION_PLANS.enterprise.monthly.priceId,
+    yearlyPriceId: SUBSCRIPTION_PLANS.enterprise.yearly.priceId,
+    popular: false,
+    description: "For high-volume brands and teams that need scale and integrations",
+    features: [
+      { text: `${billingCycle === "yearly" ? SUBSCRIPTION_PLANS.enterprise.yearly.credits : SUBSCRIPTION_PLANS.enterprise.monthly.credits} credits per ${billingCycle === "yearly" ? "year" : "month"}`, included: true },
+      { text: `Generate up to ${billingCycle === "yearly" ? "3,000" : "250"} images per ${billingCycle === "yearly" ? "year" : "month"}`, included: true },
+      { text: "Access to all Floowy tools", included: true },
+      { text: "Priority generation queue", included: true },
+      { text: "Priority support", included: true },
+      { text: "Dedicated account manager", included: true },
+      { text: "API access", included: true },
+    ],
+  };
+
+  // Enterprise only appears once we know the visitor is authenticated.
+  const plans = isLoggedIn ? [...basePlans, enterprisePlan] : basePlans;
 
   const customFeatures = [
     "Everything in Professional",
@@ -241,6 +271,7 @@ const Payment = () => {
   const fetchCurrentPlan = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      setIsLoggedIn(!!user);
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
@@ -455,7 +486,7 @@ const Payment = () => {
             </div>
           ) : (
             <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-stretch pt-6 mb-8">
+            <div className={`grid grid-cols-1 gap-6 md:gap-8 items-stretch pt-6 mb-8 ${plans.length >= 4 ? "md:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-3"}`}>
               {plans.map((plan) => {
                 const displayPrice = billingCycle === "monthly" ? plan.monthlyPrice : plan.yearlyPrice;
                 const isCurrent = currentPlan === plan.id;

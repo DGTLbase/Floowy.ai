@@ -24,11 +24,15 @@ const PRICE_TO_PLAN_AND_CREDITS: Record<string, { plan: string; credits: number 
   "price_1SXv5wKbAjgJzP4OZ4ItVTI6": { plan: "starter", credits: 100 },
   "price_1SXv5zKbAjgJzP4OvMuBKt2O": { plan: "professional", credits: 250 },
   "price_1SXv61KbAjgJzP4O6Lk56HVx": { plan: "enterprise", credits: 500 },
+  // Enterprise — current live price IDs (must match src/lib/stripe-config.ts +
+  // stripe-webhook-subscription). The €1SXv61/62 IDs above are kept for back-compat.
+  "price_1ShA0EKbAjgJzP4OS9TVcaIP": { plan: "enterprise", credits: 500 },
   // Yearly plans
   "price_1TYiClKbAjgJzP4OFk8CfXy9": { plan: "lite", credits: 480 },
   "price_1SXv5yKbAjgJzP4OvGPL0OSw": { plan: "starter", credits: 1200 },
   "price_1SXv60KbAjgJzP4OvawG7K1A": { plan: "professional", credits: 3000 },
   "price_1SXv62KbAjgJzP4OCvLBVd7K": { plan: "enterprise", credits: 6000 },
+  "price_1Sfu1DKbAjgJzP4O68Keb4AQ": { plan: "enterprise", credits: 6000 },
   // Ultra (upsell) — created by scripts/setup-stripe-offers.mjs
   "price_1TkbwJKbAjgJzP4OaHqIAkLN": { plan: "ultra", credits: 3000 },
 };
