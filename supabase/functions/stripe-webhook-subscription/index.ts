@@ -1,3 +1,12 @@
+// ⚠️ DEPRECATED — DO NOT REGISTER IN STRIPE.
+// This function is fully superseded by `stripe-webhook`, which handles a superset
+// of these events (payment_intent.succeeded, checkout.session.completed,
+// invoice.paid) PLUS credit packs and customer.subscription.updated. As of
+// 2026-07-06 the only Stripe endpoint that pointed here was DISABLED and aimed at
+// a stale project (fjzifykgvdsownlscgct), so this receives no live traffic.
+// Kept deployed only so a re-enabled legacy endpoint wouldn't 404. The single
+// canonical webhook is `stripe-webhook`. Remove the disabled Stripe endpoint, then
+// this file can be deleted.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
