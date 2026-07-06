@@ -664,6 +664,28 @@ serve(async (req) => {
       const userId = profile.id;
       console.log("[stripe-webhook] Monthly renewal for user:", userId, "plan:", planData.plan, "credits:", planData.credits);
 
+      // Idempotency: grant exactly once per billing period. Coordinates with
+      // stripe-webhook-subscription, change-subscription and the reconcile tools
+      // via the shared "subscription_refresh" marker, so a duplicate invoice event
+      // (or an already-reconciled account) can't re-set / refund consumed credits.
+      const periodStart =
+        (subscription as any).current_period_start ||
+        (subscription.items.data[0] as any)?.current_period_start;
+      if (periodStart) {
+        const periodStartIso = new Date(periodStart * 1000).toISOString();
+        const { data: alreadyRefreshed } = await supabaseAdmin
+          .from("credit_history")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("action_type", "subscription_refresh")
+          .gte("created_at", periodStartIso)
+          .limit(1);
+        if (alreadyRefreshed && alreadyRefreshed.length > 0) {
+          console.log("[stripe-webhook] Credits already refreshed this period, skipping");
+          return new Response(JSON.stringify({ received: true }), { status: 200 });
+        }
+      }
+
       // Get current balance before refresh
       const { data: currentCredits } = await supabaseAdmin
         .from("credits")
