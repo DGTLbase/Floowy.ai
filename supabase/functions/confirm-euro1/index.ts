@@ -16,6 +16,21 @@ const PLAN_TO_PRICE: Record<string, string> = {
 // Max credits during the €1 period (Section 8).
 const TRIAL_CREDITS = 10;
 
+// The €1 checkout is mode:"setup" (saves a card, charges nothing), so we must
+// confirm the €1 was actually captured before granting trial credits — otherwise
+// a declined/abandoned card still receives 10 free credits. Polls briefly because
+// the charge can still be finalizing right after the subscription is created.
+async function hasPaidInvoice(stripe: Stripe, customerId: string): Promise<boolean> {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const invoices = await stripe.invoices.list({ customer: customerId, limit: 10 });
+    if (invoices.data.some((inv) => inv.status === "paid" && (inv.amount_paid ?? 0) > 0)) {
+      return true;
+    }
+    if (attempt < 3) await new Promise((r) => setTimeout(r, 1500));
+  }
+  return false;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -79,20 +94,43 @@ serve(async (req) => {
       // Chosen plan, billed after a 3-day trial → at day 3 Stripe emits a
       // subscription_cycle invoice for the full plan price, which the webhook
       // uses to refresh credits to the plan amount.
-      await stripe.subscriptions.create({
+      const sub = await stripe.subscriptions.create({
         customer: customerId,
         items: [{ price: chosenPriceId, quantity: 1 }],
         trial_period_days: 3,
         default_payment_method: paymentMethod,
         metadata: { userId: user.id, plan, offerType: "euro1_trial" },
+        expand: ["latest_invoice"],
       });
+      // Collect the €1 now. If the create-invoice carrying the €1 item hasn't
+      // auto-charged, attempt payment explicitly so we can confirm capture below.
+      const inv = sub.latest_invoice as Stripe.Invoice | null;
+      if (inv && inv.status !== "paid" && (inv.amount_due ?? 0) > 0) {
+        try {
+          await stripe.invoices.pay(inv.id);
+        } catch (e) {
+          console.error("€1 invoice pay attempt failed", e);
+        }
+      }
     }
 
-    // Set plan + cap credits to the trial allotment.
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
+
+    // CRITICAL: only grant trial credits if the €1 was ACTUALLY captured. Without
+    // this, a declined/abandoned setup-mode card still received 10 free credits.
+    const paidEuro1 = await hasPaidInvoice(stripe, customerId);
+    if (!paidEuro1) {
+      console.error("[confirm-euro1] €1 not captured — withholding trial credits", { userId: user.id });
+      return new Response(
+        JSON.stringify({ success: false, paid: false, error: "€1 payment could not be collected" }),
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Set plan + cap credits to the trial allotment.
     await supabaseAdmin.from("profiles").update({ plan }).eq("id", user.id);
     await supabaseAdmin
       .from("credits")

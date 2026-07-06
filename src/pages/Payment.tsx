@@ -128,7 +128,16 @@ const Payment = () => {
       window.history.replaceState({}, "", "/payment");
       (async () => {
         try {
-          await supabase.functions.invoke("confirm-euro1", { body: { sessionId: euro1Setup } });
+          const { data, error } = await supabase.functions.invoke("confirm-euro1", { body: { sessionId: euro1Setup } });
+          // The €1 checkout only saves a card; if the €1 couldn't be collected the
+          // backend withholds the trial credits and returns paid:false.
+          if (error || data?.paid === false || data?.success === false) {
+            toast({
+              title: "Payment not completed",
+              description: "We couldn't collect the €1 for your launch access, so no credits were added. Please try again with a different card.",
+              variant: "destructive",
+            });
+          }
         } catch (e) {
           console.error("confirm-euro1 failed", e);
         }
