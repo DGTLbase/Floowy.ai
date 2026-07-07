@@ -3,6 +3,8 @@
 //
 // Partner endpoints (Authorization: Bearer flw_live_...):
 //   POST {"tool":"ambience","prompt":"...","image_url":"..."}  -> charges 1 credit, returns request_id
+//        images: public links via image_url / image_urls, OR local files via
+//        image_base64 / images_base64 (base64 string, with or without a data: prefix)
 //   POST {"action":"status","request_id":"..."}                -> free, returns status/result
 //   POST {"action":"balance"}                                  -> free, returns credits_remaining
 //
@@ -32,6 +34,27 @@ const admin = () => createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
   { auth: { persistSession: false } },
 );
+
+const IMGBB_API_KEY = Deno.env.get("IMGBB_API_KEY");
+
+// Accept a public URL as-is, or accept base64 image data (a local file, base64-
+// encoded — with or without a `data:` prefix) and upload it to imgbb, returning the
+// resulting public URL. This lets API users send local files, not just public links.
+async function resolveImageToUrl(input: string): Promise<string> {
+  const s = input.trim();
+  if (/^https?:\/\//i.test(s)) return s;
+  if (!IMGBB_API_KEY) throw new Error("Local-file (base64) uploads are not configured on this deployment");
+  const b64 = s.startsWith("data:") ? (s.split(",")[1] ?? "") : s;
+  if (!b64) throw new Error("Empty image data");
+  const form = new FormData();
+  form.append("image", b64);
+  const r = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: form });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d?.success || !d?.data?.url) {
+    throw new Error(`Image upload failed: ${JSON.stringify(d).slice(0, 200)}`);
+  }
+  return d.data.url as string;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -204,14 +227,26 @@ serve(async (req) => {
     if (!TOOLS[tool]) {
       return json({ error: `Unknown tool '${tool}'. Available: ${Object.keys(TOOLS).join(", ")}` }, 400);
     }
-    const imageUrls: string[] = Array.isArray(body.image_urls)
-      ? body.image_urls
-      : body.image_url ? [body.image_url] : [];
-    if (!body.prompt || imageUrls.length === 0) {
-      return json({ error: "prompt and image_url (or image_urls) are required" }, 400);
+    // Accept public URLs AND/OR base64 image data (local files). URLs pass through;
+    // base64 inputs are uploaded to get a public URL that the model can fetch.
+    const rawInputs: string[] = [
+      ...(Array.isArray(body.image_urls) ? body.image_urls : body.image_url ? [body.image_url] : []),
+      ...(Array.isArray(body.images_base64) ? body.images_base64 : body.image_base64 ? [body.image_base64] : []),
+    ].filter((x) => typeof x === "string" && x.trim().length > 0);
+
+    if (!body.prompt || rawInputs.length === 0) {
+      return json({ error: "prompt and at least one image are required (image_url / image_urls for public links, or image_base64 / images_base64 for local files)" }, 400);
     }
-    if (imageUrls.length > TOOLS[tool].maxImages) {
+    if (rawInputs.length > TOOLS[tool].maxImages) {
       return json({ error: `${tool} accepts at most ${TOOLS[tool].maxImages} images` }, 400);
+    }
+
+    // Resolve base64 → public URL BEFORE charging, so a failed upload never costs a credit.
+    let imageUrls: string[];
+    try {
+      imageUrls = await Promise.all(rawInputs.map(resolveImageToUrl));
+    } catch (e) {
+      return json({ error: e instanceof Error ? e.message : "Image upload failed" }, 400);
     }
 
     // Atomic charge: rejects if revoked, tool not allowed, or balance empty.
