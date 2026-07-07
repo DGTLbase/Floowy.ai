@@ -332,8 +332,8 @@ const FashionVideoStudioGenerator = () => {
               </div>
             </div>
 
-            {/* Generate */}
-            <div className="sticky bottom-4 space-y-2">
+            {/* Generate — sits at the end of the form, scrolls with content (not sticky) */}
+            <div className="space-y-2 pt-2">
               {validationMessage && (
                 <p className="text-center text-xs font-medium text-amber-600">{validationMessage}</p>
               )}
