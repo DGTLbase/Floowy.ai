@@ -30,10 +30,12 @@ const ToolPageLayout = ({ children }: ToolPageLayoutProps) => {
     );
   }
 
+  // App-shell layout: the outer row is exactly viewport height and does not scroll,
+  // so the sidebar stays pinned at full height. Only the tool pane scrolls.
   return (
-    <div className="flex min-h-screen items-start">
-      <AppSidebar className="!sticky !top-0 !h-screen self-start" />
-      <div className="flex-1 min-w-0 overflow-x-hidden relative">{children}</div>
+    <div className="flex h-screen overflow-hidden">
+      <AppSidebar className="!h-screen self-start shrink-0" />
+      <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden relative">{children}</div>
       {tourEl}
     </div>
   );
