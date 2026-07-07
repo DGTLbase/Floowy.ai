@@ -245,22 +245,34 @@ CRITICAL RULES:
         composed: start_is_composed,
       });
 
-      const requestBody: Record<string, unknown> = {
-        prompt: videoPrompt,
-        start_image_url,
-        // Extra garment references for multi-image-capable models (ignored otherwise).
-        reference_image_urls: garment_image_urls,
-        duration: String(safeDuration),
-        generate_audio: false,
-        shot_type: 'customize',
-        aspect_ratio: safeAspect,
-        negative_prompt: 'blur, distort, low quality, text overlay, captions, subtitles, split screen, picture-in-picture, collage, watermark, logo, brand name, altered garment, warped clothing, extra limbs, deformed hands',
-        cfg_scale: 0.5,
-      };
+      // Model is env-configurable (FAL_VIDEO_MODEL, shared with Creator Studio).
+      // Omni image-to-video takes a lean body (image_url, prompt, aspect_ratio) —
+      // duration is conveyed via the prompt; Kling takes start_image_url + params.
+      const VIDEO_MODEL = Deno.env.get('FAL_VIDEO_MODEL') || 'fal-ai/kling-video/v3/pro';
+      const isOmni = VIDEO_MODEL.includes('omni');
+      const submitUrl = `https://queue.fal.run/${VIDEO_MODEL}/image-to-video`;
 
-      console.log('[GENERATE_STUDIO] config:', { safeAspect, safeDuration, allowCuts: editing_allows_cuts, garment_summary });
+      const requestBody: Record<string, unknown> = isOmni
+        ? {
+            image_url: start_image_url,
+            prompt: videoPrompt,
+            aspect_ratio: safeAspect,
+          }
+        : {
+            prompt: videoPrompt,
+            start_image_url,
+            reference_image_urls: garment_image_urls,
+            duration: String(safeDuration),
+            generate_audio: false,
+            shot_type: 'customize',
+            aspect_ratio: safeAspect,
+            negative_prompt: 'blur, distort, low quality, text overlay, captions, subtitles, split screen, picture-in-picture, collage, watermark, logo, brand name, altered garment, warped clothing, extra limbs, deformed hands',
+            cfg_scale: 0.5,
+          };
 
-      const response = await fetch('https://queue.fal.run/fal-ai/kling-video/v3/pro/image-to-video', {
+      console.log('[GENERATE_STUDIO] config:', { model: VIDEO_MODEL, isOmni, safeAspect, safeDuration, allowCuts: editing_allows_cuts, garment_summary });
+
+      const response = await fetch(submitUrl, {
         method: 'POST',
         headers: { 'Authorization': `Key ${FAL_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -269,7 +281,7 @@ CRITICAL RULES:
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[GENERATE_STUDIO] FAL error:', errorText);
-        throw new Error(`Video generation failed: ${response.status}`);
+        throw new Error(`Video generation failed: ${response.status} ${errorText.slice(0, 300)}`);
       }
 
       const data = await response.json();
