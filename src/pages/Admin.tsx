@@ -1060,6 +1060,7 @@ const Admin = () => {
       'simple_pose_maker': '/tool/simple-pose-maker',
       'ultimate-outfit-maker-v2': '/tool/ultimate-outfit-maker-v2',
       'virtual-tour': '/tool/property-studio',
+      'fashion-video': '/tool/fashion-video-studio',
     };
     return routes[toolName] || '/';
   };
@@ -1870,6 +1871,7 @@ const Admin = () => {
                   'flatlay_studio': LayoutGrid,
                   'simple_pose_maker': UserCircle,
                   'virtual-tour': Film,
+                  'fashion-video': Video,
                 };
                 
                 const colorMap: Record<string, { bg: string; icon: string; glow: string }> = {
@@ -1918,10 +1920,15 @@ const Admin = () => {
                     icon: 'text-orange-500',
                     glow: 'shadow-orange-500/20'
                   },
-                  'virtual-tour': { 
-                    bg: 'from-indigo-500/20 to-indigo-600/10', 
+                  'virtual-tour': {
+                    bg: 'from-indigo-500/20 to-indigo-600/10',
                     icon: 'text-indigo-500',
                     glow: 'shadow-indigo-500/20'
+                  },
+                  'fashion-video': {
+                    bg: 'from-fuchsia-500/20 to-fuchsia-600/10',
+                    icon: 'text-fuchsia-500',
+                    glow: 'shadow-fuchsia-500/20'
                   },
                 };
                 

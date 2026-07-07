@@ -85,8 +85,14 @@ const FashionVideoStudioGenerator = () => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) { navigate("/auth"); return; }
-      // Limited-preview gate: hide the tool from everyone except the allowlist.
-      if (!canAccessFashionStudio(session.user.email)) { navigate("/dashboard"); return; }
+      // Access: the allowlist OR any admin (so admins can test from Admin → Tools).
+      let allowed = canAccessFashionStudio(session.user.email);
+      if (!allowed) {
+        const { data: roles } = await supabase
+          .from("user_roles").select("role").eq("user_id", session.user.id);
+        allowed = !!roles?.some((r) => r.role === "admin");
+      }
+      if (!allowed) { navigate("/dashboard"); return; }
       setUser(session.user);
       const [{ data: creditRow }, { data: profile }] = await Promise.all([
         supabase.from("credits").select("balance").eq("user_id", session.user.id).maybeSingle(),
