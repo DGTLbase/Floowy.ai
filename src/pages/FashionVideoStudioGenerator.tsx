@@ -92,7 +92,7 @@ const FashionVideoStudioGenerator = () => {
           .from("user_roles").select("role").eq("user_id", session.user.id);
         allowed = !!roles?.some((r) => r.role === "admin");
       }
-      if (!allowed) { navigate("/dashboard"); return; }
+      if (!allowed) { navigate("/home"); return; }
       setUser(session.user);
       const [{ data: creditRow }, { data: profile }] = await Promise.all([
         supabase.from("credits").select("balance").eq("user_id", session.user.id).maybeSingle(),
@@ -238,7 +238,7 @@ const FashionVideoStudioGenerator = () => {
       <header className="sticky top-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur">
         <div className="flex items-center justify-between px-4 py-3 md:px-6">
           <div className="flex items-center gap-3">
-            <Link to="/dashboard" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
+            <Link to="/home" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
             <img src={logoImage} alt="Floowy" className="h-7" />
             <span className="hidden text-sm font-semibold text-foreground sm:inline">Fashion Video Studio</span>
           </div>
