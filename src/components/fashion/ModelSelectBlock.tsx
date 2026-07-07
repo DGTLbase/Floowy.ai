@@ -80,8 +80,8 @@ const ModelSelectBlock = ({ value, onChange, onReject }: Props) => {
           <ModelSelector
             selectedModel={value.libraryModelUrl}
             onModelSelect={(url) => onChange({ ...value, libraryModelUrl: url || null })}
-            columns={5}
-            maxHeight="600px"
+            columns={10}
+            maxHeight="440px"
           />
         </div>
       )}
