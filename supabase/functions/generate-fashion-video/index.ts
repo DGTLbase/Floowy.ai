@@ -17,19 +17,24 @@ function buildFashionPrompt(opts: {
   allowCuts: boolean;
   garmentSummary: Record<string, number>;
   duration: number;
+  composed?: boolean;
 }): string {
-  const { modelPrompt, modelIsUpload, contextPrompt, editingPrompt, allowCuts, garmentSummary, duration } = opts;
+  const { modelPrompt, modelIsUpload, contextPrompt, editingPrompt, allowCuts, garmentSummary, duration, composed } = opts;
 
   const worn: string[] = [];
   if ((garmentSummary.top ?? 0) > 0) worn.push('the featured top (primary garment — most screen time)');
   if ((garmentSummary.bottom ?? 0) > 0) worn.push('the bottom garment');
   if ((garmentSummary.shoes ?? 0) > 0) worn.push('the footwear');
   if ((garmentSummary.accessories ?? 0) > 0) worn.push('the accessories');
-  const wornLine = worn.length
+  // When the start image is already the composed on-model look, don't re-describe
+  // the garments (that risks the model restyling them).
+  const wornLine = composed ? '' : (worn.length
     ? `The model wears ${worn.join(', ')}, styled as a complete cohesive outfit. Feature higher-priority garments more prominently and for more screen time.`
-    : '';
+    : '');
 
-  const modelLine = modelIsUpload
+  const modelLine = composed
+    ? 'The person shown is ALREADY wearing the complete styled outfit. Preserve their identity, face, body, skin tone, hair and their exact clothing — do NOT change or restyle the garments. Animate them naturally within the scene.'
+    : modelIsUpload
     ? 'Dress the exact person from the reference image in the uploaded garments. STRICTLY PRESERVE their facial features, face shape, skin tone, eye colour and body proportions — zero alterations.'
     : (modelPrompt ? `The outfit is worn by ${modelPrompt}.` : 'The outfit is worn by a professional fashion model.');
 
@@ -219,6 +224,7 @@ CRITICAL RULES:
         editing_prompt = '',
         editing_allows_cuts = false,
         garment_summary = {},   // { top:number, bottom:number, shoes:number, accessories:number }
+        start_is_composed = false,  // start_image_url is a nano-banana on-model composite
         aspect_ratio = '9:16',
         duration_seconds = 6,
       } = body;
@@ -236,6 +242,7 @@ CRITICAL RULES:
         allowCuts: editing_allows_cuts,
         garmentSummary: garment_summary,
         duration: safeDuration,
+        composed: start_is_composed,
       });
 
       const requestBody: Record<string, unknown> = {

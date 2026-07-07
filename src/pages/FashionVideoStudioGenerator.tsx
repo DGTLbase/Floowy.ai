@@ -37,6 +37,25 @@ async function uploadToImgbb(file: File): Promise<string> {
   return data.url as string;
 }
 
+// Poll a fal-queue task (via its status endpoint) until it yields a URL.
+async function pollTask(
+  invoke: () => Promise<{ data: any; error: any }>,
+  read: (st: any) => { url?: string | null; failed?: boolean },
+  opts: { maxAttempts: number; intervalMs?: number; onTick?: () => void },
+): Promise<string> {
+  const { maxAttempts, intervalMs = 4000, onTick } = opts;
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise((r) => setTimeout(r, intervalMs));
+    let st: any = null;
+    try { st = (await invoke()).data; } catch { onTick?.(); continue; }
+    const r = read(st);
+    if (r.failed) throw new Error(st?.error || "Task failed");
+    if (r.url) return r.url;
+    onTick?.();
+  }
+  throw new Error("Timed out. No credits were charged.");
+}
+
 const FashionVideoStudioGenerator = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -112,47 +131,63 @@ const FashionVideoStudioGenerator = () => {
     setPipelineStage("preparing");
 
     try {
-      // 1) Upload all garment images (in priority order) + optional model photo.
+      // 1) Upload garment images (priority order) + resolve the model reference.
       const orderedFiles = [
         ...garments.top, ...garments.bottom, ...garments.shoes, ...garments.accessories,
       ];
       setPipelineStage("uploading");
       const garmentUrls = await Promise.all(orderedFiles.map((g) => uploadToImgbb(g.file)));
-      setProgress(30);
+      setProgress(18);
 
-      // Model reference: a chosen library avatar OR an uploaded photo becomes the
-      // person we dress and animate. "Describe" is text-only (no reference image).
-      let startImageUrl = garmentUrls[0];
-      let modelIsUpload = false;
+      // A chosen library avatar OR an uploaded photo is the person to dress.
+      // "Describe" is text-only (nano-banana generates the model from the garments).
+      let modelRefUrl: string | null = null;
       let modelPrompt = "";
       if (model.method === "upload" && model.uploadFile) {
-        startImageUrl = await uploadToImgbb(model.uploadFile);
-        modelIsUpload = true;
+        modelRefUrl = await uploadToImgbb(model.uploadFile);
       } else if (model.method === "library" && model.libraryModelUrl) {
-        startImageUrl = model.libraryModelUrl;   // selected avatar image
-        modelIsUpload = true;
+        modelRefUrl = model.libraryModelUrl;
       } else if (model.method === "describe") {
         modelPrompt = model.describe.trim();
-        startImageUrl = garmentUrls[0];
       }
-      if (!startImageUrl) throw new Error("No image available to start from");
 
-      // 2) Resolve context + editing prompt inputs.
       const contextPrompt = contextIsCustom ? contextCustom.trim() : (contextById(contextId)?.prompt ?? "");
       const editingPrompt = editingIsCustom ? editingCustom.trim() : (editingStyleById(editingId)?.prompt ?? "");
       const allowCuts = editingIsCustom ? false : editingStyleAllowsCuts(editingId);
 
-      setProgress(40);
-      setPipelineStage("generating_video");
+      // 2) STEP 1 — compose the on-model still image with nano-banana
+      //    (edit-fashion-image). Garments get worn by the model in the scene.
+      setPipelineStage("styling");
+      setProgress(26);
+      const composePrompt = modelRefUrl
+        ? `Full-body fashion photograph of the person from the FIRST reference image. Dress them in the garments shown in the following reference images, styled as one complete cohesive outfit. Keep the person's face, body, skin tone, hair and all physical features EXACTLY as in the first image — do not alter the person. Realistic fabric drape with natural wrinkles and shadows. Full body visible from head to toe. Scene and background: ${contextPrompt}. Natural, flattering lighting, realistic photography. No text, no watermark, no logos.`
+        : `Full-body fashion photograph of ${modelPrompt || "a professional fashion model"}, wearing the garments shown in the reference images styled as one complete cohesive outfit. Realistic fabric drape, full body visible from head to toe. Scene and background: ${contextPrompt}. Natural, flattering lighting, realistic photography. No text, no watermark, no logos.`;
+      const composeImageUrls = modelRefUrl ? [modelRefUrl, ...garmentUrls] : garmentUrls;
 
-      // 3) Submit.
+      const { data: compose, error: composeErr } = await supabase.functions.invoke("edit-fashion-image", {
+        body: { action: "generate", prompt: composePrompt, image_urls: composeImageUrls, aspect_ratio: aspectRatio, resolution: "2K" },
+      });
+      if (composeErr) throw composeErr;
+      if (compose?.error) throw new Error(compose.error);
+      if (!compose?.request_id) throw new Error("Could not start styling the outfit.");
+
+      const composedImageUrl = await pollTask(
+        () => supabase.functions.invoke("edit-fashion-image", { body: { action: "status", requestId: compose.request_id } }),
+        (st) => st?.status === "COMPLETED" ? { url: st.images?.[0]?.url } : { failed: st?.status === "FAILED" },
+        { maxAttempts: 45, onTick: () => setProgress((p) => Math.min(p + 2, 52)) },
+      );
+      setProgress(55);
+
+      // 3) STEP 2 — animate the composed still into a video with Kling (generate_studio).
+      setPipelineStage("generating_video");
       const { data: gen, error: genErr } = await supabase.functions.invoke("generate-fashion-video", {
         body: {
           action: "generate_studio",
-          start_image_url: startImageUrl,
+          start_image_url: composedImageUrl,
           garment_image_urls: garmentUrls,
           model_prompt: modelPrompt,
-          model_is_upload: modelIsUpload,
+          model_is_upload: true,
+          start_is_composed: true,
           context_prompt: contextPrompt,
           editing_prompt: editingPrompt,
           editing_allows_cuts: allowCuts,
@@ -163,36 +198,19 @@ const FashionVideoStudioGenerator = () => {
       });
       if (genErr) throw genErr;
       if (gen?.error) throw new Error(gen.error);
-      const { request_id, status_url, response_url } = gen;
-      setProgress(55);
+      setProgress(62);
 
-      // 4) Poll to completion.
-      await new Promise<void>((resolve, reject2) => {
-        const started = Date.now();
-        const interval = setInterval(async () => {
-          if (Date.now() - started > 5 * 60 * 1000) {
-            clearInterval(interval); reject2(new Error("Generation timed out. No credits were charged."));
-            return;
-          }
-          try {
-            const { data: st } = await supabase.functions.invoke("generate-fashion-video", {
-              body: { action: "status", requestId: request_id, statusUrl: status_url, responseUrl: response_url },
-            });
-            if (st?.status === "COMPLETED" && st.video_url) {
-              clearInterval(interval);
-              setGeneratedVideoUrl(st.video_url);
-              setProgress(100);
-              resolve();
-            } else if (st?.status === "FAILED") {
-              clearInterval(interval); reject2(new Error(st.error || "Generation failed"));
-            } else {
-              setProgress((p) => Math.min(p + 4, 92));
-            }
-          } catch { /* transient — keep polling */ }
-        }, 4000);
-      });
+      const videoUrl = await pollTask(
+        () => supabase.functions.invoke("generate-fashion-video", {
+          body: { action: "status", requestId: gen.request_id, statusUrl: gen.status_url, responseUrl: gen.response_url },
+        }),
+        (st) => st?.status === "COMPLETED" ? { url: st.video_url } : { failed: st?.status === "FAILED" },
+        { maxAttempts: 75, onTick: () => setProgress((p) => Math.min(p + 3, 95)) },
+      );
+      setGeneratedVideoUrl(videoUrl);
+      setProgress(100);
 
-      // 5) Charge on success only.
+      // 4) Charge on success only.
       const newBalance = await deductCredits(user.id, cost);
       if (typeof newBalance === "number") setCredits(newBalance);
       toast({ title: "Fashion video ready 🎉", description: `${cost} credits used.` });
