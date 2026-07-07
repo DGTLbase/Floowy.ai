@@ -160,6 +160,14 @@ const ApiDocs = () => (
               per-credit rate. Requests are asynchronous: you submit a job, then poll for the result. Polling and
               balance checks are free.
             </p>
+            <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+              <strong className="text-foreground">Images: public links or local files.</strong> Every image parameter
+              accepts either a public URL (<code className="text-foreground">image_url</code> /{" "}
+              <code className="text-foreground">image_urls</code>) or a base64-encoded local file
+              (<code className="text-foreground">image_base64</code> /{" "}
+              <code className="text-foreground">images_base64</code>, with or without a{" "}
+              <code className="text-foreground">data:</code> prefix). You no longer need to host images publicly first.
+            </div>
             <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {TOOLS.map((t) => (
                 <a key={t.id} href={`#${t.id}`} className="group rounded-xl border border-border p-4 transition hover:border-primary hover:shadow-sm">
