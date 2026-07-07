@@ -11,6 +11,8 @@ import VideoEditModal from "@/components/VideoEditModal";
 import PlanCreditsDisplay from "@/components/PlanCreditsDisplay";
 import UserMenu from "@/components/UserMenu";
 import GenerationProgressOverlay from "@/components/GenerationProgressOverlay";
+import { AdminToolsSidebar } from "@/components/AdminToolsSidebar";
+import { useFromAdmin } from "@/hooks/useFromAdmin";
 import { deductCredits } from "@/hooks/useCreditDeduction";
 import logoImage from "@/assets/floowy-logo.png";
 import {
@@ -59,6 +61,7 @@ async function pollTask(
 const FashionVideoStudioGenerator = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const fromAdmin = useFromAdmin();
 
   const [user, setUser] = useState<any>(null);
   const [credits, setCredits] = useState(0);
@@ -233,12 +236,16 @@ const FashionVideoStudioGenerator = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={`min-h-screen bg-background ${fromAdmin ? "pl-16" : ""}`}>
+      {/* Admin-tools version: show the admin rail instead of the back-to-home button. */}
+      {fromAdmin && <AdminToolsSidebar />}
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur">
         <div className="flex items-center justify-between px-4 py-3 md:px-6">
           <div className="flex items-center gap-3">
-            <Link to="/home" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
+            {!fromAdmin && (
+              <Link to="/home" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
+            )}
             <img src={logoImage} alt="Floowy" className="h-7" />
             <span className="hidden text-sm font-semibold text-foreground sm:inline">Fashion Video Studio</span>
           </div>
