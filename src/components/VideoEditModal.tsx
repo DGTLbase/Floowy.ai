@@ -62,24 +62,41 @@ const VideoEditModal = ({ open, onClose, videoUrl, onEdited, chips = VIDEO_EDIT_
     if (!prompt.trim() || !active) return;
     setIsApplying(true);
     try {
-      // Backend contract: edit-video takes the current video URL + a prompt and
-      // returns { video_url }. Credits (5) are deducted server-side only on
-      // successful completion (briefing §5.7).
-      const { data, error } = await supabase.functions.invoke("edit-video", {
-        body: { video_url: active.url, prompt: prompt.trim() },
+      // Async contract: submit the edit, then poll for completion (avoids the
+      // edge-function timeout that a long synchronous edit would hit). Credits (5)
+      // are deducted server-side only on successful completion (briefing §5.7).
+      const { data: sub, error: subErr } = await supabase.functions.invoke("edit-video", {
+        body: { action: "submit", video_url: active.url, prompt: prompt.trim() },
       });
-      if (error) {
+      if (subErr) {
         // supabase-js hides the real error body in error.context — surface it.
-        let detail = error.message;
+        let detail = subErr.message;
         try {
-          const body = await (error as any).context?.json?.();
-          if (body?.error) detail = body.error;
+          const b = await (subErr as any).context?.json?.();
+          if (b?.error) detail = b.error;
         } catch { /* not JSON */ }
         throw new Error(detail);
       }
-      if (data?.error) throw new Error(data.error);
-      const newUrl: string | undefined = data?.video_url ?? data?.url;
-      if (!newUrl) throw new Error("No edited video returned");
+      if (sub?.error) throw new Error(sub.error);
+      const { status_url, response_url } = sub ?? {};
+      if (!status_url || !response_url) throw new Error("Could not start the edit.");
+
+      const newUrl = await new Promise<string>((resolve, reject) => {
+        const started = Date.now();
+        const iv = setInterval(async () => {
+          if (Date.now() - started > 5 * 60 * 1000) {
+            clearInterval(iv); reject(new Error("Edit timed out. No credits were charged."));
+            return;
+          }
+          try {
+            const { data: st } = await supabase.functions.invoke("edit-video", {
+              body: { action: "status", status_url, response_url },
+            });
+            if (st?.status === "COMPLETED" && st.video_url) { clearInterval(iv); resolve(st.video_url); }
+            else if (st?.status === "FAILED") { clearInterval(iv); reject(new Error(st.error || "Edit failed")); }
+          } catch { /* transient — keep polling */ }
+        }, 4000);
+      });
 
       const nextLabel = `v${versions.length}`;
       const next = [...versions, { label: nextLabel, url: newUrl }];
