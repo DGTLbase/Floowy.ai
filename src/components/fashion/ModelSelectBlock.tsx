@@ -1,13 +1,14 @@
 import { useRef } from "react";
 import { Users, Upload, PenLine, X } from "lucide-react";
 import {
-  MODEL_ATTRIBUTES, MODEL_LIBRARY_DEFAULTS, MODEL_DESCRIBE_MAX_CHARS,
-  MODEL_DESCRIBE_PLACEHOLDER, MODEL_UPLOAD_ACCEPTED, GARMENT_MAX_BYTES, type ModelMethod,
+  MODEL_DESCRIBE_MAX_CHARS, MODEL_DESCRIBE_PLACEHOLDER,
+  MODEL_UPLOAD_ACCEPTED, GARMENT_MAX_BYTES, type ModelMethod,
 } from "@/lib/fashion-video-config";
+import ModelSelector from "@/components/ModelSelector";
 
 export interface ModelValue {
   method: ModelMethod;
-  library: Record<string, string[]>;
+  libraryModelUrl: string | null;   // selected avatar image URL from the shared library
   describe: string;
   uploadFile: File | null;
   uploadPreview: string | null;
@@ -15,7 +16,7 @@ export interface ModelValue {
 
 export const defaultModelValue = (): ModelValue => ({
   method: "library",
-  library: JSON.parse(JSON.stringify(MODEL_LIBRARY_DEFAULTS)),
+  libraryModelUrl: null,
   describe: "",
   uploadFile: null,
   uploadPreview: null,
@@ -36,18 +37,6 @@ const TABS: { id: ModelMethod; label: string; icon: typeof Users }[] = [
 /** Model selection (briefing §4): 3 mutually-exclusive tabs. */
 const ModelSelectBlock = ({ value, onChange, onReject }: Props) => {
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const toggleAttr = (attrId: string, option: string, multi: boolean) => {
-    const current = value.library[attrId] ?? [];
-    let next: string[];
-    if (multi) {
-      next = current.includes(option) ? current.filter((o) => o !== option) : [...current, option];
-      if (next.length === 0) next = [option]; // keep at least one
-    } else {
-      next = [option];
-    }
-    onChange({ ...value, library: { ...value.library, [attrId]: next } });
-  };
 
   const setUpload = (file: File | null) => {
     if (value.uploadPreview) URL.revokeObjectURL(value.uploadPreview);
@@ -85,34 +74,15 @@ const ModelSelectBlock = ({ value, onChange, onReject }: Props) => {
         })}
       </div>
 
-      {/* Tab 1: Library — attribute chips */}
+      {/* Tab 1: Library — the shared avatar library with filter buttons */}
       {value.method === "library" && (
-        <div className="space-y-4 rounded-xl border border-border p-4">
-          {MODEL_ATTRIBUTES.map((attr) => (
-            <div key={attr.id}>
-              <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {attr.label}{attr.multi && <span className="ml-1 normal-case text-muted-foreground/70">(one or both)</span>}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {attr.options.map((opt) => {
-                  const on = (value.library[attr.id] ?? []).includes(opt);
-                  return (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => toggleAttr(attr.id, opt, attr.multi)}
-                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                        on ? "border-primary bg-primary/10 text-primary"
-                           : "border-border text-foreground hover:border-primary/50"
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+        <div className="rounded-xl border border-border p-4">
+          <ModelSelector
+            selectedModel={value.libraryModelUrl}
+            onModelSelect={(url) => onChange({ ...value, libraryModelUrl: url || null })}
+            columns={4}
+            maxHeight="360px"
+          />
         </div>
       )}
 

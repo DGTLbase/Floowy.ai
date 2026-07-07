@@ -18,7 +18,7 @@ import {
   CONTEXT_PRESETS, CONTEXT_DEFAULT_ID, CONTEXT_CUSTOM_MAX_CHARS, CONTEXT_CUSTOM_PLACEHOLDER, contextById,
   EDITING_STYLES, EDITING_DEFAULT_ID, EDITING_CUSTOM_MAX_CHARS, EDITING_CUSTOM_PLACEHOLDER,
   editingStyleById, editingStyleAllowsCuts,
-  libraryModelPrompt, garmentValidationError, FASHION_EDIT_CHIPS, canAccessFashionStudio,
+  garmentValidationError, FASHION_EDIT_CHIPS, canAccessFashionStudio,
   type AspectRatioId, type DurationSec,
 } from "@/lib/fashion-video-config";
 
@@ -120,22 +120,24 @@ const FashionVideoStudioGenerator = () => {
       const garmentUrls = await Promise.all(orderedFiles.map((g) => uploadToImgbb(g.file)));
       setProgress(30);
 
+      // Model reference: a chosen library avatar OR an uploaded photo becomes the
+      // person we dress and animate. "Describe" is text-only (no reference image).
       let startImageUrl = garmentUrls[0];
       let modelIsUpload = false;
+      let modelPrompt = "";
       if (model.method === "upload" && model.uploadFile) {
         startImageUrl = await uploadToImgbb(model.uploadFile);
         modelIsUpload = true;
-      } else if (garments.top[0]) {
-        // Prefer the priority-1 top as the animation start frame.
+      } else if (model.method === "library" && model.libraryModelUrl) {
+        startImageUrl = model.libraryModelUrl;   // selected avatar image
+        modelIsUpload = true;
+      } else if (model.method === "describe") {
+        modelPrompt = model.describe.trim();
         startImageUrl = garmentUrls[0];
       }
       if (!startImageUrl) throw new Error("No image available to start from");
 
-      // 2) Resolve prompt inputs.
-      const modelPrompt =
-        model.method === "describe" ? model.describe.trim()
-        : model.method === "library" ? libraryModelPrompt(model.library)
-        : "";
+      // 2) Resolve context + editing prompt inputs.
       const contextPrompt = contextIsCustom ? contextCustom.trim() : (contextById(contextId)?.prompt ?? "");
       const editingPrompt = editingIsCustom ? editingCustom.trim() : (editingStyleById(editingId)?.prompt ?? "");
       const allowCuts = editingIsCustom ? false : editingStyleAllowsCuts(editingId);
