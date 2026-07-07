@@ -251,7 +251,10 @@ serve(async (req) => {
           subscriptionId: updatedSubscription.id,
         });
         
-        // Get current credits and add FULL new plan credits
+        // Grant only the INCREMENTAL difference vs the plan they're already on this
+        // cycle. They already received the current plan's credits, so a mid-cycle
+        // upgrade should add (new − current), not the full new allocation.
+        // Downgrades yield max(0, negative) = 0 (no credits added).
         const { data: currentCredits } = await supabaseAdmin
           .from("credits")
           .select("balance")
@@ -259,12 +262,16 @@ serve(async (req) => {
           .single();
 
         const currentBalance = currentCredits?.balance || 0;
-        const newBalance = currentBalance + newCredits;
+        const currentPlanCredits = PRICE_TO_PLAN_AND_CREDITS[(currentItem.price as any)?.id]?.credits ?? 0;
+        const creditsToAdd = Math.max(0, newCredits - currentPlanCredits);
+        const newBalance = currentBalance + creditsToAdd;
 
-        logStep("Adding full credits for new plan", { 
-          currentBalance, 
-          creditsToAdd: newCredits, 
-          newBalance 
+        logStep("Adding incremental plan-change credits", {
+          currentBalance,
+          currentPlanCredits,
+          newCredits,
+          creditsToAdd,
+          newBalance
         });
 
         // Update credits with full amount
@@ -340,7 +347,10 @@ serve(async (req) => {
           subscriptionId: updatedSubscription.id,
         });
         
-        // Get current credits and add FULL new plan credits
+        // Grant only the INCREMENTAL difference vs the plan they're already on this
+        // cycle. They already received the current plan's credits, so a mid-cycle
+        // upgrade should add (new − current), not the full new allocation.
+        // Downgrades yield max(0, negative) = 0 (no credits added).
         const { data: currentCredits } = await supabaseAdmin
           .from("credits")
           .select("balance")
@@ -348,12 +358,16 @@ serve(async (req) => {
           .single();
 
         const currentBalance = currentCredits?.balance || 0;
-        const newBalance = currentBalance + newCredits;
+        const currentPlanCredits = PRICE_TO_PLAN_AND_CREDITS[(currentItem.price as any)?.id]?.credits ?? 0;
+        const creditsToAdd = Math.max(0, newCredits - currentPlanCredits);
+        const newBalance = currentBalance + creditsToAdd;
 
-        logStep("Adding full credits for new plan", { 
-          currentBalance, 
-          creditsToAdd: newCredits, 
-          newBalance 
+        logStep("Adding incremental plan-change credits", {
+          currentBalance,
+          currentPlanCredits,
+          newCredits,
+          creditsToAdd,
+          newBalance
         });
 
         // Update credits with full amount
