@@ -212,7 +212,7 @@ const FashionVideoStudioGenerator = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur">
-        <div className="container mx-auto flex items-center justify-between px-4 py-3">
+        <div className="flex items-center justify-between px-4 py-3 md:px-6">
           <div className="flex items-center gap-3">
             <Link to="/dashboard" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
             <img src={logoImage} alt="Floowy" className="h-7" />
@@ -225,7 +225,7 @@ const FashionVideoStudioGenerator = () => {
         </div>
       </header>
 
-      <main className="container mx-auto max-w-3xl px-4 py-6">
+      <main className="w-full px-4 py-6 md:px-6">
         {generatedVideoUrl ? (
           /* Result view */
           <div className="space-y-4">
