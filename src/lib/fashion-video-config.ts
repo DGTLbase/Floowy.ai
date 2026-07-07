@@ -6,7 +6,7 @@
 
 // Limited preview: only these emails may see/open the Fashion Video Studio (tile
 // on the home page + the tool route). Lowercase. Remove to make it public.
-export const FASHION_STUDIO_ALLOWED_EMAILS = ["jefcgealon@gmail.com"];
+export const FASHION_STUDIO_ALLOWED_EMAILS = ["jefcgealon@gmail.com", "quintin@dgtlbase.com"];
 
 export const canAccessFashionStudio = (email?: string | null): boolean =>
   FASHION_STUDIO_ALLOWED_EMAILS.includes((email ?? "").toLowerCase());
