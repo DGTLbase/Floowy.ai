@@ -329,7 +329,11 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({
             success: true,
+            upgraded: true,
             message: "Plan upgraded successfully",
+            creditsAdded: creditsToAdd,
+            newBalance,
+            prorated: cycleFraction < 0.999,
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );

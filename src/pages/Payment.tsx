@@ -25,6 +25,7 @@ const Payment = () => {
   // Enterprise is only offered to logged-in users (plan-switching), never on the
   // public price overview or during signup.
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [upgradeInfo, setUpgradeInfo] = useState<{ credits: number; plan: string } | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -354,10 +355,15 @@ const Payment = () => {
           currency: "EUR",
         });
 
-        toast({
-          title: isUpgrade ? "Plan updated" : "Plan changed",
-          description: data.message || `Your plan has changed to ${plan.name}.`,
-        });
+        if (data.upgraded) {
+          // Prorated-upgrade popup: explain the prorated invoice + prorated credits.
+          setUpgradeInfo({ credits: data.creditsAdded ?? 0, plan: plan.name });
+        } else {
+          toast({
+            title: "Plan changed",
+            description: data.message || `Your plan has changed to ${plan.name}.`,
+          });
+        }
         fetchCurrentPlan();
       }
     } catch (error: any) {
@@ -635,7 +641,31 @@ const Payment = () => {
         onConfirm={handleCancelSubscription}
         isLoading={isCanceling}
       />
-      
+
+      {/* Prorated upgrade confirmation */}
+      <Dialog open={!!upgradeInfo} onOpenChange={(o) => !o && setUpgradeInfo(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>You're now on {upgradeInfo?.plan} 🎉</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>
+              Hey! We've invoiced you for the remaining amount of your current billing
+              cycle, and credited you with the matching remaining credits.
+            </p>
+            {upgradeInfo && upgradeInfo.credits > 0 && (
+              <p className="rounded-lg bg-primary/10 px-3 py-2 text-center text-base font-bold text-primary">
+                +{upgradeInfo.credits} credits added
+              </p>
+            )}
+            <p className="text-xs">
+              Your full {upgradeInfo?.plan} allowance kicks in at your next renewal.
+            </p>
+          </div>
+          <Button onClick={() => setUpgradeInfo(null)} className="w-full">Got it</Button>
+        </DialogContent>
+      </Dialog>
+
       <Footer />
     </div>
   );
