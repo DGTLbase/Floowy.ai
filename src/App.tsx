@@ -31,6 +31,7 @@ const Home = lazy(() => import("./pages/Home"));
 const AtmosphericGenerator = lazy(() => import("./pages/AtmosphericGenerator"));
 const FashionGenerator = lazy(() => import("./pages/FashionGenerator"));
 const CreatorStudioGenerator = lazy(() => import("./pages/CreatorStudioGenerator"));
+const FashionVideoStudioGenerator = lazy(() => import("./pages/FashionVideoStudioGenerator"));
 const IdeaStudioGenerator = lazy(() => import("./pages/IdeaStudioGenerator"));
 const BulkMockupGenerator = lazy(() => import("./pages/BulkMockupGenerator"));
 const UltimateOutfitMakerV2 = lazy(() => import("./pages/UltimateOutfitMakerV2"));
@@ -161,6 +162,7 @@ const allRoutes = (
     <Route path="tool/fashion-v2" element={<ToolPageLayout><BulkMockupGenerator /></ToolPageLayout>} />
     <Route path="tool/fashion-2.0" element={<ToolPageLayout><BulkMockupGenerator /></ToolPageLayout>} />
     <Route path="tool/creator-studio" element={<ToolPageLayout><CreatorStudioGenerator /></ToolPageLayout>} />
+    <Route path="tool/fashion-video-studio" element={<ToolPageLayout><FashionVideoStudioGenerator /></ToolPageLayout>} />
     <Route path="tool/idea-studio" element={<ToolPageLayout><IdeaStudioGenerator /></ToolPageLayout>} />
     <Route path="tool/ultimate-outfit-maker" element={<ToolPageLayout><BulkMockupGenerator /></ToolPageLayout>} />
     <Route path="tool/ultimate-outfit-maker-v2" element={<ToolPageLayout><UltimateOutfitMakerV2 /></ToolPageLayout>} />

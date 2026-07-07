@@ -10,11 +10,14 @@ interface VideoVersion {
   url: string;
 }
 
+interface EditChip { label: string; prompt: string; }
+
 interface VideoEditModalProps {
   open: boolean;
   onClose: () => void;
   videoUrl: string;            // the freshly generated video
   onEdited?: (url: string) => void;   // notify parent of the latest active version
+  chips?: EditChip[];          // suggestion chips (per-tool; defaults to Creator Studio's)
 }
 
 /**
@@ -22,7 +25,7 @@ interface VideoEditModalProps {
  * Apply-button style as the Image Editor, but entirely prompt-based (no brush/
  * wand/lasso). Adds a version-history strip. 5 credits per successful edit.
  */
-const VideoEditModal = ({ open, onClose, videoUrl, onEdited }: VideoEditModalProps) => {
+const VideoEditModal = ({ open, onClose, videoUrl, onEdited, chips = VIDEO_EDIT_CHIPS }: VideoEditModalProps) => {
   const [versions, setVersions] = useState<VideoVersion[]>([]);
   const [activeIdx, setActiveIdx] = useState(0);
   const [prompt, setPrompt] = useState("");
@@ -140,7 +143,7 @@ const VideoEditModal = ({ open, onClose, videoUrl, onEdited }: VideoEditModalPro
 
             {/* Prompt suggestion chips */}
             <div className="flex flex-wrap gap-2">
-              {VIDEO_EDIT_CHIPS.map((c) => (
+              {chips.map((c) => (
                 <button
                   key={c.label}
                   type="button"

@@ -7,6 +7,46 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// Priority-weighted, branding-clean prompt for the Fashion Video Studio.
+// Garment priority (array order per category) is conveyed as screen-time weight.
+function buildFashionPrompt(opts: {
+  modelPrompt: string;
+  modelIsUpload: boolean;
+  contextPrompt: string;
+  editingPrompt: string;
+  allowCuts: boolean;
+  garmentSummary: Record<string, number>;
+  duration: number;
+}): string {
+  const { modelPrompt, modelIsUpload, contextPrompt, editingPrompt, allowCuts, garmentSummary, duration } = opts;
+
+  const worn: string[] = [];
+  if ((garmentSummary.top ?? 0) > 0) worn.push('the featured top (primary garment — most screen time)');
+  if ((garmentSummary.bottom ?? 0) > 0) worn.push('the bottom garment');
+  if ((garmentSummary.shoes ?? 0) > 0) worn.push('the footwear');
+  if ((garmentSummary.accessories ?? 0) > 0) worn.push('the accessories');
+  const wornLine = worn.length
+    ? `The model wears ${worn.join(', ')}, styled as a complete cohesive outfit. Feature higher-priority garments more prominently and for more screen time.`
+    : '';
+
+  const modelLine = modelIsUpload
+    ? 'Dress the exact person from the reference image in the uploaded garments. STRICTLY PRESERVE their facial features, face shape, skin tone, eye colour and body proportions — zero alterations.'
+    : (modelPrompt ? `The outfit is worn by ${modelPrompt}.` : 'The outfit is worn by a professional fashion model.');
+
+  return [
+    `A high-quality styled fashion video, approximately ${duration} seconds.`,
+    modelLine,
+    wornLine,
+    contextPrompt ? `Scene and atmosphere: ${contextPrompt}` : '',
+    editingPrompt ? `Camera and editing: ${editingPrompt}` : '',
+    allowCuts
+      ? 'Use clean, deliberate SEQUENTIAL cuts over time as described — never split screens, collage or side-by-side panels shown at once.'
+      : 'Single continuous shot — no cuts, no split screens, no collage.',
+    'GARMENT INTEGRITY: keep every garment in its exact original form, colour, pattern and proportions — no warping, morphing or distortion.',
+    'CRITICAL: absolutely NO text, captions, subtitles, logos, brand names or watermarks anywhere. One full-frame composition. Natural, realistic human movement. Premium professional fashion production quality.',
+  ].filter(Boolean).join(' ');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -159,6 +199,79 @@ CRITICAL RULES:
           status_url: data.status_url,
           response_url: data.response_url,
           status: 'PROCESSING' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ============================================
+    // ACTION: GENERATE_STUDIO - Fashion Video Studio (briefing v2.0)
+    // Rich prompt construction from garments (priority-ordered per category),
+    // model config, fashion context and editing style. Branding-clean output.
+    // ============================================
+    if (action === 'generate_studio') {
+      const {
+        start_image_url,
+        garment_image_urls = [],
+        model_prompt = '',
+        model_is_upload = false,
+        context_prompt = '',
+        editing_prompt = '',
+        editing_allows_cuts = false,
+        garment_summary = {},   // { top:number, bottom:number, shoes:number, accessories:number }
+        aspect_ratio = '9:16',
+        duration_seconds = 6,
+      } = body;
+
+      if (!start_image_url) throw new Error('start_image_url is required');
+
+      const safeAspect = (aspect_ratio === '16:9' || aspect_ratio === '9:16') ? aspect_ratio : '9:16';
+      const safeDuration = [6, 8, 10].includes(Number(duration_seconds)) ? Number(duration_seconds) : 6;
+
+      const videoPrompt = buildFashionPrompt({
+        modelPrompt: model_prompt,
+        modelIsUpload: model_is_upload,
+        contextPrompt: context_prompt,
+        editingPrompt: editing_prompt,
+        allowCuts: editing_allows_cuts,
+        garmentSummary: garment_summary,
+        duration: safeDuration,
+      });
+
+      const requestBody: Record<string, unknown> = {
+        prompt: videoPrompt,
+        start_image_url,
+        // Extra garment references for multi-image-capable models (ignored otherwise).
+        reference_image_urls: garment_image_urls,
+        duration: String(safeDuration),
+        generate_audio: false,
+        shot_type: 'customize',
+        aspect_ratio: safeAspect,
+        negative_prompt: 'blur, distort, low quality, text overlay, captions, subtitles, split screen, picture-in-picture, collage, watermark, logo, brand name, altered garment, warped clothing, extra limbs, deformed hands',
+        cfg_scale: 0.5,
+      };
+
+      console.log('[GENERATE_STUDIO] config:', { safeAspect, safeDuration, allowCuts: editing_allows_cuts, garment_summary });
+
+      const response = await fetch('https://queue.fal.run/fal-ai/kling-video/v3/pro/image-to-video', {
+        method: 'POST',
+        headers: { 'Authorization': `Key ${FAL_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[GENERATE_STUDIO] FAL error:', errorText);
+        throw new Error(`Video generation failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return new Response(
+        JSON.stringify({
+          request_id: data.request_id,
+          status_url: data.status_url,
+          response_url: data.response_url,
+          status: 'PROCESSING',
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

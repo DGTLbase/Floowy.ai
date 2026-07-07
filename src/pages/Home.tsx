@@ -18,12 +18,14 @@ import CustomModelsPanel from "@/components/CustomModelsPanel";
 import fashionCover from "@/assets/fashion-cover-new-5.png";
 import atmosphericCover from "@/assets/Ambience-6.png";
 import creatorStudioCover from "@/assets/creator-feature-video-new.mp4";
+import fashionVideoDemo from "@/assets/fashion-video-demo.mp4";
 import ideaStudioCover from "@/assets/idea-studio-hero-after.png";
 import fashion2Cover from "@/assets/fashion-pro-cover.png";
 import flatlayStudioCover from "@/assets/Flatlay-2.png";
 import adsStudioPreview from "@/assets/ads-studio-preview.png";
 import listingStudioPreview from "@/assets/listing-studio-preview.png";
 import virtualVideoStudioCover from "@/assets/virtual-studio-cover.mp4";
+import { canAccessFashionStudio } from "@/lib/fashion-video-config";
 
 const Home = () => {
   const [user, setUser] = useState<any>(null);
@@ -460,6 +462,33 @@ const previewUrl = (gen: any) =>
                 </Button>
               </div>
             </Card>
+
+            {/* Fashion Video Studio — limited preview (allowlisted emails only) */}
+            {canAccessFashionStudio(user?.email) && (
+              <Card
+                className="cursor-pointer hover:shadow-glow transition-all duration-300 border border-border bg-card hover:-translate-y-1 overflow-hidden group h-[300px] flex flex-col"
+                onClick={() => navigate("/tool/fashion-video-studio")}
+              >
+                <div className="relative h-[200px] overflow-hidden">
+                  <video
+                    src={fashionVideoDemo}
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                  />
+                  <div className="absolute right-2 top-2 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                    Preview
+                  </div>
+                </div>
+                <div className="flex-1 p-3 flex flex-col justify-center bg-tool-card-bottom">
+                  <p className="text-[10px] text-primary font-semibold uppercase mb-0.5">FASHION VIDEO</p>
+                  <h3 className="text-sm font-bold text-foreground mb-2">Fashion Video Studio</h3>
+                  <Button size="sm" variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent">Start Creating</Button>
+                </div>
+              </Card>
+            )}
 
             {/* Fashion Studio - Always accessible */}
             <Card 
