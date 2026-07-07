@@ -251,10 +251,10 @@ serve(async (req) => {
           subscriptionId: updatedSubscription.id,
         });
         
-        // Grant only the INCREMENTAL difference vs the plan they're already on this
-        // cycle. They already received the current plan's credits, so a mid-cycle
-        // upgrade should add (new − current), not the full new allocation.
-        // Downgrades yield max(0, negative) = 0 (no credits added).
+        // Grant a PRORATED share of the plan-difference credits (computed below).
+        // The customer already received the current plan's credits this cycle and
+        // only pays the prorated upgrade charge, so they receive a matching prorated
+        // share — not the full new allocation. Downgrades yield fullDiff = 0.
         const { data: currentCredits } = await supabaseAdmin
           .from("credits")
           .select("balance")
@@ -263,13 +263,27 @@ serve(async (req) => {
 
         const currentBalance = currentCredits?.balance || 0;
         const currentPlanCredits = PRICE_TO_PLAN_AND_CREDITS[(currentItem.price as any)?.id]?.credits ?? 0;
-        const creditsToAdd = Math.max(0, newCredits - currentPlanCredits);
+        const fullDiff = Math.max(0, newCredits - currentPlanCredits);
+
+        // Prorate the granted credits by the fraction of the billing cycle that
+        // remains — the same fraction Stripe uses to prorate the upgrade CHARGE —
+        // so the customer only receives credits worth what they actually pay now.
+        const nowSec = Math.floor(Date.now() / 1000);
+        const periodStart = (currentSubscription as any).current_period_start ?? (currentItem as any).current_period_start;
+        const periodEnd = (currentSubscription as any).current_period_end ?? (currentItem as any).current_period_end;
+        let cycleFraction = 1;
+        if (periodStart && periodEnd && periodEnd > periodStart) {
+          cycleFraction = Math.max(0, Math.min(1, (periodEnd - nowSec) / (periodEnd - periodStart)));
+        }
+        const creditsToAdd = Math.round(fullDiff * cycleFraction);
         const newBalance = currentBalance + creditsToAdd;
 
-        logStep("Adding incremental plan-change credits", {
+        logStep("Adding prorated plan-change credits", {
           currentBalance,
           currentPlanCredits,
           newCredits,
+          fullDiff,
+          cycleFraction,
           creditsToAdd,
           newBalance
         });
@@ -347,10 +361,10 @@ serve(async (req) => {
           subscriptionId: updatedSubscription.id,
         });
         
-        // Grant only the INCREMENTAL difference vs the plan they're already on this
-        // cycle. They already received the current plan's credits, so a mid-cycle
-        // upgrade should add (new − current), not the full new allocation.
-        // Downgrades yield max(0, negative) = 0 (no credits added).
+        // Grant a PRORATED share of the plan-difference credits (computed below).
+        // The customer already received the current plan's credits this cycle and
+        // only pays the prorated upgrade charge, so they receive a matching prorated
+        // share — not the full new allocation. Downgrades yield fullDiff = 0.
         const { data: currentCredits } = await supabaseAdmin
           .from("credits")
           .select("balance")
@@ -359,13 +373,27 @@ serve(async (req) => {
 
         const currentBalance = currentCredits?.balance || 0;
         const currentPlanCredits = PRICE_TO_PLAN_AND_CREDITS[(currentItem.price as any)?.id]?.credits ?? 0;
-        const creditsToAdd = Math.max(0, newCredits - currentPlanCredits);
+        const fullDiff = Math.max(0, newCredits - currentPlanCredits);
+
+        // Prorate the granted credits by the fraction of the billing cycle that
+        // remains — the same fraction Stripe uses to prorate the upgrade CHARGE —
+        // so the customer only receives credits worth what they actually pay now.
+        const nowSec = Math.floor(Date.now() / 1000);
+        const periodStart = (currentSubscription as any).current_period_start ?? (currentItem as any).current_period_start;
+        const periodEnd = (currentSubscription as any).current_period_end ?? (currentItem as any).current_period_end;
+        let cycleFraction = 1;
+        if (periodStart && periodEnd && periodEnd > periodStart) {
+          cycleFraction = Math.max(0, Math.min(1, (periodEnd - nowSec) / (periodEnd - periodStart)));
+        }
+        const creditsToAdd = Math.round(fullDiff * cycleFraction);
         const newBalance = currentBalance + creditsToAdd;
 
-        logStep("Adding incremental plan-change credits", {
+        logStep("Adding prorated plan-change credits", {
           currentBalance,
           currentPlanCredits,
           newCredits,
+          fullDiff,
+          cycleFraction,
           creditsToAdd,
           newBalance
         });
