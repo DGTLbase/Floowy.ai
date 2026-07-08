@@ -8,6 +8,7 @@ import GarmentUploadBlock, { emptyGarmentMap, type GarmentMap } from "@/componen
 import ModelSelectBlock, { defaultModelValue, type ModelValue } from "@/components/fashion/ModelSelectBlock";
 import PresetWithCustomBlock from "@/components/fashion/PresetWithCustomBlock";
 import AudioBlock from "@/components/fashion/AudioBlock";
+import EditingStyleBlock from "@/components/fashion/EditingStyleBlock";
 import VideoEditModal from "@/components/VideoEditModal";
 import PlanCreditsDisplay from "@/components/PlanCreditsDisplay";
 import UserMenu from "@/components/UserMenu";
@@ -19,7 +20,7 @@ import logoImage from "@/assets/floowy-logo.png";
 import {
   ASPECT_RATIOS, DURATION_PILLS, creditsForDuration,
   CONTEXT_PRESETS, CONTEXT_DEFAULT_ID, CONTEXT_CUSTOM_MAX_CHARS, CONTEXT_CUSTOM_PLACEHOLDER, contextById,
-  EDITING_STYLES, EDITING_DEFAULT_ID, EDITING_CUSTOM_MAX_CHARS, EDITING_CUSTOM_PLACEHOLDER,
+  EDITING_DEFAULT_ID, EDITING_CUSTOM_MAX_CHARS, EDITING_CUSTOM_PLACEHOLDER,
   editingStyleById, editingStyleAllowsCuts,
   garmentValidationError, FASHION_EDIT_CHIPS, canAccessFashionStudio,
   AUDIO_DEFAULT_ID, MUSIC_DEFAULT_ID, resolveAudioPrompt,
@@ -74,6 +75,7 @@ const FashionVideoStudioGenerator = () => {
   const [model, setModel] = useState<ModelValue>(defaultModelValue());
   const [contextId, setContextId] = useState<string>(CONTEXT_DEFAULT_ID);
   const [contextCustom, setContextCustom] = useState("");
+  const [studioHex, setStudioHex] = useState("#f5f5f5");   // Studio minimal backdrop colour
   const [editingId, setEditingId] = useState<string>(EDITING_DEFAULT_ID);
   const [editingCustom, setEditingCustom] = useState("");
   const [aspectRatio, setAspectRatio] = useState<AspectRatioId>("9:16");
@@ -164,7 +166,10 @@ const FashionVideoStudioGenerator = () => {
         modelPrompt = model.describe.trim();
       }
 
-      const contextPrompt = contextIsCustom ? contextCustom.trim() : (contextById(contextId)?.prompt ?? "");
+      let contextPrompt = contextIsCustom ? contextCustom.trim() : (contextById(contextId)?.prompt ?? "");
+      if (!contextIsCustom && contextId === "studio-minimal" && studioHex.trim()) {
+        contextPrompt += ` The seamless studio backdrop is the exact solid colour ${studioHex.trim()}.`;
+      }
       const editingPrompt = editingIsCustom ? editingCustom.trim() : (editingStyleById(editingId)?.prompt ?? "");
       const allowCuts = editingIsCustom ? false : editingStyleAllowsCuts(editingId);
 
@@ -294,10 +299,30 @@ const FashionVideoStudioGenerator = () => {
               customMaxChars={CONTEXT_CUSTOM_MAX_CHARS}
               lgCols={4}
             />
-            <PresetWithCustomBlock
-              title="Video editing style"
-              subtitle="Camera movement, cut pattern and motion."
-              presets={EDITING_STYLES}
+
+            {/* Studio minimal — pick the exact backdrop colour */}
+            {contextId === "studio-minimal" && (
+              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-muted/30 p-3">
+                <span className="text-sm font-medium text-foreground">Backdrop colour</span>
+                <input
+                  type="color"
+                  value={/^#[0-9a-fA-F]{6}$/.test(studioHex) ? studioHex : "#f5f5f5"}
+                  onChange={(e) => setStudioHex(e.target.value)}
+                  className="h-8 w-12 cursor-pointer rounded border border-border bg-transparent p-0.5"
+                  aria-label="Backdrop colour"
+                />
+                <input
+                  type="text"
+                  value={studioHex}
+                  onChange={(e) => setStudioHex(e.target.value)}
+                  placeholder="#f5f5f5"
+                  className="w-28 rounded-md border border-border bg-background px-2 py-1 text-sm outline-none focus:border-primary"
+                />
+                <span className="text-xs text-muted-foreground">Any hex — the seamless studio backdrop uses this exact colour.</span>
+              </div>
+            )}
+            <EditingStyleBlock
+              aspectRatio={aspectRatio}
               selectedId={editingId}
               customText={editingCustom}
               onSelectPreset={setEditingId}
@@ -305,7 +330,6 @@ const FashionVideoStudioGenerator = () => {
               onCustomText={setEditingCustom}
               customPlaceholder={EDITING_CUSTOM_PLACEHOLDER}
               customMaxChars={EDITING_CUSTOM_MAX_CHARS}
-              lgCols={3}
             />
 
             <AudioBlock

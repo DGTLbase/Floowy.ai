@@ -184,12 +184,16 @@ export const contextById = (id: string): ContextPreset | undefined =>
   CONTEXT_PRESETS.find((c) => c.id === id);
 
 // ── Video editing styles (briefing §6) ──────────────────────────────────────
+export type Fit = "best" | "ok" | "not-ideal";
+
 export interface EditingStyle {
   id: string;
   name: string;
   description: string;
   prompt: string;
   cuts: string;   // "None" | "2-3" | "5+" ...
+  icon: string;   // lucide icon name (mapped in EditingStyleBlock)
+  fit: Record<AspectRatioId, Fit>;
 }
 
 export const EDITING_STYLES: EditingStyle[] = [
@@ -199,6 +203,8 @@ export const EDITING_STYLES: EditingStyle[] = [
     description: "Single fluid pan from head to toe. Elegant and composed.",
     prompt: "Camera performs a slow continuous pan from head to toe revealing the full outfit. No cuts. Smooth and elegant movement.",
     cuts: "None",
+    icon: "MoveVertical",
+    fit: { "9:16": "best", "16:9": "ok" },
   },
   {
     id: "editorial-cuts",
@@ -206,6 +212,8 @@ export const EDITING_STYLES: EditingStyle[] = [
     description: "2-3 deliberate cuts. Different angles and garment details. Magazine feel.",
     prompt: "2-3 deliberate editorial cuts: wide establishing shot, three-quarter angle, close-up on garment detail. Fashion magazine aesthetic.",
     cuts: "2-3",
+    icon: "Newspaper",
+    fit: { "9:16": "ok", "16:9": "best" },
   },
   {
     id: "high-energy",
@@ -213,6 +221,8 @@ export const EDITING_STYLES: EditingStyle[] = [
     description: "Fast cuts, dynamic angles, movement-driven. Built for TikTok and Reels.",
     prompt: "Fast-paced editing with cuts every 1-2 seconds. Dynamic camera angles, movement and energy. Optimised for social media scroll-stop.",
     cuts: "5+",
+    icon: "Zap",
+    fit: { "9:16": "best", "16:9": "not-ideal" },
   },
   {
     id: "runway-walk",
@@ -220,6 +230,8 @@ export const EDITING_STYLES: EditingStyle[] = [
     description: "Model walks toward camera with front and profile cuts. Catwalk feel.",
     prompt: "Model walks directly toward camera on a runway. Cut between front-facing approach and side profile view. Classic catwalk presentation.",
     cuts: "2",
+    icon: "PersonStanding",
+    fit: { "9:16": "best", "16:9": "ok" },
   },
   {
     id: "360-spin",
@@ -227,6 +239,8 @@ export const EDITING_STYLES: EditingStyle[] = [
     description: "Camera orbits the full outfit. Every angle shown. Ideal for e-commerce.",
     prompt: "Camera performs a full 360-degree orbit around the model revealing all angles of the outfit. Smooth continuous rotation.",
     cuts: "None",
+    icon: "Rotate3d",
+    fit: { "9:16": "ok", "16:9": "best" },
   },
   {
     id: "detail-focus",
@@ -234,6 +248,8 @@ export const EDITING_STYLES: EditingStyle[] = [
     description: "Macro cuts on fabric, stitching and textures. Craftsmanship showcase.",
     prompt: "Series of extreme close-up cuts on fabric texture, stitching details, buttons, zips and garment construction. Tactile and premium.",
     cuts: "4-6",
+    icon: "ZoomIn",
+    fit: { "9:16": "ok", "16:9": "ok" },
   },
 ];
 
