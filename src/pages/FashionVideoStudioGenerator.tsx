@@ -188,6 +188,7 @@ const FashionVideoStudioGenerator = () => {
           editing_prompt: editingPrompt,
           editing_allows_cuts: allowCuts,
           audio_prompt: resolveAudioPrompt(audioStyle, musicStyle),
+          generate_audio: audioStyle !== "silent",
           garment_summary: counts,
           aspect_ratio: aspectRatio,
           duration_seconds: duration,

@@ -221,6 +221,7 @@ CRITICAL RULES:
         editing_prompt = '',
         editing_allows_cuts = false,
         audio_prompt = '',
+        generate_audio = true,   // false when the user picks "No sound"
         garment_summary = {},   // { top:number, bottom:number, shoes:number, accessories:number }
         aspect_ratio = '9:16',
         duration_seconds = 6,
@@ -250,11 +251,14 @@ CRITICAL RULES:
       const VIDEO_MODEL = Deno.env.get('FAL_VIDEO_MODEL') || 'google/gemini-omni-flash';
       const REF_MODEL = Deno.env.get('FAL_VIDEO_REF_MODEL') || `${VIDEO_MODEL}/reference-to-video`;
 
-      // Endpoint takes { prompt, image_urls } (confirmed). Convey aspect via the
-      // prompt rather than a body field to match the documented request exactly.
+      // Confirmed body fields: prompt, image_urls, aspect_ratio, duration.
+      // generate_audio toggles the soundtrack (false = fully silent).
       const requestBody: Record<string, unknown> = {
-        prompt: `${videoPrompt} ${safeAspect === '9:16' ? 'Vertical 9:16 aspect ratio.' : 'Horizontal 16:9 aspect ratio.'}`,
+        prompt: videoPrompt,
         image_urls: reference_image_urls,
+        aspect_ratio: safeAspect,
+        duration: safeDuration,
+        generate_audio,
       };
 
       console.log('[GENERATE_STUDIO] config:', { model: REF_MODEL, safeAspect, safeDuration, refs: reference_image_urls.length, has_model_ref });
