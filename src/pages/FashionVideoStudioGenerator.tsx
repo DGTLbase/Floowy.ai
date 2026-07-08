@@ -173,30 +173,48 @@ const FashionVideoStudioGenerator = () => {
       const editingPrompt = editingIsCustom ? editingCustom.trim() : (editingStyleById(editingId)?.prompt ?? "");
       const allowCuts = editingIsCustom ? false : editingStyleAllowsCuts(editingId);
 
-      // 2) Send the garments + model + scene straight to Omni reference-to-video —
-      //    no separate image-compose step.
-      const referenceImageUrls = modelRefUrl ? [modelRefUrl, ...garmentUrls] : garmentUrls;
+      // 2) STEP 1 — compose the on-model still with nano-banana (edit-fashion-image).
+      //    The garments get worn by the model in the scene. This is an image EDIT,
+      //    which the models allow (unlike sending a real-person photo to video).
+      setPipelineStage("styling");
+      setProgress(26);
+      const composePrompt = modelRefUrl
+        ? `Full-length fashion photograph of the person from the FIRST reference image, captured as a realistic documentary-style photo. Edit ONLY their clothing and outfit to match the garments shown in the subsequent reference images, styled as one complete cohesive outfit. Keep the person's face, body, skin tone, hair and all physical features EXACTLY as they appear — do not modify or alter the person in any way. Natural skin texture, authentic expression, genuine pose. The clothing drapes and folds naturally with realistic fabric texture, wrinkles and shadows. Show the complete outfit. Background: ${contextPrompt}. Natural, flattering lighting, realistic photography. No text, no watermark, no logos.`
+        : `Full-length realistic fashion photograph of ${modelPrompt || "a professional fashion model"}, wearing the garments shown in the reference images styled as one complete cohesive outfit. Natural skin texture, authentic expression, genuine pose. The clothing drapes and folds naturally with realistic fabric texture and shadows. Show the complete outfit. Background: ${contextPrompt}. Natural, flattering lighting, realistic photography. No text, no watermark, no logos.`;
+      const composeImageUrls = modelRefUrl ? [modelRefUrl, ...garmentUrls] : garmentUrls;
+
+      const { data: compose, error: composeErr } = await supabase.functions.invoke("edit-fashion-image", {
+        body: { action: "generate", prompt: composePrompt, image_urls: composeImageUrls, aspect_ratio: aspectRatio, resolution: "2K", num_images: 1 },
+      });
+      if (composeErr) throw composeErr;
+      if (compose?.error) throw new Error(compose.error);
+      if (!compose?.request_id) throw new Error("Could not start styling the outfit.");
+
+      const composedImageUrl = await pollTask(
+        () => supabase.functions.invoke("edit-fashion-image", { body: { action: "status", requestId: compose.request_id } }),
+        (st) => st?.status === "COMPLETED" ? { url: st.images?.[0]?.url } : { failed: st?.status === "FAILED" },
+        { maxAttempts: 45, onTick: () => setProgress((p) => Math.min(p + 2, 52)) },
+      );
+      setProgress(55);
+
+      // 3) STEP 2 — animate the composed still into a video with Kling (generate_studio).
       setPipelineStage("generating_video");
-      setProgress(35);
       const { data: gen, error: genErr } = await supabase.functions.invoke("generate-fashion-video", {
         body: {
           action: "generate_studio",
-          reference_image_urls: referenceImageUrls,
-          has_model_ref: !!modelRefUrl,
-          model_prompt: modelPrompt,
+          start_image_url: composedImageUrl,
           context_prompt: contextPrompt,
           editing_prompt: editingPrompt,
           editing_allows_cuts: allowCuts,
           audio_prompt: resolveAudioPrompt(audioStyle, musicStyle),
           generate_audio: audioStyle !== "silent",
-          garment_summary: counts,
           aspect_ratio: aspectRatio,
           duration_seconds: duration,
         },
       });
       if (genErr) throw genErr;
       if (gen?.error) throw new Error(gen.error);
-      setProgress(50);
+      setProgress(62);
 
       const videoUrl = await pollTask(
         () => supabase.functions.invoke("generate-fashion-video", {

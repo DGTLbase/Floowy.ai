@@ -7,38 +7,21 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Branding-clean prompt for Omni reference-image-to-video: the reference images
-// carry the garments (+ the model), so the prompt just directs how to combine and
-// animate them. Priority = array order per category (higher priority = more focus).
+// Branding-clean prompt for the Kling animate step. The start image is already
+// the composed on-model still (nano-banana), so the prompt only directs the motion,
+// scene, editing and audio — the model + outfit are baked into the image.
 function buildFashionPrompt(opts: {
-  modelPrompt: string;
-  hasModelRef: boolean;
   contextPrompt: string;
   editingPrompt: string;
   allowCuts: boolean;
-  garmentSummary: Record<string, number>;
   duration: number;
   audioPrompt?: string;
 }): string {
-  const { modelPrompt, hasModelRef, contextPrompt, editingPrompt, allowCuts, garmentSummary, duration, audioPrompt } = opts;
-
-  const worn: string[] = [];
-  if ((garmentSummary.top ?? 0) > 0) worn.push('top');
-  if ((garmentSummary.bottom ?? 0) > 0) worn.push('bottom');
-  if ((garmentSummary.shoes ?? 0) > 0) worn.push('footwear');
-  if ((garmentSummary.accessories ?? 0) > 0) worn.push('accessories');
-  const outfitLine = worn.length
-    ? `The reference images include the garments (${worn.join(', ')}). Combine them into one complete cohesive outfit and keep each garment's exact colour, pattern, texture and proportions.`
-    : 'Combine the garments in the reference images into one complete cohesive outfit, keeping their exact colours and details.';
-
-  const modelLine = hasModelRef
-    ? 'Feature the model shown in the reference images, wearing the styled outfit.'
-    : (modelPrompt ? `Feature ${modelPrompt} wearing the styled outfit.` : 'Feature a professional fashion model wearing the styled outfit.');
+  const { contextPrompt, editingPrompt, allowCuts, duration, audioPrompt } = opts;
 
   return [
     `A high-quality styled fashion video, approximately ${duration} seconds.`,
-    modelLine,
-    outfitLine,
+    'The person shown is already wearing the complete styled outfit — keep their appearance and their exact clothing, and animate them naturally.',
     contextPrompt ? `Scene and atmosphere: ${contextPrompt}` : '',
     editingPrompt ? `Camera and editing: ${editingPrompt}` : '',
     audioPrompt || '',
@@ -214,55 +197,46 @@ CRITICAL RULES:
     // ============================================
     if (action === 'generate_studio') {
       const {
-        reference_image_urls = [],
-        has_model_ref = false,
-        model_prompt = '',
+        start_image_url,           // the composed on-model still (nano-banana)
         context_prompt = '',
         editing_prompt = '',
         editing_allows_cuts = false,
         audio_prompt = '',
-        generate_audio = true,   // false when the user picks "No sound"
-        garment_summary = {},   // { top:number, bottom:number, shoes:number, accessories:number }
+        generate_audio = true,     // false when the user picks "No sound"
         aspect_ratio = '9:16',
         duration_seconds = 6,
       } = body;
 
-      if (!Array.isArray(reference_image_urls) || reference_image_urls.length === 0) {
-        throw new Error('reference_image_urls is required');
-      }
+      if (!start_image_url) throw new Error('start_image_url is required');
 
       const safeAspect = (aspect_ratio === '16:9' || aspect_ratio === '9:16') ? aspect_ratio : '9:16';
       const safeDuration = [6, 8, 10].includes(Number(duration_seconds)) ? Number(duration_seconds) : 6;
 
       const videoPrompt = buildFashionPrompt({
-        modelPrompt: model_prompt,
-        hasModelRef: has_model_ref,
         contextPrompt: context_prompt,
         editingPrompt: editing_prompt,
         allowCuts: editing_allows_cuts,
-        garmentSummary: garment_summary,
         duration: safeDuration,
         audioPrompt: audio_prompt,
       });
 
-      // Omni reference-image-to-video: send the garments + model + scene directly as
-      // reference images (no separate compose step). Endpoint + params are
-      // env-overridable so the exact fal path can be set without a code change.
-      const VIDEO_MODEL = Deno.env.get('FAL_VIDEO_MODEL') || 'google/gemini-omni-flash';
-      const REF_MODEL = Deno.env.get('FAL_VIDEO_REF_MODEL') || `${VIDEO_MODEL}/reference-to-video`;
+      // Kling image-to-video animates the composed on-model still. Kling handles
+      // human image-to-video (reference-to-video models block real-person likenesses).
+      const KLING = Deno.env.get('FAL_VIDEO_MODEL_FASHION') || 'fal-ai/kling-video/v3/pro';
 
-      // Both Seedance and Omni support generate_audio (false = fully silent).
       const requestBody: Record<string, unknown> = {
         prompt: videoPrompt,
-        image_urls: reference_image_urls,
-        aspect_ratio: safeAspect,
-        duration: safeDuration,
+        start_image_url,
+        duration: String(safeDuration),
         generate_audio,
+        aspect_ratio: safeAspect,
+        negative_prompt: 'blur, distort, low quality, text overlay, captions, subtitles, split screen, picture-in-picture, collage, watermark, logo, brand name, altered garment, warped clothing, extra limbs, deformed hands',
+        cfg_scale: 0.5,
       };
 
-      console.log('[GENERATE_STUDIO] config:', { model: REF_MODEL, safeAspect, safeDuration, refs: reference_image_urls.length, has_model_ref });
+      console.log('[GENERATE_STUDIO] config:', { model: KLING, safeAspect, safeDuration, generate_audio });
 
-      const response = await fetch(`https://queue.fal.run/${REF_MODEL}`, {
+      const response = await fetch(`https://queue.fal.run/${KLING}/image-to-video`, {
         method: 'POST',
         headers: { 'Authorization': `Key ${FAL_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
