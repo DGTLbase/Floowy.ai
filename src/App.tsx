@@ -41,6 +41,7 @@ const ListingStudioGenerator = lazy(() => import("./pages/ListingStudioGenerator
 const ProductVideoCreator = lazy(() => import("./pages/ProductVideoCreator"));
 const FlatlayStudio = lazy(() => import("./pages/FlatlayStudio"));
 const FlatlayLanding = lazy(() => import("./pages/FlatlayLanding"));
+const SocialScraper = lazy(() => import("./pages/SocialScraper"));
 const Tools = lazy(() => import("./pages/Tools"));
 const RemixStudioGenerator = lazy(() => import("./pages/RemixStudioGenerator"));
 const VirtualTourStudio = lazy(() => import("./pages/VirtualTourStudio"));
@@ -172,6 +173,7 @@ const allRoutes = (
     <Route path="tool/listing-studio" element={<ToolPageLayout><ListingStudioGenerator /></ToolPageLayout>} />
     <Route path="tool/product-video" element={<ToolPageLayout><ProductVideoCreator /></ToolPageLayout>} />
     <Route path="tool/flatlay-studio" element={<ToolPageLayout><FlatlayStudio /></ToolPageLayout>} />
+    <Route path="tool/social-scraper" element={<ToolPageLayout><SocialScraper /></ToolPageLayout>} />
     <Route path="tool/remix-studio" element={<ToolPageLayout><RemixStudioGenerator /></ToolPageLayout>} />
     <Route path="tool/property-studio" element={<ToolPageLayout><VirtualTourStudio /></ToolPageLayout>} />
     <Route path="tool/virtual-tour" element={<ToolPageLayout><VirtualTourStudio /></ToolPageLayout>} />

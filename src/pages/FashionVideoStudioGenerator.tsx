@@ -177,13 +177,16 @@ const FashionVideoStudioGenerator = () => {
       //    (edit-fashion-image). Garments get worn by the model in the scene.
       setPipelineStage("styling");
       setProgress(26);
+      // Mirrors the Fashion Studio image prompt (proven to pass content moderation):
+      // "edit ONLY their clothing" rather than "dress them / full body", which
+      // otherwise trips the model's prohibited-content filter.
       const composePrompt = modelRefUrl
-        ? `Full-body fashion photograph of the person from the FIRST reference image. Dress them in the garments shown in the following reference images, styled as one complete cohesive outfit. Keep the person's face, body, skin tone, hair and all physical features EXACTLY as in the first image — do not alter the person. Realistic fabric drape with natural wrinkles and shadows. Full body visible from head to toe. Scene and background: ${contextPrompt}. Natural, flattering lighting, realistic photography. No text, no watermark, no logos.`
-        : `Full-body fashion photograph of ${modelPrompt || "a professional fashion model"}, wearing the garments shown in the reference images styled as one complete cohesive outfit. Realistic fabric drape, full body visible from head to toe. Scene and background: ${contextPrompt}. Natural, flattering lighting, realistic photography. No text, no watermark, no logos.`;
+        ? `Full-length fashion photograph of the person from the FIRST reference image, captured as a realistic documentary-style photo. Edit ONLY their clothing and outfit to match the garments shown in the subsequent reference images, styled as one complete cohesive outfit. Keep the person's face, body, skin tone, hair and all physical features EXACTLY as they appear — do not modify or alter the person in any way. Natural skin texture, authentic expression, genuine pose. The clothing drapes and folds naturally with realistic fabric texture, wrinkles and shadows. Show the complete outfit. Background: ${contextPrompt}. Natural, flattering lighting, realistic photography. No text, no watermark, no logos.`
+        : `Full-length realistic fashion photograph of ${modelPrompt || "a professional fashion model"}, wearing the garments shown in the reference images styled as one complete cohesive outfit. Natural skin texture, authentic expression, genuine pose. The clothing drapes and folds naturally with realistic fabric texture and shadows. Show the complete outfit. Background: ${contextPrompt}. Natural, flattering lighting, realistic photography. No text, no watermark, no logos.`;
       const composeImageUrls = modelRefUrl ? [modelRefUrl, ...garmentUrls] : garmentUrls;
 
       const { data: compose, error: composeErr } = await supabase.functions.invoke("edit-fashion-image", {
-        body: { action: "generate", prompt: composePrompt, image_urls: composeImageUrls, aspect_ratio: aspectRatio, resolution: "2K" },
+        body: { action: "generate", prompt: composePrompt, image_urls: composeImageUrls, aspect_ratio: aspectRatio, resolution: "2K", num_images: 1 },
       });
       if (composeErr) throw composeErr;
       if (compose?.error) throw new Error(compose.error);

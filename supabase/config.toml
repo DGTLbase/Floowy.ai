@@ -10,6 +10,9 @@ schemas = ["public", "graphql_public"]
 file_size_limit = "50MB"
 
 
+[api.schemas]
+public = { enabled = true, with_foreign_keys = true }
+
 [auth]
 enabled = true
 site_url = "http://localhost:5173"
