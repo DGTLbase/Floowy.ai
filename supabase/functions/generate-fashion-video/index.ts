@@ -32,8 +32,8 @@ function buildFashionPrompt(opts: {
     : 'Combine the garments in the reference images into one complete cohesive outfit, keeping their exact colours and details.';
 
   const modelLine = hasModelRef
-    ? 'The reference images also include the model — feature that exact person wearing the outfit, and keep their face, body, skin tone and hair as shown.'
-    : (modelPrompt ? `Feature ${modelPrompt} wearing the outfit.` : 'Feature a professional fashion model wearing the outfit.');
+    ? 'Feature the model shown in the reference images, wearing the styled outfit.'
+    : (modelPrompt ? `Feature ${modelPrompt} wearing the styled outfit.` : 'Feature a professional fashion model wearing the styled outfit.');
 
   return [
     `A high-quality styled fashion video, approximately ${duration} seconds.`,
