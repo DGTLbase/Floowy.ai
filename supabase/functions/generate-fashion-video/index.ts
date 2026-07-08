@@ -251,16 +251,14 @@ CRITICAL RULES:
       const VIDEO_MODEL = Deno.env.get('FAL_VIDEO_MODEL') || 'google/gemini-omni-flash';
       const REF_MODEL = Deno.env.get('FAL_VIDEO_REF_MODEL') || `${VIDEO_MODEL}/reference-to-video`;
 
-      // Common reference-to-video body. generate_audio is a Veo/Omni-only field,
-      // so only include it for those models (Seedance rejects unknown fields).
-      const isOmni = REF_MODEL.includes('gemini') || REF_MODEL.includes('omni');
+      // Both Seedance and Omni support generate_audio (false = fully silent).
       const requestBody: Record<string, unknown> = {
         prompt: videoPrompt,
         image_urls: reference_image_urls,
         aspect_ratio: safeAspect,
         duration: safeDuration,
+        generate_audio,
       };
-      if (isOmni) requestBody.generate_audio = generate_audio;
 
       console.log('[GENERATE_STUDIO] config:', { model: REF_MODEL, safeAspect, safeDuration, refs: reference_image_urls.length, has_model_ref });
 
