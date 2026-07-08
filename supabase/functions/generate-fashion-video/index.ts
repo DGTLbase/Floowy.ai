@@ -229,6 +229,7 @@ CRITICAL RULES:
         start_image_url,
         duration: String(safeDuration),
         generate_audio,
+        shot_type: 'customize',
         aspect_ratio: safeAspect,
         negative_prompt: 'blur, distort, low quality, text overlay, captions, subtitles, split screen, picture-in-picture, collage, watermark, logo, brand name, altered garment, warped clothing, extra limbs, deformed hands',
         cfg_scale: 0.5,
