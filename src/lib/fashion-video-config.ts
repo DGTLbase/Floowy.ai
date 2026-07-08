@@ -132,10 +132,10 @@ export const CONTEXT_PRESETS: ContextPreset[] = [
     prompt: "Urban street environment. City sidewalks, brick walls, graffiti murals and urban architecture. Natural overcast daylight. Editorial street photography aesthetic.",
   },
   {
-    id: "luxury-runway",
-    name: "Luxury runway",
-    description: "Clean white runway, dramatic lighting, high-fashion production.",
-    prompt: "High-fashion runway setting. Clean white polished floor, dramatic overhead key lighting, minimal background. Professional fashion show production quality.",
+    id: "editorial-highend",
+    name: "Editorial / high-end",
+    description: "Curated interiors, hotel lobbies, architectural backdrops. Elegant and premium.",
+    prompt: "Editorial high-end environment. Curated luxury interiors, hotel lobbies and striking architectural backdrops. Elegant, premium lighting and composition. Sophisticated fashion editorial aesthetic.",
   },
   {
     id: "casual-lifestyle",
