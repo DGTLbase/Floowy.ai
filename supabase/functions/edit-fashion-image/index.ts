@@ -18,7 +18,7 @@ serve(async (req) => {
       throw new Error('FAL_API_KEY is not configured');
     }
 
-    const { action, requestId, prompt, image_urls, aspect_ratio = "1:1", resolution = "1K", num_images = 2 } = await req.json();
+    const { action, requestId, prompt, image_urls, aspect_ratio = "1:1", resolution = "1K" } = await req.json();
 
     // Check status of existing generation
     if (action === 'status' && requestId) {
@@ -112,7 +112,7 @@ serve(async (req) => {
       const requestBody: any = {
         prompt,
         image_urls,
-        num_images,
+        num_images: 2,
         aspect_ratio,
         output_format: "png",
         resolution,

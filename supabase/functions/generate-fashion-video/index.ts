@@ -7,50 +7,46 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Priority-weighted, branding-clean prompt for the Fashion Video Studio.
-// Garment priority (array order per category) is conveyed as screen-time weight.
+// Branding-clean prompt for Omni reference-image-to-video: the reference images
+// carry the garments (+ the model), so the prompt just directs how to combine and
+// animate them. Priority = array order per category (higher priority = more focus).
 function buildFashionPrompt(opts: {
   modelPrompt: string;
-  modelIsUpload: boolean;
+  hasModelRef: boolean;
   contextPrompt: string;
   editingPrompt: string;
   allowCuts: boolean;
   garmentSummary: Record<string, number>;
   duration: number;
-  composed?: boolean;
   audioPrompt?: string;
 }): string {
-  const { modelPrompt, modelIsUpload, contextPrompt, editingPrompt, allowCuts, garmentSummary, duration, composed, audioPrompt } = opts;
+  const { modelPrompt, hasModelRef, contextPrompt, editingPrompt, allowCuts, garmentSummary, duration, audioPrompt } = opts;
 
   const worn: string[] = [];
-  if ((garmentSummary.top ?? 0) > 0) worn.push('the featured top (primary garment — most screen time)');
-  if ((garmentSummary.bottom ?? 0) > 0) worn.push('the bottom garment');
-  if ((garmentSummary.shoes ?? 0) > 0) worn.push('the footwear');
-  if ((garmentSummary.accessories ?? 0) > 0) worn.push('the accessories');
-  // When the start image is already the composed on-model look, don't re-describe
-  // the garments (that risks the model restyling them).
-  const wornLine = composed ? '' : (worn.length
-    ? `The model wears ${worn.join(', ')}, styled as a complete cohesive outfit. Feature higher-priority garments more prominently and for more screen time.`
-    : '');
+  if ((garmentSummary.top ?? 0) > 0) worn.push('top');
+  if ((garmentSummary.bottom ?? 0) > 0) worn.push('bottom');
+  if ((garmentSummary.shoes ?? 0) > 0) worn.push('footwear');
+  if ((garmentSummary.accessories ?? 0) > 0) worn.push('accessories');
+  const outfitLine = worn.length
+    ? `The reference images include the garments (${worn.join(', ')}). Combine them into one complete cohesive outfit and keep each garment's exact colour, pattern, texture and proportions.`
+    : 'Combine the garments in the reference images into one complete cohesive outfit, keeping their exact colours and details.';
 
-  const modelLine = composed
-    ? 'The person shown is ALREADY wearing the complete styled outfit. Preserve their identity, face, body, skin tone, hair and their exact clothing — do NOT change or restyle the garments. Animate them naturally within the scene.'
-    : modelIsUpload
-    ? 'Dress the exact person from the reference image in the uploaded garments. STRICTLY PRESERVE their facial features, face shape, skin tone, eye colour and body proportions — zero alterations.'
-    : (modelPrompt ? `The outfit is worn by ${modelPrompt}.` : 'The outfit is worn by a professional fashion model.');
+  const modelLine = hasModelRef
+    ? 'The reference images also include the model — feature that exact person wearing the outfit, and keep their face, body, skin tone and hair as shown.'
+    : (modelPrompt ? `Feature ${modelPrompt} wearing the outfit.` : 'Feature a professional fashion model wearing the outfit.');
 
   return [
     `A high-quality styled fashion video, approximately ${duration} seconds.`,
     modelLine,
-    wornLine,
+    outfitLine,
     contextPrompt ? `Scene and atmosphere: ${contextPrompt}` : '',
     editingPrompt ? `Camera and editing: ${editingPrompt}` : '',
     audioPrompt || '',
     allowCuts
-      ? 'Use clean, deliberate SEQUENTIAL cuts over time as described — never split screens, collage or side-by-side panels shown at once.'
+      ? 'Use clean, deliberate sequential cuts over time — never split screens, collage or side-by-side panels shown at once.'
       : 'Single continuous shot — no cuts, no split screens, no collage.',
-    'GARMENT INTEGRITY: keep every garment in its exact original form, colour, pattern and proportions — no warping, morphing or distortion.',
-    'CRITICAL: absolutely NO text, captions, subtitles, logos, brand names or watermarks anywhere. One full-frame composition. Natural, realistic human movement. Premium professional fashion production quality.',
+    'Keep every garment in its exact original form — no warping, morphing or distortion.',
+    'No text, captions, subtitles, logos, brand names or watermarks anywhere. One full-frame composition. Natural, realistic human movement. Premium professional fashion production quality.',
   ].filter(Boolean).join(' ');
 }
 
@@ -218,65 +214,51 @@ CRITICAL RULES:
     // ============================================
     if (action === 'generate_studio') {
       const {
-        start_image_url,
-        garment_image_urls = [],
+        reference_image_urls = [],
+        has_model_ref = false,
         model_prompt = '',
-        model_is_upload = false,
         context_prompt = '',
         editing_prompt = '',
         editing_allows_cuts = false,
         audio_prompt = '',
         garment_summary = {},   // { top:number, bottom:number, shoes:number, accessories:number }
-        start_is_composed = false,  // start_image_url is a nano-banana on-model composite
         aspect_ratio = '9:16',
         duration_seconds = 6,
       } = body;
 
-      if (!start_image_url) throw new Error('start_image_url is required');
+      if (!Array.isArray(reference_image_urls) || reference_image_urls.length === 0) {
+        throw new Error('reference_image_urls is required');
+      }
 
       const safeAspect = (aspect_ratio === '16:9' || aspect_ratio === '9:16') ? aspect_ratio : '9:16';
       const safeDuration = [6, 8, 10].includes(Number(duration_seconds)) ? Number(duration_seconds) : 6;
 
       const videoPrompt = buildFashionPrompt({
         modelPrompt: model_prompt,
-        modelIsUpload: model_is_upload,
+        hasModelRef: has_model_ref,
         contextPrompt: context_prompt,
         editingPrompt: editing_prompt,
         allowCuts: editing_allows_cuts,
         garmentSummary: garment_summary,
         duration: safeDuration,
-        composed: start_is_composed,
         audioPrompt: audio_prompt,
       });
 
-      // Model is env-configurable (FAL_VIDEO_MODEL, shared with Creator Studio).
-      // Omni image-to-video takes a lean body (image_url, prompt, aspect_ratio) —
-      // duration is conveyed via the prompt; Kling takes start_image_url + params.
-      const VIDEO_MODEL = Deno.env.get('FAL_VIDEO_MODEL') || 'fal-ai/kling-video/v3/pro';
-      const isOmni = VIDEO_MODEL.includes('omni');
-      const submitUrl = `https://queue.fal.run/${VIDEO_MODEL}/image-to-video`;
+      // Omni reference-image-to-video: send the garments + model + scene directly as
+      // reference images (no separate compose step). Endpoint + params are
+      // env-overridable so the exact fal path can be set without a code change.
+      const VIDEO_MODEL = Deno.env.get('FAL_VIDEO_MODEL') || 'google/gemini-omni-flash';
+      const REF_MODEL = Deno.env.get('FAL_VIDEO_REF_MODEL') || `${VIDEO_MODEL}/reference-to-video`;
 
-      const requestBody: Record<string, unknown> = isOmni
-        ? {
-            image_url: start_image_url,
-            prompt: videoPrompt,
-            aspect_ratio: safeAspect,
-          }
-        : {
-            prompt: videoPrompt,
-            start_image_url,
-            reference_image_urls: garment_image_urls,
-            duration: String(safeDuration),
-            generate_audio: false,
-            shot_type: 'customize',
-            aspect_ratio: safeAspect,
-            negative_prompt: 'blur, distort, low quality, text overlay, captions, subtitles, split screen, picture-in-picture, collage, watermark, logo, brand name, altered garment, warped clothing, extra limbs, deformed hands',
-            cfg_scale: 0.5,
-          };
+      const requestBody: Record<string, unknown> = {
+        prompt: videoPrompt,
+        reference_image_urls,
+        aspect_ratio: safeAspect,
+      };
 
-      console.log('[GENERATE_STUDIO] config:', { model: VIDEO_MODEL, isOmni, safeAspect, safeDuration, allowCuts: editing_allows_cuts, garment_summary });
+      console.log('[GENERATE_STUDIO] config:', { model: REF_MODEL, safeAspect, safeDuration, refs: reference_image_urls.length, has_model_ref });
 
-      const response = await fetch(submitUrl, {
+      const response = await fetch(`https://queue.fal.run/${REF_MODEL}`, {
         method: 'POST',
         headers: { 'Authorization': `Key ${FAL_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -285,7 +267,7 @@ CRITICAL RULES:
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[GENERATE_STUDIO] FAL error:', errorText);
-        throw new Error(`Video generation failed: ${response.status} ${errorText.slice(0, 300)}`);
+        throw new Error(`Video generation failed: ${response.status} ${errorText.slice(0, 400)}`);
       }
 
       const data = await response.json();
