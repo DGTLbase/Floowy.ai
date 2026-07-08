@@ -220,24 +220,34 @@ CRITICAL RULES:
         audioPrompt: audio_prompt,
       });
 
-      // Kling image-to-video animates the composed on-model still. Kling handles
-      // human image-to-video (reference-to-video models block real-person likenesses).
-      const KLING = Deno.env.get('FAL_VIDEO_MODEL_FASHION') || 'fal-ai/kling-video/v3/pro';
+      // Animate the composed on-model still. Model is env-configurable
+      // (FAL_VIDEO_MODEL_FASHION). Omni uses a lean image_url body; Kling uses
+      // start_image_url + its own params.
+      const MODEL = Deno.env.get('FAL_VIDEO_MODEL_FASHION') || 'fal-ai/kling-video/v3/pro';
+      const isOmni = MODEL.includes('omni') || MODEL.includes('gemini');
 
-      const requestBody: Record<string, unknown> = {
-        prompt: videoPrompt,
-        start_image_url,
-        duration: String(safeDuration),
-        generate_audio,
-        shot_type: 'customize',
-        aspect_ratio: safeAspect,
-        negative_prompt: 'blur, distort, low quality, text overlay, captions, subtitles, split screen, picture-in-picture, collage, watermark, logo, brand name, altered garment, warped clothing, extra limbs, deformed hands',
-        cfg_scale: 0.5,
-      };
+      const requestBody: Record<string, unknown> = isOmni
+        ? {
+            image_url: start_image_url,
+            prompt: videoPrompt,
+            aspect_ratio: safeAspect,
+            duration: safeDuration,
+            generate_audio,
+          }
+        : {
+            prompt: videoPrompt,
+            start_image_url,
+            duration: String(safeDuration),
+            generate_audio,
+            shot_type: 'customize',
+            aspect_ratio: safeAspect,
+            negative_prompt: 'blur, distort, low quality, text overlay, captions, subtitles, split screen, picture-in-picture, collage, watermark, logo, brand name, altered garment, warped clothing, extra limbs, deformed hands',
+            cfg_scale: 0.5,
+          };
 
-      console.log('[GENERATE_STUDIO] config:', { model: KLING, safeAspect, safeDuration, generate_audio });
+      console.log('[GENERATE_STUDIO] config:', { model: MODEL, isOmni, safeAspect, safeDuration, generate_audio });
 
-      const response = await fetch(`https://queue.fal.run/${KLING}/image-to-video`, {
+      const response = await fetch(`https://queue.fal.run/${MODEL}/image-to-video`, {
         method: 'POST',
         headers: { 'Authorization': `Key ${FAL_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
