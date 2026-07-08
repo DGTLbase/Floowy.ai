@@ -251,6 +251,47 @@ export const editingStyleAllowsCuts = (id: string): boolean => {
   return !!s && s.cuts !== "None";
 };
 
+// ── Audio (generated video now includes sound) ──────────────────────────────
+export interface AudioOption {
+  id: string;
+  label: string;
+  description: string;
+  prompt: string;            // audio directive appended to the video prompt
+  hasMusicStyle?: boolean;
+}
+
+export const AUDIO_OPTIONS: AudioOption[] = [
+  { id: "natural", label: "Natural sound", description: "Ambient sound that fits the scene.", prompt: "AUDIO: natural ambient sound that matches the scene. No voiceover, no speech." },
+  { id: "music", label: "Background music", description: "Add music — no speech.", prompt: "AUDIO: background music only, no speech, no voiceover.", hasMusicStyle: true },
+  { id: "sfx", label: "SFX only", description: "Subtle sound effects, no music.", prompt: "AUDIO: subtle sound effects and foley only (footsteps, fabric, ambience). No music, no speech, no voiceover." },
+  { id: "silent", label: "No sound", description: "Completely silent.", prompt: "AUDIO: completely silent — no music, no sound effects, no speech, no voiceover." },
+];
+
+export const AUDIO_DEFAULT_ID = "natural";
+
+export interface MusicStyle { id: string; label: string; prompt: string; }
+export const MUSIC_STYLES: MusicStyle[] = [
+  { id: "upbeat", label: "Upbeat", prompt: "upbeat, energetic" },
+  { id: "chill", label: "Chill", prompt: "chill, relaxed, lo-fi" },
+  { id: "cinematic", label: "Cinematic", prompt: "cinematic, dramatic" },
+  { id: "elegant", label: "Elegant", prompt: "elegant, sophisticated fashion-runway" },
+];
+export const MUSIC_DEFAULT_ID = "upbeat";
+
+export const audioOptionById = (id: string): AudioOption =>
+  AUDIO_OPTIONS.find((a) => a.id === id) ?? AUDIO_OPTIONS[0];
+export const musicStyleById = (id: string): MusicStyle =>
+  MUSIC_STYLES.find((m) => m.id === id) ?? MUSIC_STYLES[0];
+
+/** Final audio directive from the selected option (+ music style when applicable). */
+export function resolveAudioPrompt(audioId: string, musicStyleId: string): string {
+  const opt = audioOptionById(audioId);
+  if (opt.hasMusicStyle) {
+    return `AUDIO: ${musicStyleById(musicStyleId).prompt} background music, no speech, no voiceover.`;
+  }
+  return opt.prompt;
+}
+
 // ── Post-generation Edit Video (briefing §8) ────────────────────────────────
 export const FASHION_EDIT_CREDITS = 5;
 export const FASHION_EDIT_MAX_CHARS = 500;

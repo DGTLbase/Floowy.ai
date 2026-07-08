@@ -7,6 +7,7 @@ import { ArrowLeft, Sparkles, Loader2, Pencil, Smartphone, Monitor, Clock } from
 import GarmentUploadBlock, { emptyGarmentMap, type GarmentMap } from "@/components/fashion/GarmentUploadBlock";
 import ModelSelectBlock, { defaultModelValue, type ModelValue } from "@/components/fashion/ModelSelectBlock";
 import PresetWithCustomBlock from "@/components/fashion/PresetWithCustomBlock";
+import AudioBlock from "@/components/fashion/AudioBlock";
 import VideoEditModal from "@/components/VideoEditModal";
 import PlanCreditsDisplay from "@/components/PlanCreditsDisplay";
 import UserMenu from "@/components/UserMenu";
@@ -21,6 +22,7 @@ import {
   EDITING_STYLES, EDITING_DEFAULT_ID, EDITING_CUSTOM_MAX_CHARS, EDITING_CUSTOM_PLACEHOLDER,
   editingStyleById, editingStyleAllowsCuts,
   garmentValidationError, FASHION_EDIT_CHIPS, canAccessFashionStudio,
+  AUDIO_DEFAULT_ID, MUSIC_DEFAULT_ID, resolveAudioPrompt,
   type AspectRatioId, type DurationSec,
 } from "@/lib/fashion-video-config";
 
@@ -76,6 +78,8 @@ const FashionVideoStudioGenerator = () => {
   const [editingCustom, setEditingCustom] = useState("");
   const [aspectRatio, setAspectRatio] = useState<AspectRatioId>("9:16");
   const [duration, setDuration] = useState<DurationSec>(6);
+  const [audioStyle, setAudioStyle] = useState<string>(AUDIO_DEFAULT_ID);
+  const [musicStyle, setMusicStyle] = useState<string>(MUSIC_DEFAULT_ID);
 
   // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -200,6 +204,7 @@ const FashionVideoStudioGenerator = () => {
           context_prompt: contextPrompt,
           editing_prompt: editingPrompt,
           editing_allows_cuts: allowCuts,
+          audio_prompt: resolveAudioPrompt(audioStyle, musicStyle),
           garment_summary: counts,
           aspect_ratio: aspectRatio,
           duration_seconds: duration,
@@ -301,6 +306,13 @@ const FashionVideoStudioGenerator = () => {
               customPlaceholder={EDITING_CUSTOM_PLACEHOLDER}
               customMaxChars={EDITING_CUSTOM_MAX_CHARS}
               lgCols={3}
+            />
+
+            <AudioBlock
+              audioId={audioStyle}
+              musicStyleId={musicStyle}
+              onAudio={setAudioStyle}
+              onMusicStyle={setMusicStyle}
             />
 
             {/* Aspect ratio */}

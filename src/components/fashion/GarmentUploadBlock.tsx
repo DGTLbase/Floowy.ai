@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Upload, X, GripVertical } from "lucide-react";
+import { Upload, X, GripVertical, Plus } from "lucide-react";
 import {
   GARMENT_SECTIONS, GARMENT_ACCEPTED_FORMATS, GARMENT_MAX_BYTES, GARMENT_INPUT_TYPES,
   priorityBadgeClass, type GarmentCategoryId,
@@ -24,10 +24,10 @@ let uid = 0;
 const nextId = () => `g${Date.now()}_${uid++}`;
 
 /**
- * Garment upload (briefing §3): four stacked sections styled like the Fashion
- * Studio upload blocks (card + aspect-square thumbnail grid + dashed add tile).
- * Multiple items per section (max 5), with a per-item priority badge (1 = most
- * screen time — array order) and drag-to-reorder within a section.
+ * Garment upload (briefing §3), styled like the Fashion Studio UploadArea blocks:
+ * a dashed card per section with a "Drop … / Browse Files" empty state. Still
+ * supports multiple items per section (max 5) with priority badges (1 = most
+ * screen time — array order) and drag-to-reorder.
  */
 const GarmentUploadBlock = ({ value, onChange, onReject }: Props) => {
   const [dragItem, setDragItem] = useState<{ cat: GarmentCategoryId; index: number } | null>(null);
@@ -62,7 +62,7 @@ const GarmentUploadBlock = ({ value, onChange, onReject }: Props) => {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div>
         <span className="text-lg font-semibold text-foreground">Garments</span>
         <p className="mt-0.5 text-sm text-muted-foreground">
@@ -70,88 +70,90 @@ const GarmentUploadBlock = ({ value, onChange, onReject }: Props) => {
         </p>
       </div>
 
-      {GARMENT_SECTIONS.map((section) => {
-        const items = value[section.id];
-        const full = items.length >= section.maxItems;
-        return (
-          <div key={section.id} className="bg-card rounded-xl border border-border p-4 sm:p-6">
-            <div className="mb-1 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-foreground">
-                {section.label}
-                {!section.required && <span className="ml-2 text-sm font-normal text-muted-foreground">(Optional)</span>}
+      <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {GARMENT_SECTIONS.map((section) => {
+          const items = value[section.id];
+          const full = items.length >= section.maxItems;
+          const isOver = dragOver === section.id;
+          return (
+            <div key={section.id} className="rounded-2xl border-2 border-dashed border-border bg-card p-4 shadow-elegant">
+              <h3 className="mb-2 text-base font-bold text-foreground">
+                Upload {section.label} <span className="font-normal text-muted-foreground">(Optional)</span>
               </h3>
-              <span className="text-xs text-muted-foreground">{items.length}/{section.maxItems}</span>
-            </div>
-            <p className="mb-4 text-sm text-muted-foreground">
-              {section.examples}. Priority 1 gets the most screen time — drag to reorder.
-            </p>
 
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              {items.map((item, index) => (
-                <div
-                  key={item.id}
-                  draggable
-                  onDragStart={() => setDragItem({ cat: section.id, index })}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (dragItem && dragItem.cat === section.id) reorder(section.id, dragItem.index, index);
-                    setDragItem(null);
-                  }}
-                  className="group relative overflow-hidden rounded-lg border border-border bg-muted"
-                >
-                  <img src={item.previewUrl} alt="" className="aspect-square w-full object-contain p-2" />
-                  {/* Priority badge (array order = priority) */}
-                  <span className={`absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${priorityBadgeClass(index + 1)}`}>
-                    {index + 1}
-                  </span>
-                  {items.length > 1 && (
-                    <span className="absolute left-7 top-1 rounded bg-black/40 p-0.5 text-white opacity-0 transition group-hover:opacity-100" title="Drag to reorder">
-                      <GripVertical className="h-3 w-3" />
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => removeItem(section.id, item.id)}
-                    className="absolute right-1 top-1 rounded-full bg-destructive p-1 text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"
-                    aria-label="Remove"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-
-              {/* Dashed add tile — same look as the Fashion Studio upload blocks */}
-              {!full && (
+              {items.length === 0 ? (
+                /* Empty state — matches the Fashion Studio UploadArea look */
                 <label
                   onDragOver={(e) => { e.preventDefault(); setDragOver(section.id); }}
                   onDragLeave={() => setDragOver(null)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDragOver(null);
-                    if (e.dataTransfer.files?.length) addFiles(section.id, e.dataTransfer.files, section.maxItems);
-                  }}
-                  className={`flex aspect-square cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed transition-colors ${
-                    dragOver === section.id ? "border-primary bg-primary/5" : "border-border bg-muted/30 hover:border-primary/50"
+                  onDrop={(e) => { e.preventDefault(); setDragOver(null); if (e.dataTransfer.files?.length) addFiles(section.id, e.dataTransfer.files, section.maxItems); }}
+                  className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
+                    isOver ? "border-primary bg-primary/5" : "border-primary/30 bg-accent/5 hover:border-primary/50"
                   }`}
                 >
-                  <Upload className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {items.length > 0 ? "Add" : "Upload"}
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                    <Upload className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Drop your {section.label.toLowerCase()} here</p>
+                    <p className="text-xs text-muted-foreground">or click to browse</p>
+                  </div>
+                  <span className="pointer-events-none inline-flex items-center rounded-md border border-input px-3 py-1.5 text-sm font-medium">
+                    Browse Files
                   </span>
                   <input
-                    type="file"
-                    accept={GARMENT_ACCEPTED_FORMATS.join(",")}
-                    multiple
-                    hidden
+                    type="file" accept={GARMENT_ACCEPTED_FORMATS.join(",")} multiple hidden
                     onChange={(e) => { if (e.target.files?.length) addFiles(section.id, e.target.files, section.maxItems); e.target.value = ""; }}
                   />
                 </label>
+              ) : (
+                /* Uploaded items — thumbnails with priority + remove + drag-to-reorder */
+                <div className="grid grid-cols-2 gap-2">
+                  {items.map((item, index) => (
+                    <div
+                      key={item.id}
+                      draggable
+                      onDragStart={() => setDragItem({ cat: section.id, index })}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => { e.preventDefault(); if (dragItem && dragItem.cat === section.id) reorder(section.id, dragItem.index, index); setDragItem(null); }}
+                      className="group relative overflow-hidden rounded-lg border border-border bg-muted"
+                    >
+                      <img src={item.previewUrl} alt="" className="aspect-square w-full object-contain p-2" />
+                      <span className={`absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${priorityBadgeClass(index + 1)}`}>
+                        {index + 1}
+                      </span>
+                      {items.length > 1 && (
+                        <span className="absolute left-7 top-1 rounded bg-black/40 p-0.5 text-white opacity-0 transition group-hover:opacity-100" title="Drag to reorder">
+                          <GripVertical className="h-3 w-3" />
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeItem(section.id, item.id)}
+                        className="absolute right-1 top-1 rounded-full bg-destructive p-1 text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                        aria-label="Remove"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {!full && (
+                    <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-border bg-muted/30 text-muted-foreground transition-colors hover:border-primary/50">
+                      <Plus className="h-5 w-5" />
+                      <span className="text-xs font-medium">Add</span>
+                      <input
+                        type="file" accept={GARMENT_ACCEPTED_FORMATS.join(",")} multiple hidden
+                        onChange={(e) => { if (e.target.files?.length) addFiles(section.id, e.target.files, section.maxItems); e.target.value = ""; }}
+                      />
+                    </label>
+                  )}
+                </div>
               )}
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 };

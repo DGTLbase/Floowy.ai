@@ -18,8 +18,9 @@ function buildFashionPrompt(opts: {
   garmentSummary: Record<string, number>;
   duration: number;
   composed?: boolean;
+  audioPrompt?: string;
 }): string {
-  const { modelPrompt, modelIsUpload, contextPrompt, editingPrompt, allowCuts, garmentSummary, duration, composed } = opts;
+  const { modelPrompt, modelIsUpload, contextPrompt, editingPrompt, allowCuts, garmentSummary, duration, composed, audioPrompt } = opts;
 
   const worn: string[] = [];
   if ((garmentSummary.top ?? 0) > 0) worn.push('the featured top (primary garment — most screen time)');
@@ -44,6 +45,7 @@ function buildFashionPrompt(opts: {
     wornLine,
     contextPrompt ? `Scene and atmosphere: ${contextPrompt}` : '',
     editingPrompt ? `Camera and editing: ${editingPrompt}` : '',
+    audioPrompt || '',
     allowCuts
       ? 'Use clean, deliberate SEQUENTIAL cuts over time as described — never split screens, collage or side-by-side panels shown at once.'
       : 'Single continuous shot — no cuts, no split screens, no collage.',
@@ -223,6 +225,7 @@ CRITICAL RULES:
         context_prompt = '',
         editing_prompt = '',
         editing_allows_cuts = false,
+        audio_prompt = '',
         garment_summary = {},   // { top:number, bottom:number, shoes:number, accessories:number }
         start_is_composed = false,  // start_image_url is a nano-banana on-model composite
         aspect_ratio = '9:16',
@@ -243,6 +246,7 @@ CRITICAL RULES:
         garmentSummary: garment_summary,
         duration: safeDuration,
         composed: start_is_composed,
+        audioPrompt: audio_prompt,
       });
 
       // Model is env-configurable (FAL_VIDEO_MODEL, shared with Creator Studio).
