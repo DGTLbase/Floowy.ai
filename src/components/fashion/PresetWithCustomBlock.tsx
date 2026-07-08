@@ -59,13 +59,12 @@ const PresetWithCustomBlock = ({
             <button
               key={p.id}
               type="button"
-              disabled={isCustom}
               aria-pressed={active}
               onClick={() => onSelectPreset(p.id)}
               className={`relative flex flex-col rounded-xl border p-3 text-left transition ${
                 active ? "border-primary ring-2 ring-primary/30 bg-primary/5"
                        : "border-border hover:border-primary/50"
-              } ${isCustom ? "pointer-events-none opacity-40" : ""}`}
+              }`}
             >
               {active && (
                 <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
