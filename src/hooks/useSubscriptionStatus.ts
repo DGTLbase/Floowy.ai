@@ -96,7 +96,8 @@ export function useSubscriptionStatus() {
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange(() => {
       sessionStorage.removeItem(CACHE_KEY);
-      void refresh();
+      // Defer — refresh() runs supabase calls; inline it deadlocks the auth lock.
+      setTimeout(() => { void refresh(); }, 0);
     });
     return () => sub.subscription.unsubscribe();
   }, [refresh]);

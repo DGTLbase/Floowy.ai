@@ -198,7 +198,7 @@ const BulkMockupGenerator = () => {
       data: {
         subscription
       }
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -209,7 +209,7 @@ const BulkMockupGenerator = () => {
           fetchUserData(session.user.id);
         }, 0);
       } else {
-        await verifyAdmin();
+        setTimeout(() => verifyAdmin(), 0);
       }
     });
     supabase.auth.getSession().then(async ({

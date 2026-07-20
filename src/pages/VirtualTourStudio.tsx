@@ -93,8 +93,9 @@ const VirtualTourStudio = () => {
       }
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      handleSession(session);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Defer — handleSession runs supabase queries; calling it inside the callback deadlocks the auth lock.
+      setTimeout(() => handleSession(session), 0);
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {

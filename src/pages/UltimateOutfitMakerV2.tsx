@@ -261,7 +261,7 @@ const UltimateOutfitMakerV2 = () => {
       return false;
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -271,7 +271,7 @@ const UltimateOutfitMakerV2 = () => {
           fetchUserData(session.user.id);
         }, 0);
       } else {
-        await verifyAdmin();
+        setTimeout(() => verifyAdmin(), 0);
       }
     });
 

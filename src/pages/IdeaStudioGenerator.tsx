@@ -61,9 +61,9 @@ const IdeaStudioGenerator = () => {
       return false;
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (!session) { await verifyAdmin(); }
+      if (!session) { setTimeout(() => verifyAdmin(), 0); }
     });
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {

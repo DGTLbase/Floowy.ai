@@ -72,7 +72,8 @@ export const UpsellProvider = ({ children }: { children: ReactNode }) => {
       if (!cancelled) setPlan((data?.plan || "free").toLowerCase());
     };
     load();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => load());
+    // Defer — load() runs supabase queries; calling it inside the callback deadlocks the auth lock.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => setTimeout(() => load(), 0));
     return () => { cancelled = true; subscription.unsubscribe(); };
   }, []);
 

@@ -82,7 +82,8 @@ const BackendLayout = ({ children }: BackendLayoutProps) => {
     fetchData();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      if (session?.user) fetchData();
+      // Defer: calling supabase inside the auth callback deadlocks the auth lock.
+      if (session?.user) setTimeout(() => fetchData(), 0);
     });
 
     // Live credit balance — no reload needed. Re-fetch on an explicit refresh

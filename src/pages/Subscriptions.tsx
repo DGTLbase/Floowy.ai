@@ -30,7 +30,7 @@ const Subscriptions = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       if (!session) navigate("/auth");
-      else fetchUserData(session.user.id);
+      else setTimeout(() => fetchUserData(session.user.id), 0);
     });
 
     return () => subscription.unsubscribe();

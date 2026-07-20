@@ -51,7 +51,8 @@ const Navigation = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserData(session.user.id);
+        // Defer — fetchUserData runs supabase queries; inline it deadlocks the auth lock.
+        setTimeout(() => fetchUserData(session.user.id), 0);
       } else {
         setCredits(0);
         setPlan("free");

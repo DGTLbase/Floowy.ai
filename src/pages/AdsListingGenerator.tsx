@@ -151,10 +151,11 @@ const AdsListingGenerator = () => {
 
   // Auth and credits
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Defer supabase-touching work — calling it inside the callback deadlocks the auth lock.
       if (session?.user) {
         setUser(session.user);
-        fetchCredits(session.user.id);
+        setTimeout(() => fetchCredits(session.user.id), 0);
       }
     });
 

@@ -58,14 +58,20 @@ const Auth = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Single-flight guard: initAuth (getSession) AND onAuthStateChange both see a
+    // session on login and would each fire the redirect, so it ran 2–3× with racing
+    // navigate() calls (inconsistent landing). Let whichever fires first own it.
+    let redirectStarted = false;
+    const startRedirect = (userId: string) => {
+      if (redirectStarted) return;
+      redirectStarted = true;
+      // Small delay so the profile trigger has completed before we read it.
+      setTimeout(() => checkRoleAndRedirect(userId), 500);
+    };
+
     const initAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        // Add small delay to ensure profile trigger has completed
-        setTimeout(() => {
-          checkRoleAndRedirect(session.user.id);
-        }, 500);
-      }
+      if (session) startRedirect(session.user.id);
     };
 
     initAuth();
@@ -73,10 +79,8 @@ const Auth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         console.log("[Auth] Auth state changed:", event);
-        // Defer all async operations to prevent auth deadlock
-        setTimeout(() => {
-          handleAuthStateChange(event, session);
-        }, 500);
+        // Defer to avoid the auth-lock deadlock; guarded so it runs once.
+        startRedirect(session.user.id);
       }
     });
 

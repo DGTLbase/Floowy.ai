@@ -74,10 +74,11 @@ const AtmosphericGenerator = () => {
       return false;
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      // Defer — never call supabase-backed work synchronously inside this callback.
       if (!session) {
-        await verifyAdmin();
+        setTimeout(() => verifyAdmin(), 0);
       }
     });
 
