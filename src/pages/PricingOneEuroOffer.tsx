@@ -6,7 +6,7 @@ import OfferPricingSection from "@/components/OfferPricingSection";
 import PersonalDiscountModal from "@/components/PersonalDiscountModal";
 import { useScrollAnimationInit } from "@/hooks/useScrollAnimationInit";
 import CountdownTimer from "@/components/CountdownTimer";
-import { Flame, Zap, ShieldCheck } from "lucide-react";
+import { Flame, Zap, ShieldCheck, ArrowRight } from "lucide-react";
 
 const PricingOneEuroOffer = () => {
   useScrollAnimationInit();
@@ -19,6 +19,9 @@ const PricingOneEuroOffer = () => {
       sessionStorage.removeItem("floowy_show_personal_promo");
     }
   }, []);
+
+  const scrollToPlans = () =>
+    document.getElementById("euro1-plans")?.scrollIntoView({ behavior: "smooth" });
 
   const dismissPromo = () => setShowPromo(false);
   const claimPromo = () => {
@@ -80,6 +83,16 @@ const PricingOneEuroOffer = () => {
                     Offer ends in
                   </span>
                   <CountdownTimer hours={4} minutes={30} />
+                </div>
+
+                {/* Primary offer CTA — scrolls down to the €1 plan cards */}
+                <div className="mb-8">
+                  <button
+                    onClick={scrollToPlans}
+                    className="inline-flex items-center gap-2 rounded-full bg-offer px-8 py-4 text-base md:text-lg font-bold text-offer-foreground shadow-glow transition-colors hover:bg-offer-hover active:bg-offer-hover"
+                  >
+                    Start for €1 <ArrowRight className="h-5 w-5" />
+                  </button>
                 </div>
 
                 {/* Trust row */}

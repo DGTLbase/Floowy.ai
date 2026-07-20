@@ -112,32 +112,54 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Get current credits
-    const { data: currentCredit } = await supabaseAdmin
-      .from("credits")
-      .select("balance")
+    // Idempotent grant: SET the balance to the plan amount exactly once per
+    // billing period, marked by a credit_history "subscription_refresh" row.
+    // This is the SAME marker the Stripe webhook uses, so the two paths can't
+    // double-grant for the same payment (previously each ADDED plan credits →
+    // 2× the plan amount, e.g. Lite 40 → 80).
+    const periodStartSec =
+      (subscription as any).current_period_start ??
+      (subscription.items.data[0] as any)?.current_period_start;
+    const periodStartIso = periodStartSec ? new Date(periodStartSec * 1000).toISOString() : new Date(0).toISOString();
+
+    const { data: alreadyGranted } = await supabaseAdmin
+      .from("credit_history")
+      .select("id")
       .eq("user_id", user.id)
-      .maybeSingle();
+      .eq("action_type", "subscription_refresh")
+      .gte("created_at", periodStartIso)
+      .limit(1);
 
-    const currentBalance = currentCredit?.balance || 0;
-    const newBalance = currentBalance + planData.credits;
+    if (!alreadyGranted || alreadyGranted.length === 0) {
+      const { data: currentCredit } = await supabaseAdmin
+        .from("credits")
+        .select("balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const oldBalance = currentCredit?.balance ?? 0;
 
-    console.log(`Updating credits: ${currentBalance} + ${planData.credits} = ${newBalance}`);
+      const { error: updateCreditsError } = await supabaseAdmin
+        .from("credits")
+        .update({ balance: planData.credits })
+        .eq("user_id", user.id);
+      if (updateCreditsError) {
+        console.error("Error updating credits:", updateCreditsError);
+        throw new Error("Failed to update credits");
+      }
 
-    // Update credits
-    const { error: updateCreditsError } = await supabaseAdmin
-      .from("credits")
-      .update({ balance: newBalance })
-      .eq("user_id", user.id);
-
-    if (updateCreditsError) {
-      console.error("Error updating credits:", updateCreditsError);
-      throw new Error("Failed to update credits");
+      await supabaseAdmin.from("credit_history").insert({
+        user_id: user.id,
+        amount: planData.credits - oldBalance,
+        balance_after: planData.credits,
+        action_type: "subscription_refresh",
+        description: `confirm-subscription: ${planData.plan} plan — credits set to ${planData.credits} (period ${periodStartIso})`,
+      });
+      console.log(`Credits set to ${planData.credits} (was ${oldBalance})`);
+    } else {
+      console.log("Credits already granted this billing period — skipping grant");
     }
 
-    console.log("Credits updated successfully");
-
-    // Update plan
+    // Update plan (always keep it in sync, even if credits were already granted)
     const { error: updatePlanError } = await supabaseAdmin
       .from("profiles")
       .update({ plan: planData.plan })

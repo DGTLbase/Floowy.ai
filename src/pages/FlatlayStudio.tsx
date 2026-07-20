@@ -17,6 +17,7 @@ import GenerationProgressOverlay from "@/components/GenerationProgressOverlay";
 import ImageEditModal from "@/components/ImageEditModal";
 import { AdminToolsSidebar } from "@/components/AdminToolsSidebar";
 import { useToast } from "@/hooks/use-toast";
+import { useUpsell } from "@/hooks/useUpsell";
 import PlanCreditsDisplay from "@/components/PlanCreditsDisplay";
 import UserMenu from "@/components/UserMenu";
 import CreditsPurchaseDialog from "@/components/CreditsPurchaseDialog";
@@ -62,6 +63,7 @@ interface ProductItem {
 }
 
 const FlatlayStudio = () => {
+  const { trackStudioUse } = useUpsell();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const adminMode = searchParams.get("admin") === "true";
@@ -320,6 +322,8 @@ const FlatlayStudio = () => {
       }
 
       toast({ title: "Done!", description: `Generated ${processed.length} flatlays` });
+      // Contextual upsell: nudge Flatlay users toward Fashion Video Studio.
+      trackStudioUse("flatlay");
     } catch (e) {
       console.error(e);
       toast({ title: "Generation failed", description: "Please try again.", variant: "destructive" });

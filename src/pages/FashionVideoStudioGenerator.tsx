@@ -3,12 +3,14 @@ import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useUpsell } from "@/hooks/useUpsell";
 import { ArrowLeft, Sparkles, Loader2, Pencil, Smartphone, Monitor, Clock } from "lucide-react";
 import GarmentUploadBlock, { emptyGarmentMap, type GarmentMap } from "@/components/fashion/GarmentUploadBlock";
 import ModelSelectBlock, { defaultModelValue, type ModelValue } from "@/components/fashion/ModelSelectBlock";
 import PresetWithCustomBlock from "@/components/fashion/PresetWithCustomBlock";
 import AudioBlock from "@/components/fashion/AudioBlock";
 import EditingStyleBlock from "@/components/fashion/EditingStyleBlock";
+import CameraStylePresetSelect from "@/components/CameraStylePresetSelect";
 import VideoEditModal from "@/components/VideoEditModal";
 import PlanCreditsDisplay from "@/components/PlanCreditsDisplay";
 import UserMenu from "@/components/UserMenu";
@@ -17,6 +19,7 @@ import { AdminToolsSidebar } from "@/components/AdminToolsSidebar";
 import { useFromAdmin } from "@/hooks/useFromAdmin";
 import { deductCredits } from "@/hooks/useCreditDeduction";
 import logoImage from "@/assets/floowy-logo.png";
+import { cameraStylePrompt, CAMERA_STYLE_NONE } from "@/lib/camera-style-presets";
 import {
   ASPECT_RATIOS, DURATION_PILLS, creditsForDuration,
   CONTEXT_PRESETS, CONTEXT_DEFAULT_ID, CONTEXT_CUSTOM_MAX_CHARS, CONTEXT_CUSTOM_PLACEHOLDER, contextById,
@@ -62,6 +65,7 @@ async function pollTask(
 }
 
 const FashionVideoStudioGenerator = () => {
+  const { trackStudioUse } = useUpsell();
   const navigate = useNavigate();
   const { toast } = useToast();
   const fromAdmin = useFromAdmin();
@@ -80,8 +84,12 @@ const FashionVideoStudioGenerator = () => {
   const [editingCustom, setEditingCustom] = useState("");
   const [aspectRatio, setAspectRatio] = useState<AspectRatioId>("9:16");
   const [duration, setDuration] = useState<DurationSec>(6);
+  // When a garment slot holds multiple items: wear them one-by-one ("separate")
+  // or style everything into one combined outfit ("together").
+  const [wearMode, setWearMode] = useState<"separate" | "together">("separate");
   const [audioStyle, setAudioStyle] = useState<string>(AUDIO_DEFAULT_ID);
   const [musicStyle, setMusicStyle] = useState<string>(MUSIC_DEFAULT_ID);
+  const [cameraStyle, setCameraStyle] = useState<string>(CAMERA_STYLE_NONE);
 
   // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -146,13 +154,29 @@ const FashionVideoStudioGenerator = () => {
     setPipelineStage("preparing");
 
     try {
-      // 1) Upload garment images (priority order) + resolve the model reference.
-      const orderedFiles = [
-        ...garments.top, ...garments.bottom, ...garments.shoes, ...garments.accessories,
-      ];
+      // 1) Identify the rotating slot: the highest-priority slot (top → bottom →
+      //    shoes → accessories) holding MORE THAN ONE item. Those garments are
+      //    shown one-by-one in the video; every other slot contributes a single
+      //    constant item. With no multi-item slot this is exactly the original
+      //    single-outfit behaviour.
+      const ROT_ORDER = ["top", "bottom", "shoes", "accessories"] as const;
+      // Only rotate (wear separately) when the user chose "separate" AND a slot
+      // actually holds multiples. "Together" = one combined outfit, no rotation.
+      const rotatingCat = wearMode === "separate" ? (ROT_ORDER.find((c) => garments[c].length > 1) ?? null) : null;
+      const rotationCount = rotatingCat ? garments[rotatingCat].length : 0;
+      const rotationLabel = rotatingCat
+        ? ({ top: "tops", bottom: "bottoms", shoes: "pairs of shoes", accessories: "accessories" } as const)[rotatingCat]
+        : null;
+
+      // Reference set. Separate: ALL items of the rotating slot (so the model can
+      // wear each in its own segment) + one constant item per other slot.
+      // Together: every uploaded garment, combined into one cohesive outfit.
+      const refFiles = (rotatingCat
+        ? ROT_ORDER.flatMap((c) => (c === rotatingCat ? garments[c] : (garments[c][0] ? [garments[c][0]] : [])))
+        : ROT_ORDER.flatMap((c) => garments[c])) as typeof garments.top;
       setPipelineStage("uploading");
-      const garmentUrls = await Promise.all(orderedFiles.map((g) => uploadToImgbb(g.file)));
-      setProgress(18);
+      const garmentUrls = await Promise.all(refFiles.map((g) => uploadToImgbb(g.file)));
+      setProgress(20);
 
       // A chosen library avatar OR an uploaded photo becomes a model reference
       // image. "Describe" is text-only (the model is described in the prompt).
@@ -172,40 +196,27 @@ const FashionVideoStudioGenerator = () => {
       }
       const editingPrompt = editingIsCustom ? editingCustom.trim() : (editingStyleById(editingId)?.prompt ?? "");
       const allowCuts = editingIsCustom ? false : editingStyleAllowsCuts(editingId);
+      // Camera style is about HOW it's shot — append it to the editing prompt.
+      const cam = cameraStylePrompt(cameraStyle);
 
-      // 2) STEP 1 — compose the on-model still with nano-banana (edit-fashion-image).
-      //    The garments get worn by the model in the scene. This is an image EDIT,
-      //    which the models allow (unlike sending a real-person photo to video).
-      setPipelineStage("styling");
-      setProgress(26);
-      const composePrompt = modelRefUrl
-        ? `Full-length fashion photograph of the person from the FIRST reference image, captured as a realistic documentary-style photo. Edit ONLY their clothing and outfit to match the garments shown in the subsequent reference images, styled as one complete cohesive outfit. Keep the person's face, body, skin tone, hair and all physical features EXACTLY as they appear — do not modify or alter the person in any way. Natural skin texture, authentic expression, genuine pose. The clothing drapes and folds naturally with realistic fabric texture, wrinkles and shadows. Show the complete outfit. Background: ${contextPrompt}. Natural, flattering lighting, realistic photography. No text, no watermark, no logos.`
-        : `Full-length realistic fashion photograph of ${modelPrompt || "a professional fashion model"}, wearing the garments shown in the reference images styled as one complete cohesive outfit. Natural skin texture, authentic expression, genuine pose. The clothing drapes and folds naturally with realistic fabric texture and shadows. Show the complete outfit. Background: ${contextPrompt}. Natural, flattering lighting, realistic photography. No text, no watermark, no logos.`;
-      const composeImageUrls = modelRefUrl ? [modelRefUrl, ...garmentUrls] : garmentUrls;
-
-      const { data: compose, error: composeErr } = await supabase.functions.invoke("edit-fashion-image", {
-        body: { action: "generate", prompt: composePrompt, image_urls: composeImageUrls, aspect_ratio: aspectRatio, resolution: "2K", num_images: 1 },
-      });
-      if (composeErr) throw composeErr;
-      if (compose?.error) throw new Error(compose.error);
-      if (!compose?.request_id) throw new Error("Could not start styling the outfit.");
-
-      const composedImageUrl = await pollTask(
-        () => supabase.functions.invoke("edit-fashion-image", { body: { action: "status", requestId: compose.request_id } }),
-        (st) => st?.status === "COMPLETED" ? { url: st.images?.[0]?.url } : { failed: st?.status === "FAILED" },
-        { maxAttempts: 45, onTick: () => setProgress((p) => Math.min(p + 2, 52)) },
-      );
-      setProgress(55);
-
-      // 3) STEP 2 — animate the composed still into a video with Kling (generate_studio).
+      // 2) Send the garments (+ optional model) STRAIGHT to Omni reference-to-video —
+      //    no nano-banana compose step. Every rotating garment is a reference image,
+      //    so the model can wear each one accurately in its own segment.
+      const referenceImageUrls = modelRefUrl ? [modelRefUrl, ...garmentUrls] : garmentUrls;
       setPipelineStage("generating_video");
+      setProgress(32);
       const { data: gen, error: genErr } = await supabase.functions.invoke("generate-fashion-video", {
         body: {
           action: "generate_studio",
-          start_image_url: composedImageUrl,
+          reference_image_urls: referenceImageUrls,
+          has_model_ref: !!modelRefUrl,
+          model_prompt: modelPrompt,
+          garment_summary: counts,
           context_prompt: contextPrompt,
-          editing_prompt: editingPrompt,
-          editing_allows_cuts: allowCuts,
+          editing_prompt: cam ? `${editingPrompt}. ${cam}` : editingPrompt,
+          // Outfit rotation needs cuts to swap between looks, so force them on.
+          editing_allows_cuts: rotatingCat ? true : allowCuts,
+          outfit_rotation: rotatingCat ? { label: rotationLabel, count: rotationCount } : undefined,
           audio_prompt: resolveAudioPrompt(audioStyle, musicStyle),
           generate_audio: audioStyle !== "silent",
           aspect_ratio: aspectRatio,
@@ -214,7 +225,7 @@ const FashionVideoStudioGenerator = () => {
       });
       if (genErr) throw genErr;
       if (gen?.error) throw new Error(gen.error);
-      setProgress(62);
+      setProgress(45);
 
       const videoUrl = await pollTask(
         () => supabase.functions.invoke("generate-fashion-video", {
@@ -226,10 +237,27 @@ const FashionVideoStudioGenerator = () => {
       setGeneratedVideoUrl(videoUrl);
       setProgress(100);
 
+      // Save to My Generations (video URL lives in generated_image_url; My
+      // Generations detects video by the .mp4 URL). Non-fatal on failure.
+      try {
+        await supabase.from("generations").insert({
+          user_id: user.id,
+          prompt: `Fashion video — ${contextName} · ${editingName}`,
+          original_image_url: referenceImageUrls[0] ?? videoUrl,
+          generated_image_url: videoUrl,
+          status: "completed",
+          tool_name: "fashion-video-studio",
+        });
+      } catch (saveErr) {
+        console.error("[fashion-video] failed to save generation", saveErr);
+      }
+
       // 4) Charge on success only.
       const newBalance = await deductCredits(user.id, cost);
       if (typeof newBalance === "number") setCredits(newBalance);
       toast({ title: "Fashion video ready 🎉", description: `${cost} credits used.` });
+      // Contextual upsell: nudge Fashion Video users toward Fashion Studio Pro.
+      trackStudioUse("fashion-video");
     } catch (e) {
       setProgress(0);
       toast({
@@ -282,6 +310,21 @@ const FashionVideoStudioGenerator = () => {
         ) : (
           <div className="space-y-8">
             <GarmentUploadBlock value={garments} onChange={setGarments} onReject={reject} />
+            {(["top", "bottom", "shoes", "accessories"] as const).some((c) => garments[c].length > 1) && (
+              <div className="rounded-xl border border-border/60 bg-card/50 p-4">
+                <p className="text-sm font-medium text-foreground">Multiple items in a category</p>
+                <p className="mb-3 text-xs text-muted-foreground">You uploaded more than one item in a category. Wear them one at a time, or combine everything into a single outfit.</p>
+                <div className="flex gap-2">
+                  {([["separate", "Worn separately", "Model wears each one-by-one across the video"], ["together", "Worn together", "Style everything into one combined outfit"]] as const).map(([id, label, desc]) => (
+                    <button key={id} type="button" onClick={() => setWearMode(id)}
+                      className={`flex-1 rounded-lg border p-3 text-left transition ${wearMode === id ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:bg-muted/50"}`}>
+                      <span className="block text-sm font-medium">{label}</span>
+                      <span className="block text-xs text-muted-foreground">{desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <ModelSelectBlock value={model} onChange={setModel} onReject={reject} />
             <PresetWithCustomBlock
               title="Fashion context"
@@ -335,6 +378,8 @@ const FashionVideoStudioGenerator = () => {
               onAudio={setAudioStyle}
               onMusicStyle={setMusicStyle}
             />
+
+            <CameraStylePresetSelect value={cameraStyle} onChange={setCameraStyle} />
 
             {/* Aspect ratio */}
             <div className="space-y-3">

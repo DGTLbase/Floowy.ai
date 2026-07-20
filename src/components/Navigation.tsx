@@ -179,7 +179,7 @@ const Navigation = () => {
                     Login
                   </Link>
                   <Link to="/auth?mode=signup" className="hidden md:block">
-                    <Button className="bg-accent text-accent-foreground hover:bg-accent/90 rounded-full h-9 px-5">
+                    <Button className="bg-offer text-offer-foreground hover:bg-offer-hover rounded-full h-9 px-5">
                       Start for €1
                       <ChevronRight className="w-4 h-4 ml-1" />
                     </Button>
@@ -249,7 +249,7 @@ const Navigation = () => {
                           Login
                         </Link>
                         <Link to="/auth?mode=signup" className="w-full">
-                          <Button className="bg-accent text-accent-foreground hover:bg-accent/90 rounded-full w-full">
+                          <Button className="bg-offer text-offer-foreground hover:bg-offer-hover rounded-full w-full">
                             Start for €1
                             <ChevronRight className="w-4 h-4 ml-1" />
                           </Button>

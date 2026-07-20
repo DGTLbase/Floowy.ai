@@ -140,7 +140,7 @@ const Takeover = ({ current, target, onContinue, onSkip, dimmed = false }: {
               <span className="text-primary-glow font-bold text-lg">€{firstMonth}</span> first month
               <span className="line-through ml-2 text-white/35">€{target.monthly.price}</span>
             </p>
-            <Button onClick={onContinue} className="w-full mb-5 bg-primary text-primary-foreground font-bold hover:bg-primary/90 h-11">
+            <Button onClick={onContinue} className="w-full mb-5 bg-offer text-offer-foreground font-bold hover:bg-offer-hover h-11">
               Continue to Payment
             </Button>
             <ul className="space-y-2.5 text-sm">
@@ -210,9 +210,9 @@ const AddonModal = ({ target, onContinue, onSkip }: { target: Plan; onContinue: 
           </div>
         </div>
 
-        <Button onClick={onContinue} className="w-full bg-primary text-primary-foreground font-bold hover:bg-primary/90 h-12 text-base mb-3">
+        <Button onClick={onContinue} className="w-full bg-offer text-offer-foreground font-bold hover:bg-offer-hover h-12 text-base mb-3">
           <Lock className="w-4 h-4 mr-2" /> Get for €{half}/mo
-          <span className="ml-2 text-primary-foreground/50 line-through font-semibold">€{target.monthly.price}</span>
+          <span className="ml-2 text-offer-foreground/50 line-through font-semibold">€{target.monthly.price}</span>
         </Button>
         <button onClick={onSkip} className="w-full text-center text-sm text-white/40 hover:text-white/70 transition-colors py-2 mb-4">Skip the offer</button>
 

@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWalkthrough } from "@/hooks/useWalkthrough";
 import { Button } from "@/components/ui/button";
 import { Lightbulb, ChevronRight, Check, Sparkles } from "lucide-react";
+import { computeTooltipPosition } from "@/lib/tour-position";
 
 interface Step {
   target: string;
@@ -117,6 +118,21 @@ const WalkthroughTour = () => {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [active, finished, handleNext, handleBack]);
 
+  // Desktop tooltip position — measured after render so it can never overflow the
+  // viewport (which would push the Next/Finish button off-screen and unclickable).
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ left: number; top: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!active || finished || isMobile || !targetRect) {
+      setTooltipPos(null);
+      return;
+    }
+    const el = tooltipRef.current;
+    if (!el) return;
+    setTooltipPos(computeTooltipPosition(targetRect, undefined, el.offsetWidth, el.offsetHeight));
+  }, [active, finished, isMobile, targetRect, stepIndex]);
+
   if (finished) {
     return createPortal(
       <div className="fixed inset-0 z-[9999] bg-black/65 backdrop-blur-sm flex items-center justify-center p-4">
@@ -188,22 +204,6 @@ const WalkthroughTour = () => {
 
   const tooltipWidth = 360;
   const pad = 8;
-  const gap = 18;
-
-  let left = targetRect.right + gap;
-  let top = targetRect.top + targetRect.height / 2;
-  let transform = "translateY(-50%)";
-  if (left + tooltipWidth + 12 > window.innerWidth) {
-    const leftSide = targetRect.left - gap - tooltipWidth;
-    if (leftSide >= 12) {
-      left = leftSide;
-    } else {
-      left = targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
-      top = targetRect.bottom + gap;
-      transform = "none";
-      left = Math.max(12, Math.min(left, window.innerWidth - tooltipWidth - 12));
-    }
-  }
 
   return createPortal(
     <>
@@ -223,8 +223,16 @@ const WalkthroughTour = () => {
       </div>
 
       <div
+        ref={tooltipRef}
         className="fixed z-[9999] animate-in fade-in-0 zoom-in-95 duration-200"
-        style={{ left, top, width: tooltipWidth, transform }}
+        style={{
+          left: tooltipPos?.left ?? -9999,
+          top: tooltipPos?.top ?? -9999,
+          width: tooltipWidth,
+          maxHeight: "calc(100vh - 24px)",
+          overflowY: "auto",
+          visibility: tooltipPos ? "visible" : "hidden",
+        }}
       >
         <div className="bg-popover border border-border rounded-xl shadow-2xl p-5 relative">
           <div className="flex items-start gap-3 mb-2">

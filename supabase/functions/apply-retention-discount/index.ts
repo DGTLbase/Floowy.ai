@@ -75,15 +75,37 @@ serve(async (req) => {
       });
     }
 
-    // Apply the 20% retention coupon (forever duration, cancel flow only)
-    const RETENTION_COUPON_ID = "sYhcMDVh";
-    
+    // Ensure the managed 20%-off / 3-months retention coupon exists (matching the
+    // offer copy in the flow) and use it, so the discount ALWAYS activates in
+    // Stripe and lasts exactly 3 months.
+    const MANAGED_COUPON_ID = "floowy_retention_20off_3mo";
+
+    const ensureCoupon = async (): Promise<string> => {
+      try {
+        await stripe.coupons.retrieve(MANAGED_COUPON_ID);
+        logStep("Using existing managed coupon", { coupon: MANAGED_COUPON_ID });
+      } catch (_e) {
+        await stripe.coupons.create({
+          id: MANAGED_COUPON_ID,
+          percent_off: 20,
+          duration: "repeating",
+          duration_in_months: 3,
+          name: "20% off for 3 months (retention)",
+        });
+        logStep("Created managed retention coupon", { coupon: MANAGED_COUPON_ID });
+      }
+      return MANAGED_COUPON_ID;
+    };
+
+    const couponId = await ensureCoupon();
+
     const updatedSubscription = await stripe.subscriptions.update(subscription.id, {
-      discounts: [{ coupon: RETENTION_COUPON_ID }],
+      discounts: [{ coupon: couponId }],
     });
-    logStep("Retention discount applied", { 
+    logStep("Retention discount applied", {
       subscriptionId: updatedSubscription.id,
-      coupon: RETENTION_COUPON_ID
+      coupon: couponId,
+      discount: updatedSubscription.discount?.coupon?.id ?? null,
     });
 
     // If subscription was set to cancel, undo it

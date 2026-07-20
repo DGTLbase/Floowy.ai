@@ -389,7 +389,7 @@ const Tools = () => {
             Join 1000+ brands using Floowy's AI studio suite to create product images, fashion photography, ads, and videos at scale
           </p>
           <Link to="/auth?mode=signup">
-            <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow text-lg px-10 h-14 font-semibold">
+            <Button size="lg" className="bg-offer text-offer-foreground hover:bg-offer-hover shadow-glow text-lg px-10 h-14 font-semibold">
               Start for €1
             </Button>
           </Link>

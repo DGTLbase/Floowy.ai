@@ -437,7 +437,7 @@ const ROICalculator = () => {
                       <Link to={recommendedPlan.isCustom ? "/contact#message" : "/contact"} className="block">
                         <Button 
                           size="lg" 
-                          className="w-full bg-gradient-to-r from-primary to-primary-glow hover:opacity-90 text-white shadow-lg"
+                          className="w-full bg-offer hover:opacity-90 text-white shadow-lg"
                         >
                           {recommendedPlan.isCustom ? "Contact Sales" : "Start for €1"}
                           <Play className="w-4 h-4 ml-2 fill-white" />

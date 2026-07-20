@@ -58,6 +58,7 @@ const Admin = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [tools, setTools] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [userSubTab, setUserSubTab] = useState<"all" | "active" | "cancelled">("all");
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [creditAmount, setCreditAmount] = useState("");
@@ -1025,13 +1026,25 @@ const Admin = () => {
   };
 
 
-  const filteredUsers = searchTerm 
-    ? users.filter(
+  // Subscription status: paid plan = active sub; a cancellation_feedback row = cancelled.
+  const isPaidPlan = (u: any) => ["lite", "starter", "professional", "enterprise"].includes(String(u?.plan || "").toLowerCase());
+  const isCancelled = (u: any) => !!u?.cancellationFeedback;
+  const activeCount = users.filter((u) => isPaidPlan(u) && !isCancelled(u)).length;
+  const cancelledCount = users.filter(isCancelled).length;
+
+  const subTabUsers = userSubTab === "active"
+    ? users.filter((u) => isPaidPlan(u) && !isCancelled(u))
+    : userSubTab === "cancelled"
+      ? users.filter(isCancelled)
+      : users;
+
+  const filteredUsers = searchTerm
+    ? subTabUsers.filter(
         (user) =>
           user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
       )
-    : users;
+    : subTabUsers;
 
   // Pagination logic - only apply if not searching
   const indexOfLastUser = currentPage * usersPerPage;
@@ -1061,6 +1074,8 @@ const Admin = () => {
       'ultimate-outfit-maker-v2': '/tool/ultimate-outfit-maker-v2',
       'virtual-tour': '/tool/property-studio',
       'fashion-video': '/tool/fashion-video-studio',
+      'social-scraper': '/tool/social-scraper',
+      'video-recreation': '/tool/video-recreation-studio',
     };
     return routes[toolName] || '/';
   };
@@ -1189,6 +1204,17 @@ const Admin = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
+          </div>
+
+          {/* Subscription filter tabs */}
+          <div className="flex flex-wrap gap-2">
+            {(([["all", "All", users.length], ["active", "Active subscriptions", activeCount], ["cancelled", "Cancelled subscriptions", cancelledCount]]) as const).map(([id, label, count]) => (
+              <button key={id} onClick={() => { setUserSubTab(id); setCurrentPage(1); }}
+                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition ${userSubTab === id ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:bg-muted/50"}`}>
+                {label}
+                <span className={`rounded-full px-1.5 text-xs ${userSubTab === id ? "bg-primary-foreground/20" : "bg-muted text-muted-foreground"}`}>{count}</span>
+              </button>
+            ))}
           </div>
 
           <div className="bg-card rounded-xl border border-border/50 shadow-elegant overflow-hidden">
@@ -1448,7 +1474,7 @@ const Admin = () => {
                     </div>
                     <div className="p-3 rounded-lg bg-muted/30 border border-border/50 col-span-3">
                       <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">How did they find us</p>
-                      <p className="text-sm font-medium">{selectedUser?.referral_source || '—'}</p>
+                      <p className="text-sm font-medium">{selectedUser?.onboardingData?.referral_source || selectedUser?.referral_source || '—'}</p>
                     </div>
                   </div>
 
@@ -1638,6 +1664,26 @@ const Admin = () => {
                       </Button>
                     </div>
                   </div>
+
+                  {/* Cancellation reason */}
+                  {selectedUser?.cancellationFeedback && (
+                    <div className="p-4 rounded-xl border border-amber-500/40 bg-amber-500/5">
+                      <p className="mb-1 inline-flex items-center gap-1.5 text-xs font-medium text-amber-600">
+                        <X className="w-3.5 h-3.5" /> Subscription cancelled
+                      </p>
+                      <p className="text-sm text-foreground">
+                        <span className="text-muted-foreground">Reason:</span> {selectedUser.cancellationFeedback.reason}
+                      </p>
+                      {selectedUser.cancellationFeedback.details && (
+                        <p className="mt-1 text-sm italic text-muted-foreground">"{selectedUser.cancellationFeedback.details}"</p>
+                      )}
+                      {selectedUser.cancellationFeedback.created_at && (
+                        <p className="mt-2 text-[11px] text-muted-foreground">
+                          Cancelled {new Date(selectedUser.cancellationFeedback.created_at).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {/* API Access */}
                   {selectedUser && (
@@ -1872,6 +1918,8 @@ const Admin = () => {
                   'simple_pose_maker': UserCircle,
                   'virtual-tour': Film,
                   'fashion-video': Video,
+                  'social-scraper': Search,
+                  'video-recreation': Film,
                 };
                 
                 const colorMap: Record<string, { bg: string; icon: string; glow: string }> = {
@@ -1929,6 +1977,16 @@ const Admin = () => {
                     bg: 'from-fuchsia-500/20 to-fuchsia-600/10',
                     icon: 'text-fuchsia-500',
                     glow: 'shadow-fuchsia-500/20'
+                  },
+                  'social-scraper': {
+                    bg: 'from-sky-500/20 to-sky-600/10',
+                    icon: 'text-sky-500',
+                    glow: 'shadow-sky-500/20'
+                  },
+                  'video-recreation': {
+                    bg: 'from-violet-500/20 to-violet-600/10',
+                    icon: 'text-violet-500',
+                    glow: 'shadow-violet-500/20'
                   },
                 };
                 

@@ -101,7 +101,7 @@ const Auth = () => {
     // Check if onboarding is completed
     const { data: profile, error } = await supabase
       .from("profiles")
-      .select("onboarding_completed")
+      .select("onboarding_completed, plan")
       .eq("id", userId)
       .single();
     
@@ -137,21 +137,43 @@ const Auth = () => {
       clearFunnelFlags();
       navigate("/admin");
     } else if (!profile?.onboarding_completed) {
-      // €1 funnel: a fresh signup goes to the €1 offer page (with the "You're in
-      // 5%" popup), not onboarding. Flag is durable until payment so the auth
-      // listener's deferred redirect doesn't bounce them to /onboarding.
-      if (sessionStorage.getItem("floowy_post_signup") === "1") {
-        console.log("[Auth] New €1-funnel signup → /pricing-1-euro-offer");
-        navigate("/pricing-1-euro-offer");
-      } else {
-        console.log("[Auth] Onboarding not complete, redirecting to /onboarding");
-        navigate("/onboarding");
-      }
+      // New / incomplete signup — ANY method, including clicking "Login" then
+      // "Google" without an account (that path never set the flags at click time).
+      // Force the €1-funnel flags here so onboarding forwards to the offer (with the
+      // "You're in 5%" promo), then to payment — instead of dropping them on /home.
+      sessionStorage.setItem("floowy_post_signup", "1");
+      sessionStorage.setItem("floowy_show_personal_promo", "1");
+      console.log("[Auth] Onboarding not complete → /onboarding (€1 funnel armed)");
+      navigate("/onboarding");
     } else {
+      // Onboarded, non-admin. A paid plan ALWAYS wins: paid users go straight to
+      // the app and are never held in the €1 funnel — even if a "Start for €1" /
+      // Google-signup click left the funnel flag set in sessionStorage. Only
+      // genuinely unpaid users are routed to the €1 offer.
+      const plan = (profile?.plan || "").toLowerCase();
+      let hasPaid = !!(plan && plan !== "free");
+      if (!hasPaid) {
+        try {
+          const { data: sub } = await supabase.functions.invoke("check-subscription");
+          // `subscribed` = full plan; `trialing` = €1-offer payer on an active trial.
+          hasPaid = !!(sub?.subscribed || sub?.trialing);
+        } catch {
+          // Fail open on a transient check error so a paying customer is never
+          // locked out of their dashboard.
+          hasPaid = true;
+        }
+      }
+
+      if (!hasPaid) {
+        console.log("[Auth] Onboarded, unpaid → /pricing-1-euro-offer");
+        navigate("/pricing-1-euro-offer");
+        return;
+      }
+
       clearFunnelFlags();
       const nextParam = searchParams.get("next");
       const safeNext = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/home";
-      console.log("[Auth] All checks passed, redirecting to", safeNext);
+      console.log("[Auth] Paid & onboarded → redirecting to", safeNext);
       navigate(safeNext);
     }
   };
@@ -305,11 +327,12 @@ const Auth = () => {
         description: "Welcome! One last step to unlock your €1 access...",
       });
 
-      // €1 launch funnel: show the "You're in 5%" personal-discount popup on the
-      // €1 payment step (Section 9), then proceed to checkout.
+      // €1 launch funnel: capture onboarding first, then the €1 offer (which shows
+      // the "You're in 5%" personal-discount popup). Flags persist through
+      // onboarding so it can forward to the offer on completion.
       sessionStorage.setItem("floowy_post_signup", "1");
       sessionStorage.setItem("floowy_show_personal_promo", "1");
-      navigate("/pricing-1-euro-offer");
+      navigate("/onboarding");
     } catch (error: any) {
       console.error("[Auth] Error creating account:", error);
       toast({

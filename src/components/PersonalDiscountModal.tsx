@@ -86,7 +86,7 @@ const PersonalDiscountModal = ({ open, onClose, onClaim }: PersonalDiscountModal
 
           <Button
             onClick={onClaim}
-            className="w-full bg-gradient-to-r from-primary to-primary-glow text-primary-foreground font-bold hover:opacity-90 h-12 text-base rounded-xl"
+            className="w-full bg-offer text-offer-foreground font-bold hover:bg-offer-hover h-12 text-base rounded-xl"
           >
             Claim Discount
           </Button>

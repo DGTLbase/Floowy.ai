@@ -24,6 +24,8 @@ import PlanCreditsDisplay from "@/components/PlanCreditsDisplay";
 import UserMenu from "@/components/UserMenu";
 import { UnlockDialog } from "@/components/UnlockDialog";
 import ModelSelector from "@/components/ModelSelector";
+import CameraStylePresetSelect from "@/components/CameraStylePresetSelect";
+import { cameraStylePrompt, CAMERA_STYLE_NONE } from "@/lib/camera-style-presets";
 import { useImageGating } from "@/hooks/useImageGating";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
 import { useAdminToken } from "@/hooks/useAdminToken";
@@ -92,6 +94,7 @@ const ListingStudioGenerator = () => {
   // step 2 — size & resolution
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [resolution, setResolution] = useState<"1K" | "2K" | "4K">("1K");
+  const [cameraStyle, setCameraStyle] = useState<string>(CAMERA_STYLE_NONE);
 
   // step 3 — background
   const [useCustomBackground, setUseCustomBackground] = useState(false);
@@ -219,6 +222,10 @@ const ListingStudioGenerator = () => {
 
       setGenStage("generating");
 
+      const basePrompt = userFreeDescription;
+      const cam = cameraStylePrompt(cameraStyle);
+      const finalPrompt = cam ? `${basePrompt}. ${cam}` : basePrompt;
+
       const textElementsSummary =
         template === "describe"
           ? [
@@ -257,7 +264,7 @@ const ListingStudioGenerator = () => {
           logo_url: logoDataUrl,
           logo_position: logoPosition,
           logo_size: logoSize,
-          user_free_description: template === "describe" ? userFreeDescription : undefined,
+          user_free_description: template === "describe" ? finalPrompt : (cam || undefined),
           text_elements_summary: textElementsSummary,
           headline_font: template === "describe" ? describeHeadlineFont : undefined,
         },
@@ -398,6 +405,9 @@ const ListingStudioGenerator = () => {
                   <span className="text-[10px] opacity-70">{r.credits} credits</span>
                 </Button>
               ))}
+            </div>
+            <div className="mt-4">
+              <CameraStylePresetSelect value={cameraStyle} onChange={setCameraStyle} />
             </div>
           </Card>
 

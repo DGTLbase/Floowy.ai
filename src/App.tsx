@@ -17,7 +17,7 @@ import UpgradePlanBanner from "./components/UpgradePlanBanner";
 import ScrollToHash from "./components/ScrollToHash";
 import { useAuthErrorHandler } from "./hooks/useAuthErrorHandler";
 import WalkthroughTour from "./components/WalkthroughTour";
-import AmbienceWalkthroughTour from "./components/AmbienceWalkthroughTour";
+import { UpsellProvider } from "./hooks/useUpsell";
 
 // Lazy-loaded routes (route-based code splitting)
 const AtmosphericLanding = lazy(() => import("./pages/AtmosphericLanding"));
@@ -42,6 +42,7 @@ const ProductVideoCreator = lazy(() => import("./pages/ProductVideoCreator"));
 const FlatlayStudio = lazy(() => import("./pages/FlatlayStudio"));
 const FlatlayLanding = lazy(() => import("./pages/FlatlayLanding"));
 const SocialScraper = lazy(() => import("./pages/SocialScraper"));
+const VideoRecreationStudio = lazy(() => import("./pages/VideoRecreationStudio"));
 const Tools = lazy(() => import("./pages/Tools"));
 const RemixStudioGenerator = lazy(() => import("./pages/RemixStudioGenerator"));
 const VirtualTourStudio = lazy(() => import("./pages/VirtualTourStudio"));
@@ -174,6 +175,7 @@ const allRoutes = (
     <Route path="tool/product-video" element={<ToolPageLayout><ProductVideoCreator /></ToolPageLayout>} />
     <Route path="tool/flatlay-studio" element={<ToolPageLayout><FlatlayStudio /></ToolPageLayout>} />
     <Route path="tool/social-scraper" element={<ToolPageLayout><SocialScraper /></ToolPageLayout>} />
+    <Route path="tool/video-recreation-studio" element={<ToolPageLayout><VideoRecreationStudio /></ToolPageLayout>} />
     <Route path="tool/remix-studio" element={<ToolPageLayout><RemixStudioGenerator /></ToolPageLayout>} />
     <Route path="tool/property-studio" element={<ToolPageLayout><VirtualTourStudio /></ToolPageLayout>} />
     <Route path="tool/virtual-tour" element={<ToolPageLayout><VirtualTourStudio /></ToolPageLayout>} />
@@ -185,9 +187,9 @@ const allRoutes = (
 
 const AppContent = () => {
   useAuthErrorHandler();
-  
+
   return (
-    <>
+    <UpsellProvider>
       <ScrollToTop />
       <ScrollToHash />
       <Suspense fallback={null}>
@@ -207,8 +209,7 @@ const AppContent = () => {
       </Routes>
       </Suspense>
       <WalkthroughTour />
-      <AmbienceWalkthroughTour />
-    </>
+    </UpsellProvider>
   );
 };
 

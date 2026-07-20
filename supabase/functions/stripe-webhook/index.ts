@@ -19,22 +19,33 @@ serve(async (req) => {
     );
   }
 
+  const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+  if (!webhookSecret) {
+    console.error("STRIPE_WEBHOOK_SECRET is not configured");
+    return new Response(JSON.stringify({ error: "Webhook secret not configured" }), { status: 500 });
+  }
+
+  // Verify the signature FIRST — a bad signature is the ONLY case we reject with a
+  // non-2xx. Everything past this point is a genuine Stripe event that we must
+  // acknowledge with 200 even if our own processing errors, otherwise Stripe
+  // redelivers the same event for up to 3 days (that redelivery loop is what made
+  // plan changes / retention-discount / downgrade reprocess continuously).
+  let event: Stripe.Event;
   try {
     const body = await req.text();
-    const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
-    
-    if (!webhookSecret) {
-      throw new Error("STRIPE_WEBHOOK_SECRET is not configured");
-    }
-
-    const event = await stripe.webhooks.constructEventAsync(
+    event = await stripe.webhooks.constructEventAsync(
       body,
       signature,
       webhookSecret,
       undefined,
       Stripe.createSubtleCryptoProvider()
     );
+  } catch (err) {
+    console.error("Stripe signature verification failed:", err);
+    return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 400 });
+  }
 
+  try {
     console.log("Stripe webhook event received:", event.type);
 
     // ==============================
@@ -153,40 +164,64 @@ serve(async (req) => {
         } else {
           const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-          // Get current credits
-          const { data: currentCredits, error: creditsError } = await supabaseAdmin
-            .from("credits")
-            .select("balance")
+          // Idempotent grant: SET the balance to the plan amount once per billing
+          // period, keyed by a credit_history "subscription_refresh" row. This is
+          // the SAME marker confirm-subscription writes, so the client-confirm and
+          // this webhook can't double-grant for the same payment (previously each
+          // ADDED plan credits → 2× the plan amount, e.g. Lite 40 → 80).
+          let periodStartIso = new Date(0).toISOString();
+          try {
+            const sub = await stripe.subscriptions.retrieve(subscriptionId);
+            const ps = (sub as any).current_period_start ?? (sub.items?.data?.[0] as any)?.current_period_start;
+            if (ps) periodStartIso = new Date(ps * 1000).toISOString();
+          } catch (e) {
+            console.error("Could not retrieve subscription for period start:", e);
+          }
+
+          const { data: alreadyGranted } = await supabaseAdmin
+            .from("credit_history")
+            .select("id")
             .eq("user_id", userId)
-            .single();
+            .eq("action_type", "subscription_refresh")
+            .gte("created_at", periodStartIso)
+            .limit(1);
 
-          if (creditsError) {
-            console.error("Error fetching credits for subscription:", creditsError);
-          } else {
-            const currentBalance = currentCredits?.balance || 0;
-            const newBalance = currentBalance + planData.credits;
-
-            console.log("Rolling over subscription credits:", currentBalance, "->", newBalance);
+          if (!alreadyGranted || alreadyGranted.length === 0) {
+            const { data: currentCredits } = await supabaseAdmin
+              .from("credits")
+              .select("balance")
+              .eq("user_id", userId)
+              .maybeSingle();
+            const oldBalance = currentCredits?.balance || 0;
 
             const { error: updateCreditsError } = await supabaseAdmin
               .from("credits")
-              .update({ balance: newBalance })
+              .update({ balance: planData.credits })
               .eq("user_id", userId);
-
             if (updateCreditsError) {
               console.error("Error updating subscription credits:", updateCreditsError);
-            }
-
-            const { error: updatePlanError } = await supabaseAdmin
-              .from("profiles")
-              .update({ plan: planData.plan })
-              .eq("id", userId);
-
-            if (updatePlanError) {
-              console.error("Error updating subscription plan:", updatePlanError);
             } else {
-              console.log("Subscription plan updated to:", planData.plan);
+              await supabaseAdmin.from("credit_history").insert({
+                user_id: userId,
+                amount: planData.credits - oldBalance,
+                balance_after: planData.credits,
+                action_type: "subscription_refresh",
+                description: `stripe-webhook: ${planData.plan} plan — credits set to ${planData.credits} (period ${periodStartIso})`,
+              });
+              console.log("Subscription credits set to", planData.credits, "(was", oldBalance + ")");
             }
+          } else {
+            console.log("Subscription credits already granted this period — skipping grant");
+          }
+
+          const { error: updatePlanError } = await supabaseAdmin
+            .from("profiles")
+            .update({ plan: planData.plan })
+            .eq("id", userId);
+          if (updatePlanError) {
+            console.error("Error updating subscription plan:", updatePlanError);
+          } else {
+            console.log("Subscription plan updated to:", planData.plan);
           }
         }
 
@@ -296,30 +331,49 @@ serve(async (req) => {
 
         console.log("Plan data:", planData);
 
-        // Get current credits
-        const { data: currentCredits } = await supabaseAdmin
-          .from("credits")
-          .select("balance")
-          .eq("user_id", userId)
-          .maybeSingle();
-
-        const currentBalance = currentCredits?.balance || 0;
+        // Idempotent grant: SET balance to the plan amount once per billing period
+        // via the shared "subscription_refresh" marker (so this can't double-grant
+        // with confirm-subscription / invoice.paid / payment_intent for the same
+        // payment). Previously ADDED credits → 2× on the same purchase.
+        const psSec = (subscription as any).current_period_start ?? (subscription.items.data[0] as any)?.current_period_start;
+        const periodStartIso = psSec ? new Date(psSec * 1000).toISOString() : new Date(0).toISOString();
         const isEuro1Trial = session.metadata?.offerType === "euro1_trial";
-        const creditsToAdd = isEuro1Trial ? 10 : planData.credits;
-        const newBalance = currentBalance + creditsToAdd;
+        const creditsToSet = isEuro1Trial ? 10 : planData.credits;
 
-        console.log(`Adding subscription credits (offerType=${session.metadata?.offerType ?? "none"}). Current: ${currentBalance}, Adding: ${creditsToAdd}, New: ${newBalance}`);
+        const { data: alreadyGranted } = await supabaseAdmin
+          .from("credit_history")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("action_type", "subscription_refresh")
+          .gte("created_at", periodStartIso)
+          .limit(1);
 
-        // Update credits
-        const { error: updateCreditsError } = await supabaseAdmin
-          .from("credits")
-          .update({ balance: newBalance })
-          .eq("user_id", userId);
+        if (!alreadyGranted || alreadyGranted.length === 0) {
+          const { data: currentCredits } = await supabaseAdmin
+            .from("credits")
+            .select("balance")
+            .eq("user_id", userId)
+            .maybeSingle();
+          const oldBalance = currentCredits?.balance || 0;
 
-        if (updateCreditsError) {
-          console.error("Error updating credits:", updateCreditsError);
+          const { error: updateCreditsError } = await supabaseAdmin
+            .from("credits")
+            .update({ balance: creditsToSet })
+            .eq("user_id", userId);
+          if (updateCreditsError) {
+            console.error("Error updating credits:", updateCreditsError);
+          } else {
+            await supabaseAdmin.from("credit_history").insert({
+              user_id: userId,
+              amount: creditsToSet - oldBalance,
+              balance_after: creditsToSet,
+              action_type: "subscription_refresh",
+              description: `stripe-webhook checkout: ${planData.plan} plan — credits set to ${creditsToSet} (period ${periodStartIso})`,
+            });
+            console.log(`Credits set to ${creditsToSet} (was ${oldBalance})`);
+          }
         } else {
-          console.log("Credits updated successfully");
+          console.log("Credits already granted this billing period — skipping grant");
         }
 
         // Update plan
@@ -555,28 +609,46 @@ serve(async (req) => {
 
       console.log("Updating plan from subscription update to:", planData.plan);
 
-      // Get current credits
-      const { data: currentCredits } = await supabaseAdmin
-        .from("credits")
-        .select("balance")
+      // Idempotent grant: SET balance to the plan amount once per billing period
+      // via the shared "subscription_refresh" marker. Previously ADDED plan
+      // credits on every subscription.updated event (double-grant risk).
+      const psSec = (subscription as any).current_period_start ?? (subscription.items.data[0] as any)?.current_period_start;
+      const periodStartIso = psSec ? new Date(psSec * 1000).toISOString() : new Date(0).toISOString();
+
+      const { data: alreadyGranted } = await supabaseAdmin
+        .from("credit_history")
+        .select("id")
         .eq("user_id", userId)
-        .maybeSingle();
+        .eq("action_type", "subscription_refresh")
+        .gte("created_at", periodStartIso)
+        .limit(1);
 
-      const currentBalance = currentCredits?.balance || 0;
-      const newBalance = currentBalance + planData.credits;
+      if (!alreadyGranted || alreadyGranted.length === 0) {
+        const { data: currentCredits } = await supabaseAdmin
+          .from("credits")
+          .select("balance")
+          .eq("user_id", userId)
+          .maybeSingle();
+        const oldBalance = currentCredits?.balance || 0;
 
-      console.log(`Adding subscription credits. Current: ${currentBalance}, Adding: ${planData.credits}, New: ${newBalance}`);
-
-      // Update credits
-      const { error: updateCreditsError } = await supabaseAdmin
-        .from("credits")
-        .update({ balance: newBalance })
-        .eq("user_id", userId);
-
-      if (updateCreditsError) {
-        console.error("Error updating credits:", updateCreditsError);
+        const { error: updateCreditsError } = await supabaseAdmin
+          .from("credits")
+          .update({ balance: planData.credits })
+          .eq("user_id", userId);
+        if (updateCreditsError) {
+          console.error("Error updating credits:", updateCreditsError);
+        } else {
+          await supabaseAdmin.from("credit_history").insert({
+            user_id: userId,
+            amount: planData.credits - oldBalance,
+            balance_after: planData.credits,
+            action_type: "subscription_refresh",
+            description: `stripe-webhook subscription.updated: ${planData.plan} plan — credits set to ${planData.credits} (period ${periodStartIso})`,
+          });
+          console.log(`Credits set to ${planData.credits} (was ${oldBalance})`);
+        }
       } else {
-        console.log("Credits updated successfully");
+        console.log("Subscription credits already granted this billing period — skipping grant");
       }
 
       // Update plan
@@ -702,8 +774,10 @@ serve(async (req) => {
         .eq("user_id", userId);
 
       if (updateCreditsError) {
-        console.error("[stripe-webhook] Error refreshing credits:", updateCreditsError);
-        return new Response(JSON.stringify({ error: "Failed to refresh credits" }), { status: 500 });
+        // Ack (200) so Stripe doesn't redeliver this invoice event forever; the
+        // next billing event / manual reconcile can re-grant. Logged for follow-up.
+        console.error("[stripe-webhook] Error refreshing credits (acknowledged):", updateCreditsError);
+        return new Response(JSON.stringify({ received: true, warning: "credit_refresh_failed_logged" }), { status: 200 });
       }
 
       // Log credit history
@@ -723,11 +797,24 @@ serve(async (req) => {
       { status: 200 }
     );
   } catch (error) {
-    console.error("Webhook error:", error);
+    // Processing error AFTER signature verification. Acknowledge with 200 so Stripe
+    // does not redeliver the same event over and over (that retry loop is what made
+    // subscription.updated from a plan change / retention-discount / downgrade
+    // reprocess continuously). The error is logged for manual follow-up.
     const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Webhook processing error (acknowledged to stop Stripe retry loop):", errorMessage);
+    // Persist a record so this rare failure is queryable, not just in ephemeral logs.
+    try {
+      await createClient(supabaseUrl, supabaseServiceKey).from("webhook_failures").insert({
+        source: "stripe-webhook",
+        event_type: event?.type ?? null,
+        event_id: event?.id ?? null,
+        error: errorMessage,
+      });
+    } catch (_) { /* best effort — never let logging block the ack */ }
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 400 }
+      JSON.stringify({ received: true, warning: "processing_error_logged" }),
+      { status: 200 }
     );
   }
 });

@@ -80,10 +80,14 @@ serve(async (req) => {
       return json({ error: `Not enough credits — ${EDIT_CREDITS} required.` }, 402);
     }
 
+    // Omni's edit model defaults generate_audio=true — it synthesizes a soundtrack
+    // even when the source clip is silent. Send false so an edit never ADDS audio.
+    const isOmni = (MODEL ?? "").includes("omni") || (MODEL ?? "").includes("gemini");
+    const submitBody: Record<string, unknown> = { video_url, prompt, ...(isOmni ? { generate_audio: false } : {}) };
     const submit = await fetch(`https://queue.fal.run/${MODEL}`, {
       method: "POST",
       headers: { Authorization: `Key ${FAL_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ video_url, prompt }),
+      body: JSON.stringify(submitBody),
     });
     const submitData = await submit.json().catch(() => ({}));
     if (!submit.ok) return json({ error: `Failed to submit edit: ${JSON.stringify(submitData).slice(0, 300)}`, detail: submitData }, 502);

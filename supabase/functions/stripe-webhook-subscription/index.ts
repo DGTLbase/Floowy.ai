@@ -52,23 +52,31 @@ serve(async (req) => {
     return new Response("No signature", { status: 400 });
   }
 
+  const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+  if (!webhookSecret) {
+    console.error("STRIPE_WEBHOOK_SECRET not configured");
+    return new Response("Webhook secret not configured", { status: 500 });
+  }
+
+  // Verify signature FIRST — bad signature is the only non-2xx. Every verified
+  // event is acknowledged with 200 even on internal error, so Stripe doesn't
+  // redeliver it endlessly (the retry loop behind repeated plan-change processing).
+  let event: Stripe.Event;
   try {
     const body = await req.text();
-    const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
-
-    if (!webhookSecret) {
-      console.error("STRIPE_WEBHOOK_SECRET not configured");
-      return new Response("Webhook secret not configured", { status: 500 });
-    }
-
-    const event = await stripe.webhooks.constructEventAsync(
+    event = await stripe.webhooks.constructEventAsync(
       body,
       signature,
       webhookSecret,
       undefined,
       cryptoProvider
     );
+  } catch (err) {
+    console.error("[stripe-webhook-subscription] Signature verification failed:", err);
+    return new Response("Invalid signature", { status: 400 });
+  }
 
+  try {
     console.log("[stripe-webhook-subscription] Event type:", event.type);
 
     // Handle payment intent succeeded events (legacy/manual subscription flow)
@@ -109,7 +117,7 @@ serve(async (req) => {
 
       if (creditsError) {
         console.error("[stripe-webhook-subscription] Error fetching credits:", creditsError);
-        return new Response(JSON.stringify({ error: "Failed to fetch credits" }), { status: 500 });
+        return new Response(JSON.stringify({ received: true, warning: "fetch_credits_failed_logged" }), { status: 200 });
       }
 
       const currentBalance = currentCredits?.balance || 0;
@@ -125,7 +133,7 @@ serve(async (req) => {
 
       if (updateCreditsError) {
         console.error("[stripe-webhook-subscription] Error updating credits:", updateCreditsError);
-        return new Response(JSON.stringify({ error: "Failed to update credits" }), { status: 500 });
+        return new Response(JSON.stringify({ received: true, warning: "update_credits_failed_logged" }), { status: 200 });
       }
 
       // Update plan
@@ -136,7 +144,7 @@ serve(async (req) => {
 
       if (updatePlanError) {
         console.error("[stripe-webhook-subscription] Error updating plan:", updatePlanError);
-        return new Response(JSON.stringify({ error: "Failed to update plan" }), { status: 500 });
+        return new Response(JSON.stringify({ received: true, warning: "update_plan_failed_logged" }), { status: 200 });
       }
 
       console.log("[stripe-webhook-subscription] Successfully updated plan to:", planData.plan, "and credits to:", newBalance);
@@ -216,7 +224,7 @@ serve(async (req) => {
 
       if (creditsError) {
         console.error("[stripe-webhook-subscription] Error fetching credits (checkout):", creditsError);
-        return new Response(JSON.stringify({ error: "Failed to fetch credits" }), { status: 500 });
+        return new Response(JSON.stringify({ received: true, warning: "fetch_credits_failed_logged" }), { status: 200 });
       }
 
       const currentBalance = currentCredits?.balance || 0;
@@ -231,7 +239,7 @@ serve(async (req) => {
 
       if (updateCreditsError) {
         console.error("[stripe-webhook-subscription] Error updating credits (checkout):", updateCreditsError);
-        return new Response(JSON.stringify({ error: "Failed to update credits" }), { status: 500 });
+        return new Response(JSON.stringify({ received: true, warning: "update_credits_failed_logged" }), { status: 200 });
       }
 
       const { error: updatePlanError } = await supabaseClient
@@ -241,7 +249,7 @@ serve(async (req) => {
 
       if (updatePlanError) {
         console.error("[stripe-webhook-subscription] Error updating plan (checkout):", updatePlanError);
-        return new Response(JSON.stringify({ error: "Failed to update plan" }), { status: 500 });
+        return new Response(JSON.stringify({ received: true, warning: "update_plan_failed_logged" }), { status: 200 });
       }
 
       console.log("[stripe-webhook-subscription] Successfully updated plan (checkout) to:", planData.plan, "and credits to:", newBalance);
@@ -352,7 +360,7 @@ serve(async (req) => {
 
       if (updateCreditsError) {
         console.error("[stripe-webhook-subscription] Error refreshing credits:", updateCreditsError);
-        return new Response(JSON.stringify({ error: "Failed to refresh credits" }), { status: 500 });
+        return new Response(JSON.stringify({ received: true, warning: "refresh_credits_failed_logged" }), { status: 200 });
       }
 
       // Log credit history
@@ -372,11 +380,25 @@ serve(async (req) => {
       status: 200,
     });
   } catch (err) {
+    // Processing error after signature verification. Ack with 200 so Stripe does
+    // not redeliver the same event indefinitely (the retry loop). Logged for follow-up.
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error("[stripe-webhook-subscription] Error:", errorMessage);
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    console.error("[stripe-webhook-subscription] Processing error (acknowledged to stop retry loop):", errorMessage);
+    // Persist a record so this rare failure is queryable, not just in ephemeral logs.
+    try {
+      await createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      ).from("webhook_failures").insert({
+        source: "stripe-webhook-subscription",
+        event_type: event?.type ?? null,
+        event_id: event?.id ?? null,
+        error: errorMessage,
+      });
+    } catch (_) { /* best effort — never let logging block the ack */ }
+    return new Response(JSON.stringify({ received: true, warning: "processing_error_logged" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
+      status: 200,
     });
   }
 });

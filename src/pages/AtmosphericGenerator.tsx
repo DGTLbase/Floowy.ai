@@ -23,6 +23,8 @@ import CreditsPurchaseDialog from "@/components/CreditsPurchaseDialog";
 import { deductCredits } from "@/hooks/useCreditDeduction";
 import AmbienceVideoModal from "@/components/AmbienceVideoModal";
 import VideoResultModal from "@/components/VideoResultModal";
+import CameraStylePresetSelect from "@/components/CameraStylePresetSelect";
+import { cameraStylePrompt, CAMERA_STYLE_NONE } from "@/lib/camera-style-presets";
 
 const AtmosphericGenerator = () => {
   const [user, setUser] = useState<any>(null);
@@ -39,6 +41,7 @@ const AtmosphericGenerator = () => {
   const [customModelFile, setCustomModelFile] = useState<File | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [outputSize, setOutputSize] = useState({ width: 1024, height: 1024 });
+  const [cameraStyle, setCameraStyle] = useState<string>(CAMERA_STYLE_NONE);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [adminMode, setAdminMode] = useState(false);
@@ -264,6 +267,10 @@ const AtmosphericGenerator = () => {
         }
       }
 
+      // Inject selected camera style into the main prompt (skip when "No style")
+      const cam = cameraStylePrompt(cameraStyle);
+      const finalPrompt = cam ? `${enhancedPrompt}. ${cam}` : enhancedPrompt;
+
       // Determine aspect ratio based on output size
       const determineAspectRatio = (width: number, height: number): string => {
         const ratio = width / height;
@@ -312,7 +319,7 @@ const AtmosphericGenerator = () => {
         {
           body: {
             action: 'generate',
-            prompt: enhancedPrompt,
+            prompt: finalPrompt,
             imageUrl: publicUrl,
             modelImageUrl: customModelUrl,
             aspect_ratio: aspectRatio,
@@ -870,6 +877,9 @@ const AtmosphericGenerator = () => {
                     ))}
                   </div>
                 </div>
+
+                {/* Camera Style Presets */}
+                <CameraStylePresetSelect value={cameraStyle} onChange={setCameraStyle} />
               </div>
 
               {/* Output Size */}

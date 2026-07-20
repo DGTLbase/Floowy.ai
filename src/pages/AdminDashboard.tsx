@@ -64,7 +64,10 @@ const AdminDashboard = () => {
   const fetchAnalytics = async () => {
     setLoading(true);
     const adminToken = localStorage.getItem('admin_token');
-    if (!adminToken) { toast({ title: "Error", description: "Admin session not found", variant: "destructive" }); return; }
+    if (!adminToken) { navigate("/admin/login"); return; }
+    // Never let the dashboard hang forever if the endpoint is slow.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-get-analytics`,
@@ -77,14 +80,24 @@ const AdminDashboard = () => {
             'admin-token': adminToken,
           },
           body: JSON.stringify({ timeframe }),
+          signal: controller.signal,
         }
       );
+      // Expired/invalid admin session → send to login instead of a stuck/empty page.
+      if (response.status === 401) {
+        localStorage.removeItem('admin_token');
+        navigate("/admin/login");
+        return;
+      }
       if (!response.ok) throw new Error('Failed to fetch analytics');
       const data = await response.json();
       if (data.analytics) setAnalytics(data.analytics);
     } catch {
       toast({ title: "Error", description: "Failed to load analytics data", variant: "destructive" });
-    } finally { setLoading(false); }
+    } finally {
+      clearTimeout(timeout);
+      setLoading(false);
+    }
   };
 
   if (loading) {

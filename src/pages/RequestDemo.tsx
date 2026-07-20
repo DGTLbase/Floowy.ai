@@ -384,7 +384,7 @@ const RequestDemo = () => {
             Start creating professional visual content today
           </p>
            <Link to="/auth?mode=signup">
-            <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow text-lg px-8 h-14">
+            <Button size="lg" className="bg-offer text-offer-foreground hover:bg-offer-hover shadow-glow text-lg px-8 h-14">
               Start for €1
             </Button>
           </Link>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Image as ImageIcon, Shirt, Tag, Megaphone, Copy, Check, Terminal, KeyRound, Zap } from "lucide-react";
+import { Image as ImageIcon, Shirt, Tag, Megaphone, Video, Copy, Check, Terminal, KeyRound, Zap } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import PageMeta from "@/components/PageMeta";
@@ -68,6 +68,22 @@ const TOOLS: ToolDoc[] = [
     example: { tool: "ads", prompt: "bold ad creative, vibrant gradient background, product hero angle, space for headline top-left", image_url: "https://your-cdn.com/product.png", aspect_ratio: "9:16" },
     tip: "Mention where to leave space for ad copy, and match aspect_ratio to the placement (9:16 for Reels).",
   },
+  {
+    id: "creator", name: "Creator (UGC video)", icon: Video,
+    tagline: "Turn a product photo + an avatar into a UGC-style video with voiceover. Async — returns a video.",
+    params: [
+      { name: "image_urls", required: true, desc: "[product_image, avatar_image] — two public URLs (product first, avatar/model second)." },
+      { name: "prompt", required: true, desc: "What the creator does — the scene / behaviour." },
+      { name: "product_name", required: false, desc: "Product name — improves the auto-generated voiceover." },
+      { name: "voiceover", required: false, desc: "Custom voiceover script. Omit to auto-generate one from the product." },
+      { name: "language", required: false, desc: '"english" (default), "dutch", "spanish", "french", "german", "italian", "portuguese".' },
+      { name: "duration", required: false, desc: "6, 8 (default) or 10 seconds." },
+      { name: "aspect_ratio", required: false, desc: '"9:16" (default) or "16:9".' },
+      { name: "generate_audio", required: false, desc: "true (default) includes the spoken voiceover; false for silent." },
+    ],
+    example: { tool: "creator", prompt: "a creator enthusiastically reviewing and demonstrating the product in a bright room, natural handheld movement", product_name: "GlowSerum", image_urls: ["https://your-cdn.com/product.png", "https://your-cdn.com/avatar.jpg"], duration: 8, aspect_ratio: "9:16" },
+    tip: "Video is async and heavier: costs 10 credits and takes a few minutes. Poll with action:\"status\" — the finished result comes back as { status: \"completed\", video: \"<url>\" }.",
+  },
 ];
 
 const NAV = [
@@ -114,7 +130,7 @@ const ApiDocs = () => (
   <div className="min-h-screen bg-background">
     <PageMeta
       title="Floowy API Documentation"
-      description="Integrate Floowy's AI tools — ambience, fashion, listing and ad creatives — into your own app. Per-request pricing with prepaid credits."
+      description="Integrate Floowy's AI tools — ambience, fashion, listing, ad creatives and UGC creator video — into your own app. Per-request pricing with prepaid credits."
       canonicalUrl="https://floowy.ai/api-docs"
     />
     <Navigation />
@@ -127,8 +143,8 @@ const ApiDocs = () => (
         </div>
         <h1 className="mt-4 text-4xl font-bold tracking-tight text-foreground md:text-5xl">Floowy API</h1>
         <p className="mt-3 max-w-2xl text-lg text-muted-foreground">
-          Generate on-brand product visuals from your own app. One REST endpoint, four tools, per-request billing
-          against prepaid credits. Available on Professional &amp; Enterprise plans.
+          Generate on-brand product visuals — and UGC creator videos — from your own app. One REST endpoint, five
+          tools, per-request billing against prepaid credits. Available on Professional &amp; Enterprise plans.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <a href="#quickstart" className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:brightness-110">Quickstart</a>
@@ -277,8 +293,11 @@ const ApiDocs = () => (
               </table>
             </div>
             <p className="mt-6 text-sm text-muted-foreground">
-              Video tools (product video, fashion video) are coming to the API next. Contact your account manager to
-              adjust which tools are enabled on your key.
+              The <code className="rounded bg-muted px-1">creator</code> tool returns a video (async, 10 credits) — poll
+              with <code className="rounded bg-muted px-1">action:"status"</code> until it returns{" "}
+              <code className="rounded bg-muted px-1">{`{ status: "completed", video: "<url>" }`}</code>. More video tools
+              (product video, fashion video) are coming next. Contact your account manager to adjust which tools are
+              enabled on your key.
             </p>
           </section>
         </main>

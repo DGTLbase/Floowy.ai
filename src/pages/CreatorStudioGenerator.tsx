@@ -9,6 +9,8 @@ import VoicePerformanceBlock from "@/components/creator/VoicePerformanceBlock";
 import VideoEditingStyleBlock from "@/components/creator/VideoEditingStyleBlock";
 import VideoEditModal from "@/components/VideoEditModal";
 import { cutStyleById, creditsForDuration, voicePerformanceById, maxVoiceoverWords, countWords, type AspectRatioId, type DurationSec } from "@/lib/creator-studio-config";
+import CameraStylePresetSelect from "@/components/CameraStylePresetSelect";
+import { cameraStylePrompt, CAMERA_STYLE_NONE } from "@/lib/camera-style-presets";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,6 +72,7 @@ const CreatorStudioGenerator = () => {
   const [cutStyleId, setCutStyleId] = useState<string>("no-cuts");
   const [duration, setDuration] = useState<DurationSec>(6);
   const [voicePerformance, setVoicePerformance] = useState<string>("enthusiast");
+  const [cameraStyle, setCameraStyle] = useState<string>(CAMERA_STYLE_NONE);
   const [videoEditOpen, setVideoEditOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -578,13 +581,16 @@ const CreatorStudioGenerator = () => {
         videoPrompt += ` Voice performance: ${vp.label} — ${vp.description}`;
       }
 
+      // Camera Style Preset: append the chosen camera style (empty for "No style").
+      const cam = cameraStylePrompt(cameraStyle);
+
       const { data: generateData, error: generateError } = await supabase.functions.invoke(
         'generate-ugc-video',
         {
           body: {
             modelImageUrl: ugcImageUrl, // Use the generated UGC image or product image
             productImageUrl: productUrl, // Pass the actual product image
-            prompt: videoPrompt,
+            prompt: cam ? `${videoPrompt}. ${cam}` : videoPrompt,
             language,
             voiceover: voiceoverText || undefined, // Only pass if custom
             productName: productName, // Pass product name for AI to generate tailored script
@@ -1364,6 +1370,11 @@ const CreatorStudioGenerator = () => {
               onCutStyle={(id) => { setCutStyleId(id); setDuration(cutStyleById(id).defaultDuration); }}
               onDuration={setDuration}
             />
+          </div>
+
+          {/* Camera Style Presets */}
+          <div className="bg-card rounded-xl border border-border p-6">
+            <CameraStylePresetSelect value={cameraStyle} onChange={setCameraStyle} />
           </div>
 
           {/* Fourth Section: Scene Background Prompt */}

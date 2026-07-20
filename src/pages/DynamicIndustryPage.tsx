@@ -129,7 +129,7 @@ const DynamicIndustryPage = () => {
                 <p className="text-header-dark/85 text-lg whitespace-pre-line">{data.intro_body}</p>
               )}
               <div className="flex gap-3 mt-8">
-                <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => navigate("/auth?mode=signup")}>Start for €1</Button>
+                <Button size="lg" className="bg-offer text-offer-foreground hover:bg-offer-hover" onClick={() => navigate("/auth?mode=signup")}>Start for €1</Button>
                 <Button size="lg" variant="outline" className="text-header-dark border-header-dark/40 hover:bg-header-dark/10 hover:text-header-dark" onClick={() => navigate("/request-demo")}>Book a Call</Button>
               </div>
             </div>

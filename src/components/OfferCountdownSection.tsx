@@ -49,7 +49,7 @@ const OfferCountdownSection = () => {
             <span className="text-2xl md:text-3xl font-bold text-muted-foreground pb-5">:</span>
             <Unit value={seconds} label="Sec" />
           </div>
-          <span className="mt-3 inline-flex items-center justify-center rounded-full bg-accent text-accent-foreground font-bold text-sm px-6 py-2 transition-transform group-hover:scale-105">
+          <span className="mt-3 inline-flex items-center justify-center rounded-full bg-offer text-offer-foreground font-bold text-sm px-6 py-2 transition-all group-hover:bg-offer-hover group-hover:scale-105 group-active:bg-offer-hover">
             {EURO1_OFFER.ctaLabel}
           </span>
         </div>

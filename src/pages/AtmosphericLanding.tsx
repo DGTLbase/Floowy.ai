@@ -145,7 +145,7 @@ const AtmosphericLanding = () => {
             
             <div className="flex w-full flex-col items-center gap-3 pt-2 sm:w-auto sm:flex-row sm:justify-center lg:justify-start">
               <Link to="/auth?mode=signup" className="w-full sm:w-auto">
-                <Button size="lg" className="h-12 w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow text-base px-6 sm:h-14 sm:w-auto sm:text-lg sm:px-8">
+                <Button size="lg" className="h-12 w-full bg-offer text-offer-foreground hover:bg-offer-hover shadow-glow text-base px-6 sm:h-14 sm:w-auto sm:text-lg sm:px-8">
                   <Sparkles className="w-5 h-5 mr-2" />
                   Start for €1
                 </Button>
@@ -445,7 +445,7 @@ const AtmosphericLanding = () => {
 
           <div className="text-center mt-10">
             <Link to="/auth?mode=signup">
-              <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 text-lg px-8 h-14">
+              <Button size="lg" className="bg-offer text-offer-foreground hover:bg-offer-hover text-lg px-8 h-14">
                 Start for €1 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
@@ -624,7 +624,7 @@ const AtmosphericLanding = () => {
               </Link>
             </div>
             <Link to="/custom-models" className="w-full sm:w-auto flex lg:hidden justify-center order-last">
-              <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 text-lg px-8 h-14 w-full sm:w-auto">
+              <Button size="lg" className="bg-offer text-offer-foreground hover:bg-offer-hover text-lg px-8 h-14 w-full sm:w-auto">
                 Claim Your Premium Model <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
@@ -828,7 +828,7 @@ const AtmosphericLanding = () => {
             Join ecommerce brands creating stunning product scenes with AI
           </p>
           <Link to="/auth?mode=signup">
-            <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow text-lg px-10 h-14 font-semibold">
+            <Button size="lg" className="bg-offer text-offer-foreground hover:bg-offer-hover shadow-glow text-lg px-10 h-14 font-semibold">
               Start for €1
             </Button>
           </Link>

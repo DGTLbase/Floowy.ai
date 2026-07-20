@@ -6,9 +6,12 @@ import { Check, X, MessageSquare, ArrowRight, ArrowLeft, Sparkles } from "lucide
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import ContactSalesModal from "@/components/ContactSalesModal";
-import CancellationReasonModal from "@/components/CancellationReasonModal";
+import OffboardingFlowModal from "@/components/OffboardingFlowModal";
+import DowngradeFlowModal from "@/components/DowngradeFlowModal";
 import Footer from "@/components/Footer";
 import { SUBSCRIPTION_PLANS } from "@/lib/stripe-config";
+import TierPlanCard from "@/components/pricing/TierPlanCard";
+import { type PaidTier } from "@/lib/tier-access";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -26,6 +29,7 @@ const Payment = () => {
   // public price overview or during signup.
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [upgradeInfo, setUpgradeInfo] = useState<{ credits: number; plan: string } | null>(null);
+  const [downgradeInfo, setDowngradeInfo] = useState<{ targetPlan: PaidTier; targetPriceId: string } | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -44,7 +48,6 @@ const Payment = () => {
       features: [
         { text: `${billingCycle === "yearly" ? SUBSCRIPTION_PLANS.lite.yearly.credits : SUBSCRIPTION_PLANS.lite.monthly.credits} credits per ${billingCycle === "yearly" ? "year" : "month"}`, included: true },
         { text: `Generate up to ${billingCycle === "yearly" ? "240" : "20"} images per ${billingCycle === "yearly" ? "year" : "month"}`, included: true },
-        { text: "Access to core Floowy tools", included: true },
         { text: "Priority generation queue", included: false },
         { text: "Priority support", included: false },
         { text: "Account manager", included: false },
@@ -64,7 +67,6 @@ const Payment = () => {
       features: [
         { text: `${billingCycle === "yearly" ? SUBSCRIPTION_PLANS.starter.yearly.credits : SUBSCRIPTION_PLANS.starter.monthly.credits} credits per ${billingCycle === "yearly" ? "year" : "month"}`, included: true },
         { text: `Generate up to ${billingCycle === "yearly" ? "600" : "50"} images per ${billingCycle === "yearly" ? "year" : "month"} (2 credits per generation)`, included: true },
-        { text: "Access to all Floowy tools", included: true },
         { text: "Priority generation queue", included: false },
         { text: "Priority support", included: false },
         { text: "Account manager", included: false },
@@ -84,7 +86,6 @@ const Payment = () => {
       features: [
         { text: `${billingCycle === "yearly" ? SUBSCRIPTION_PLANS.professional.yearly.credits : SUBSCRIPTION_PLANS.professional.monthly.credits} credits per ${billingCycle === "yearly" ? "year" : "month"}`, included: true },
         { text: `Generate up to ${billingCycle === "yearly" ? "1,500" : "125"} images per ${billingCycle === "yearly" ? "year" : "month"}`, included: true },
-        { text: "Access to all Floowy tools", included: true },
         { text: "Priority generation queue", included: true },
         { text: "Priority support", included: true },
         { text: "Account manager", included: false },
@@ -108,7 +109,6 @@ const Payment = () => {
     features: [
       { text: `${billingCycle === "yearly" ? SUBSCRIPTION_PLANS.enterprise.yearly.credits : SUBSCRIPTION_PLANS.enterprise.monthly.credits} credits per ${billingCycle === "yearly" ? "year" : "month"}`, included: true },
       { text: `Generate up to ${billingCycle === "yearly" ? "3,000" : "250"} images per ${billingCycle === "yearly" ? "year" : "month"}`, included: true },
-      { text: "Access to all Floowy tools", included: true },
       { text: "Priority generation queue", included: true },
       { text: "Priority support", included: true },
       { text: "Dedicated account manager", included: true },
@@ -308,10 +308,20 @@ const Payment = () => {
     const plan = plans.find(p => p.id === planId);
     if (!plan) return;
 
+    const priceId = cycle === "monthly" ? plan.monthlyPriceId : plan.yearlyPriceId;
+
+    // Downgrades (paid → lower paid tier) are no longer one click — they open the
+    // retention flow, which schedules the change for the next billing date.
+    const order = ["free", "lite", "starter", "professional", "enterprise"];
+    if (currentPlan !== "free" && order.indexOf(planId) >= 1 && order.indexOf(planId) < order.indexOf(currentPlan)) {
+      setDowngradeInfo({ targetPlan: planId as PaidTier, targetPriceId: priceId });
+      return;
+    }
+
     setIsChangingPlan(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session) {
         toast({
           title: "Authentication required",
@@ -322,8 +332,6 @@ const Payment = () => {
         return;
       }
 
-      const priceId = cycle === "monthly" ? plan.monthlyPriceId : plan.yearlyPriceId;
-      
       // Determine if upgrade or downgrade
       const planOrder = ["free", "lite", "starter", "professional", "enterprise"];
       const currentIndex = planOrder.indexOf(currentPlan);
@@ -453,20 +461,14 @@ const Payment = () => {
               </span>
             </h1>
             
-            {/* Current Plan Status & Actions */}
+            {/* Current Plan indicator — the cancel action now lives at the very
+                bottom of the page (below all plans), so the top stays focused on
+                value and upgrades. */}
             {currentPlan !== "free" && (
-              <div className="mb-6 p-4 bg-muted/50 rounded-lg border border-border inline-block">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Current Plan: <span className="font-semibold text-foreground capitalize">{currentPlan}</span>
+              <div className="mb-6 inline-block rounded-lg border border-border bg-muted/50 px-4 py-2">
+                <p className="text-sm text-muted-foreground">
+                  Current Plan: <span className="font-semibold capitalize text-foreground">{currentPlan}</span>
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCancelDialogOpen(true)}
-                  className="hover-scale"
-                >
-                  Cancel Subscription
-                </Button>
               </div>
             )}
             
@@ -498,60 +500,25 @@ const Payment = () => {
                 const isCurrent = currentPlan === plan.id;
                 const isHighlighted = plan.popular && !isCurrent;
 
+                const isEnterprise = plan.id === "enterprise" && !isCurrent;
+                const displayCredits = billingCycle === "monthly" ? plan.monthlyCredits : plan.yearlyCredits;
+                const monthlyImages = Math.round(plan.monthlyCredits / 2);
+
                 return (
-                  <Card
+                  <TierPlanCard
                     key={plan.id}
-                    className={`relative transition-all duration-300 flex flex-col overflow-hidden ${
-                      isCurrent
-                        ? "border-2 border-primary shadow-glow"
-                        : isHighlighted
-                          ? "shadow-glow md:scale-105 border-2 border-primary bg-primary/[0.04] z-10"
-                          : "border border-border/50"
-                    }`}
-                  >
-                    {isCurrent && (
-                      <div className="absolute top-0 inset-x-0 bg-primary text-primary-foreground text-center py-2 text-xs font-bold uppercase tracking-wider">
-                        Your Current Plan
-                      </div>
-                    )}
-                    {isHighlighted && !isCurrent && (
-                      <div className="absolute top-0 inset-x-0 bg-primary text-primary-foreground text-center py-2 text-xs font-bold uppercase tracking-wider">
-                        Most Popular
-                      </div>
-                    )}
-                    <CardHeader className={`text-center pb-8 ${(isHighlighted || isCurrent) ? "pt-12" : ""}`}>
-                      <CardTitle className="text-2xl mb-2">{plan.name}</CardTitle>
-                      <CardDescription className="text-sm mb-4">{plan.description}</CardDescription>
-                      {billingCycle === "yearly" && plan.monthlyPrice > 0 && (
-                        <div className="text-lg font-bold text-muted-foreground line-through mb-2">
-                          €{plan.monthlyPrice * 12}
-                        </div>
-                      )}
-                      <div className="flex items-baseline justify-center gap-1">
-                        <span className="text-4xl md:text-5xl font-bold text-foreground">
-                          {displayPrice}
-                        </span>
-                        <div className="flex flex-col items-start">
-                          <span className="text-xs md:text-sm text-muted-foreground">EUR</span>
-                          <span className="text-xs md:text-sm text-muted-foreground">/{billingCycle === "yearly" ? "year" : "month"}</span>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="flex-1 flex flex-col">
-                      <ul className="space-y-3 mb-8 flex-1">
-                        {plan.features.map((feature, index) => (
-                          <li key={index} className="flex items-start gap-3">
-                            {feature.included ? (
-                              <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                            ) : (
-                              <X className="w-5 h-5 text-muted-foreground/40 shrink-0 mt-0.5" />
-                            )}
-                            <span className={`text-sm ${feature.included ? "text-muted-foreground" : "text-muted-foreground/40"}`}>
-                              {feature.text}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
+                    tier={plan.id as PaidTier}
+                    name={plan.name}
+                    description={plan.description}
+                    price={displayPrice}
+                    priceSuffix={billingCycle === "yearly" ? "yr" : "mo"}
+                    strikePrice={billingCycle === "yearly" && plan.monthlyPrice > 0 ? plan.monthlyPrice * 12 : undefined}
+                    credits={displayCredits}
+                    images={monthlyImages}
+                    current={isCurrent}
+                    highlighted={isHighlighted}
+                    enterprise={isEnterprise}
+                    cta={
                       <Button
                         onClick={() => handlePlanChange(plan.id, billingCycle)}
                         disabled={isLoading || isCurrent || isChangingPlan}
@@ -559,14 +526,14 @@ const Payment = () => {
                         size="lg"
                         className={`w-full ${
                           isHighlighted
-                            ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
+                            ? "bg-offer text-offer-foreground hover:bg-offer-hover shadow-md"
                             : "border-primary/40 text-foreground hover:bg-primary/10"
                         }`}
                       >
                         {isChangingPlan ? "Processing..." : getButtonText(plan.id)}
                       </Button>
-                    </CardContent>
-                  </Card>
+                    }
+                  />
                 );
               })}
             </div>
@@ -634,13 +601,26 @@ const Payment = () => {
         onOpenChange={setContactSalesOpen}
       />
 
-      {/* Cancel Subscription Reason Modal */}
-      <CancellationReasonModal
+      {/* Offboarding / retention flow — opened from the quiet link at the very
+          bottom of the page (below all plans), never from the top. */}
+      <OffboardingFlowModal
         open={cancelDialogOpen}
         onOpenChange={setCancelDialogOpen}
-        onConfirm={handleCancelSubscription}
-        isLoading={isCanceling}
+        onCancelled={fetchCurrentPlan}
+        onKept={fetchCurrentPlan}
       />
+
+      {/* Downgrade retention flow — opened instead of a one-click downgrade. */}
+      {downgradeInfo && (
+        <DowngradeFlowModal
+          open={!!downgradeInfo}
+          onOpenChange={(o) => !o && setDowngradeInfo(null)}
+          currentPlan={currentPlan as PaidTier}
+          targetPlan={downgradeInfo.targetPlan}
+          targetPriceId={downgradeInfo.targetPriceId}
+          onChanged={fetchCurrentPlan}
+        />
+      )}
 
       {/* Prorated upgrade confirmation */}
       <Dialog open={!!upgradeInfo} onOpenChange={(o) => !o && setUpgradeInfo(null)}>
@@ -665,6 +645,20 @@ const Payment = () => {
           <Button onClick={() => setUpgradeInfo(null)} className="w-full">Got it</Button>
         </DialogContent>
       </Dialog>
+
+      {/* Cancel subscription — deliberately low-emphasis and at the very bottom,
+          below all plans, so the page sells first. Kept visible and reachable
+          (EU/NL rules): a quiet text link that opens the retention flow. */}
+      {currentPlan !== "free" && (
+        <div className="container mx-auto px-4 pb-12 pt-4 text-center">
+          <button
+            onClick={() => setCancelDialogOpen(true)}
+            className="text-sm font-medium text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
+          >
+            Cancel subscription
+          </button>
+        </div>
+      )}
 
       <Footer />
     </div>

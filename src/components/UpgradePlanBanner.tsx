@@ -80,6 +80,9 @@ const UpgradePlanBanner = () => {
       if (error || !data?.activated) throw new Error(error?.message || "Activation failed");
       sessionStorage.removeItem(STATUS_KEY);
       setVisible(false);
+      // Credits were granted server-side — tell the header/credit displays to
+      // refresh immediately so the new balance shows without a reload.
+      window.dispatchEvent(new Event("credits:refresh"));
       toast({
         title: "Plan activated 🎉",
         description: "Payment confirmed — your full credits are being added now.",
@@ -127,7 +130,7 @@ const UpgradePlanBanner = () => {
           <button
             onClick={unlock}
             disabled={paying}
-            className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition hover:brightness-110 disabled:opacity-60 sm:text-sm"
+            className="rounded-lg bg-offer px-4 py-2 text-xs font-bold text-offer-foreground transition hover:bg-offer-hover disabled:opacity-60 sm:text-sm"
           >
             {paying ? "Processing…" : `Unlock my ${remaining} credits now →`}
           </button>

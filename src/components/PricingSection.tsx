@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { SUBSCRIPTION_PLANS, EURO1_OFFER } from "@/lib/stripe-config";
+import TierPlanCard from "@/components/pricing/TierPlanCard";
+import { type PaidTier } from "@/lib/tier-access";
 
 interface PricingSectionProps {
   title?: React.ReactNode;
@@ -24,7 +26,6 @@ const PricingSection = ({ title, subtitle, asH1 = false }: PricingSectionProps =
       features: [
         { text: `${isAnnual ? SUBSCRIPTION_PLANS.lite.yearly.credits : SUBSCRIPTION_PLANS.lite.monthly.credits} credits per ${isAnnual ? "year" : "month"}`, included: true },
         { text: `Generate up to ${isAnnual ? "240" : "20"} images per ${isAnnual ? "year" : "month"}`, included: true },
-        { text: "Access to core Floowy tools", included: true },
         { text: "Priority generation queue", included: false },
         { text: "Priority support", included: false },
         { text: "Account manager", included: false },
@@ -40,7 +41,6 @@ const PricingSection = ({ title, subtitle, asH1 = false }: PricingSectionProps =
       features: [
         { text: `${isAnnual ? SUBSCRIPTION_PLANS.starter.yearly.credits : SUBSCRIPTION_PLANS.starter.monthly.credits} credits per ${isAnnual ? "year" : "month"}`, included: true },
         { text: `Generate up to ${isAnnual ? "600" : "50"} images per ${isAnnual ? "year" : "month"} (2 credits per generation)`, included: true },
-        { text: "Access to all Floowy tools", included: true },
         { text: "Priority generation queue", included: false },
         { text: "Priority support", included: false },
         { text: "Account manager", included: false },
@@ -56,7 +56,6 @@ const PricingSection = ({ title, subtitle, asH1 = false }: PricingSectionProps =
       features: [
         { text: `${isAnnual ? SUBSCRIPTION_PLANS.professional.yearly.credits : SUBSCRIPTION_PLANS.professional.monthly.credits} credits per ${isAnnual ? "year" : "month"}`, included: true },
         { text: `Generate up to ${isAnnual ? "1,500" : "125"} images per ${isAnnual ? "year" : "month"}`, included: true },
-        { text: "Access to all Floowy tools", included: true },
         { text: "Priority generation queue", included: true },
         { text: "Priority support", included: true },
         { text: "Account manager", included: false },
@@ -128,76 +127,40 @@ const PricingSection = ({ title, subtitle, asH1 = false }: PricingSectionProps =
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-stretch pt-2 max-w-5xl mx-auto">
-          {plans.map((plan) => (
-            <Card
-              key={plan.name}
-              className={`relative transition-all duration-300 flex flex-col overflow-hidden ${
-                plan.highlighted
-                  ? "shadow-glow md:scale-105 border-2 border-primary bg-primary/[0.04] z-10"
-                  : "border border-border/50"
-              }`}
-            >
-              <CardHeader className="text-center pb-8 pt-8">
-                <div className="flex flex-nowrap items-center justify-center gap-1.5 mb-4">
-                  <CardTitle className="text-xl whitespace-nowrap">{plan.name}</CardTitle>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Badge className="bg-accent text-accent-foreground font-bold rounded-full px-2 py-0.5 text-[10px] whitespace-nowrap shadow-sm">
-                      €1 first 3 days
-                    </Badge>
-                    {plan.highlighted && (
-                      <Badge className="bg-primary text-primary-foreground font-bold rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider whitespace-nowrap shadow-sm">
-                        Best Value
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                {isAnnual && plan.monthlyPrice > 0 && (
-                  <div className="text-lg font-bold text-muted-foreground line-through mb-2">
-                    €{plan.monthlyPrice * 12}
-                  </div>
-                )}
-                <div className="flex items-baseline justify-center gap-1">
-                  <span className="text-4xl md:text-5xl font-bold text-foreground">
-                    {isAnnual ? plan.yearlyPrice : plan.monthlyPrice}
-                  </span>
-                  <div className="flex flex-col items-start">
-                    <span className="text-xs md:text-sm text-muted-foreground">EUR</span>
-                    <span className="text-xs md:text-sm text-muted-foreground">/{isAnnual ? "year" : "month"}</span>
-                  </div>
-                </div>
-                <CardDescription className="text-sm mt-4">{plan.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col">
-                <ul className="space-y-3 mb-8 flex-1">
-                  {plan.features.map((feature, index) => (
-                    <li key={index} className="flex items-start gap-3">
-                      {feature.included ? (
-                        <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                      ) : (
-                        <X className="w-5 h-5 text-muted-foreground/40 shrink-0 mt-0.5" />
-                      )}
-                      <span className={`text-sm ${feature.included ? "text-muted-foreground" : "text-muted-foreground/40"}`}>
-                        {feature.text}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <Link to={EURO1_OFFER.signupHref} className="block">
-                  <Button
-                    variant={plan.highlighted ? "default" : "outline"}
-                    className={`w-full ${
-                      plan.highlighted
-                        ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
-                        : "border-primary/40 text-foreground hover:bg-primary/10"
-                    }`}
-                    size="lg"
-                  >
-                    {plan.cta}
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
+          {plans.map((plan) => {
+            const tier = plan.name.toLowerCase() as PaidTier;
+            const sp = SUBSCRIPTION_PLANS[tier as keyof typeof SUBSCRIPTION_PLANS];
+            const credits = isAnnual ? sp.yearly.credits : sp.monthly.credits;
+            const images = Math.round(sp.monthly.credits / 2);
+            return (
+              <TierPlanCard
+                key={plan.name}
+                tier={tier}
+                name={plan.name}
+                description={plan.description}
+                price={isAnnual ? plan.yearlyPrice : plan.monthlyPrice}
+                priceSuffix={isAnnual ? "yr" : "mo"}
+                strikePrice={isAnnual ? plan.monthlyPrice * 12 : undefined}
+                credits={credits}
+                images={images}
+                highlighted={plan.highlighted}
+                cta={
+                  <Link to={EURO1_OFFER.signupHref} className="block">
+                    <Button
+                      size="lg"
+                      className={`w-full shadow-md ${
+                        plan.highlighted
+                          ? "bg-offer text-offer-foreground hover:bg-offer-hover"
+                          : "bg-primary text-primary-foreground hover:bg-primary/90"
+                      }`}
+                    >
+                      {plan.cta}
+                    </Button>
+                  </Link>
+                }
+              />
+            );
+          })}
         </div>
 
         {/* Talk to Sales Card */}

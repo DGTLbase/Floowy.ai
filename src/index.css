@@ -21,8 +21,16 @@ All colors MUST be HSL.
 
     --primary: 152 52% 48%;
     --primary-foreground: 0 0% 100%;
-    
+
     --primary-glow: 152 80% 65%;
+
+    /* Offer accent — reserved for high-intent offer/conversion CTAs only.
+       Signal Coral #FF5B3F default, Coral Deep #E8412A hover/active, white text.
+       --offer-soft #FFF1EE is the light tint for offer tags/check backgrounds. */
+    --offer: 9 100% 62%;
+    --offer-hover: 7 81% 54%;
+    --offer-foreground: 0 0% 100%;
+    --offer-soft: 11 100% 97%;
 
     --secondary: 152 90% 95%;
     --secondary-foreground: 152 45% 20%;
@@ -81,6 +89,12 @@ All colors MUST be HSL.
 
     --primary: 142 71% 65%;
     --primary-foreground: 222.2 47.4% 11.2%;
+
+    /* Offer accent — same warm coral in dark mode (brand-consistent signal). */
+    --offer: 9 100% 62%;
+    --offer-hover: 7 81% 54%;
+    --offer-foreground: 0 0% 100%;
+    --offer-soft: 11 100% 97%;
 
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -602,4 +616,10 @@ All colors MUST be HSL.
 
 .animate-scroll-down {
   animation: scroll-column-down linear infinite;
+}
+
+/* Social Scraper: indeterminate progress bar for analyze/comments modals */
+@keyframes scraper-indeterminate {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(360%); }
 }

@@ -121,7 +121,7 @@ const FlatlayLanding = () => {
               
               <div className="flex w-full flex-col items-center gap-3 pt-2 sm:w-auto sm:flex-row sm:justify-center lg:justify-start">
                 <Link to="/auth?mode=signup" className="w-full sm:w-auto">
-                  <Button size="lg" className="h-12 w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow text-base px-6 sm:h-14 sm:w-auto sm:text-lg sm:px-8">
+                  <Button size="lg" className="h-12 w-full bg-offer text-offer-foreground hover:bg-offer-hover shadow-glow text-base px-6 sm:h-14 sm:w-auto sm:text-lg sm:px-8">
                     <Sparkles className="w-5 h-5 mr-2" />
                     Start for €1
                   </Button>
@@ -352,7 +352,7 @@ const FlatlayLanding = () => {
               </div>
               <div className="pt-2 flex lg:hidden justify-center order-last">
                 <Link to="/auth?mode=signup">
-                  <Button variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded-full px-6">
+                  <Button variant="outline" className="border-primary text-primary hover:bg-offer hover:text-offer-foreground rounded-full px-6">
                     Start Creating <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
@@ -512,7 +512,7 @@ const FlatlayLanding = () => {
             Join ecommerce brands creating stunning flat lay visuals with AI
           </p>
           <Link to="/auth?mode=signup">
-            <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow text-lg px-10 h-14 font-semibold">
+            <Button size="lg" className="bg-offer text-offer-foreground hover:bg-offer-hover shadow-glow text-lg px-10 h-14 font-semibold">
               Start for €1
             </Button>
           </Link>

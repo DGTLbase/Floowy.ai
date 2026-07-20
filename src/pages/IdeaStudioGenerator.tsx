@@ -13,6 +13,8 @@ import PlanCreditsDisplay from "@/components/PlanCreditsDisplay";
 import UserMenu from "@/components/UserMenu";
 import ModelSelector from "@/components/ModelSelector";
 import BackgroundSelector from "@/components/BackgroundSelector";
+import CameraStylePresetSelect from "@/components/CameraStylePresetSelect";
+import { cameraStylePrompt, CAMERA_STYLE_NONE } from "@/lib/camera-style-presets";
 import logoImage from "@/assets/floowy-logo.png";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
 import { useOnboardingCheck } from "@/hooks/useOnboardingCheck";
@@ -34,6 +36,7 @@ const IdeaStudioGenerator = () => {
   const [backgroundColor, setBackgroundColor] = useState<string>("#F8F8F8");
   const [selectedBackground, setSelectedBackground] = useState<string | null>("#F8F8F8");
   const [customBackgroundPrompt, setCustomBackgroundPrompt] = useState<string>("");
+  const [cameraStyle, setCameraStyle] = useState<string>(CAMERA_STYLE_NONE);
   const [outputSize, setOutputSize] = useState({ width: 1024, height: 1024 });
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
@@ -216,6 +219,9 @@ const IdeaStudioGenerator = () => {
       }
 
       genProgress.setGenerating("AI is reimagining your image...");
+      // Append camera style preset to the main text prompt when selected
+      const cam = cameraStylePrompt(cameraStyle);
+      const finalPrompt = cam ? `${backgroundPrompt}. ${cam}` : backgroundPrompt;
       // Call generate-idea-image function to start generation
       const { data: generateData, error: generateError } = await supabase.functions.invoke(
         "generate-idea-image",
@@ -225,7 +231,7 @@ const IdeaStudioGenerator = () => {
             reference_url: referenceUrl,
             product_url: productUrl,
             model_url: modelUrl,
-            background_prompt: backgroundPrompt,
+            background_prompt: finalPrompt,
             aspect_ratio: aspectRatio,
             resolution,
           },
@@ -450,6 +456,9 @@ const IdeaStudioGenerator = () => {
                   onChange={(e) => setBackgroundPrompt(e.target.value)}
                   className="min-h-[100px] resize-none"
                 />
+                <div className="mt-4">
+                  <CameraStylePresetSelect value={cameraStyle} onChange={setCameraStyle} />
+                </div>
               </div>
 
               {/* Output Size Selector */}

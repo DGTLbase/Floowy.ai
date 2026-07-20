@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { getUserTier, isAdmin, tierMeets, tierDenied } from '../_shared/tier.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,6 +37,11 @@ Deno.serve(async (req) => {
 
     if (batchError || !batch) {
       throw new Error('Batch not found');
+    }
+
+    // Tier gate (Tier Briefing): Fashion Studio Pro (bulk) is Professional+. Admins bypass.
+    if (batch.user_id && !(await isAdmin(supabase, batch.user_id)) && !tierMeets(await getUserTier(supabase, batch.user_id), 'professional')) {
+      return tierDenied('professional', corsHeaders);
     }
 
     // Fetch all pending items

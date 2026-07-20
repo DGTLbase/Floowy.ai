@@ -72,46 +72,44 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch related data for each user
+    // Fetch related data per user, but in BOUNDED batches. An unbounded
+    // Promise.all over every profile fired thousands of concurrent queries and
+    // exhausted the connection pool, hanging the admin page. Batching caps the
+    // concurrency so it stays responsive as the user base grows.
     console.log('Fetching user data for', profiles.length, 'profiles');
-    const usersWithData = await Promise.all(
-      profiles.map(async (profile) => {
-        const { data: credit } = await supabaseAdmin
-          .from('credits')
-          .select('balance')
-          .eq('user_id', profile.id)
-          .maybeSingle();
 
-        const { data: generations } = await supabaseAdmin
-          .from('generations')
-          .select('id')
-          .eq('user_id', profile.id);
+    const loadUser = async (profile: any) => {
+      const [creditRes, genRes, toolRes, onbRes, cancelRes] = await Promise.all([
+        supabaseAdmin.from('credits').select('balance').eq('user_id', profile.id).maybeSingle(),
+        // Exact generation count without pulling every row into memory.
+        supabaseAdmin.from('generations').select('id', { count: 'exact', head: true }).eq('user_id', profile.id),
+        supabaseAdmin.from('user_tool_access').select('tool_name, has_access').eq('user_id', profile.id),
+        supabaseAdmin.from('onboarding_data').select('*').eq('user_id', profile.id).maybeSingle(),
+        supabaseAdmin.from('cancellation_feedback').select('reason, details, created_at').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      ]);
 
-        const { data: toolAccess } = await supabaseAdmin
-          .from('user_tool_access')
-          .select('*')
-          .eq('user_id', profile.id);
+      const toolAccessMap: Record<string, boolean> = {};
+      (toolRes.data as any[] | null)?.forEach((access: any) => {
+        toolAccessMap[access.tool_name] = access.has_access;
+      });
 
-        const { data: onboardingData } = await supabaseAdmin
-          .from('onboarding_data')
-          .select('*')
-          .eq('user_id', profile.id)
-          .maybeSingle();
+      return {
+        ...profile,
+        credits: (creditRes.data as any)?.balance || 0,
+        generations: genRes.count || 0,
+        toolAccess: toolAccessMap,
+        onboardingData: onbRes.data || null,
+        cancellationFeedback: cancelRes.data || null,
+      };
+    };
 
-        const toolAccessMap: Record<string, boolean> = {};
-        toolAccess?.forEach((access: any) => {
-          toolAccessMap[access.tool_name] = access.has_access;
-        });
-
-        return {
-          ...profile,
-          credits: credit?.balance || 0,
-          generations: generations?.length || 0,
-          toolAccess: toolAccessMap,
-          onboardingData: onboardingData || null,
-        };
-      })
-    );
+    const BATCH_SIZE = 25;
+    const usersWithData: any[] = [];
+    for (let i = 0; i < profiles.length; i += BATCH_SIZE) {
+      const batch = profiles.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(batch.map(loadUser));
+      usersWithData.push(...results);
+    }
 
     console.log('Successfully prepared', usersWithData.length, 'users');
     return new Response(

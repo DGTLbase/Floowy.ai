@@ -38,35 +38,88 @@ serve(async (req) => {
 
     const { kind = "video", id } = await req.json();
     if (!id) return json({ error: "id is required" }, 400);
-    if (kind !== "video") return json({ error: `kind "${kind}" not yet supported in this build (video only).` }, 400);
+    const TABLES: Record<string, string> = {
+      video: "videos", instagram: "instagram_posts", facebook: "facebook_posts", ad: "ads", meta_ad: "meta_ads",
+    };
+    const table = TABLES[kind];
+    if (!table) return json({ error: `kind "${kind}" not yet supported in this build.` }, 400);
 
-    const { data: video, error } = await supabase.from("videos").select("*").eq("id", id).single();
-    if (error || !video) return json({ error: error?.message ?? "Video not found" }, 404);
+    const { data: item, error } = await supabase.from(table).select("*").eq("id", id).single();
+    if (error || !item) return json({ error: error?.message ?? "Item not found" }, 404);
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) return json({ error: "ANTHROPIC_API_KEY is not configured" }, 500);
-    const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+    // maxRetries: the SDK retries 429/500/529 with exponential backoff + honours
+    // Retry-After. Bumped from the default 2 so concurrent bulk analysis rides out
+    // transient rate limits instead of surfacing an edge-function error.
+    const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY, maxRetries: 5 });
 
-    const userPrompt = `Analyze this TikTok video for what drives its performance.
+    const list = (v: any) => (Array.isArray(v) ? v.join(", ") : "");
+    let system = "You are a social media virality analyst. Return your analysis by calling the report_analysis tool.";
+    let userPrompt: string;
+    if (kind === "instagram") {
+      system = "You are an Instagram virality analyst. Return your analysis by calling the report_analysis tool.";
+      userPrompt = `Analyze this Instagram post for what drives its performance.
 
-Caption: ${video.caption ?? "(none)"}
-Author: @${video.author_username ?? "unknown"} (${video.author_name ?? ""})
-Hashtags: ${(video.hashtags ?? []).join(", ")}
-Plays: ${video.plays}, Likes: ${video.likes}, Comments: ${video.comments_count}, Shares: ${video.shares}
-Duration: ${video.duration_seconds ?? "?"}s`;
+Caption: ${item.caption ?? "(none)"}
+Owner: @${item.owner_username ?? "unknown"} (${item.owner_full_name ?? ""})
+Hashtags: ${list(item.hashtags)}
+Plays: ${item.plays ?? 0}, Likes: ${item.likes ?? 0}, Comments: ${item.comments_count ?? 0}
+Type: ${item.product_type ?? "?"}`;
+    } else if (kind === "facebook") {
+      system = "You are a Facebook content performance analyst. Return your analysis by calling the report_analysis tool.";
+      userPrompt = `Analyze this Facebook post for what drives its performance.
+
+Page: ${item.page_name ?? "unknown"}
+Text: ${item.text ?? "(none)"}
+Reactions: ${item.reactions_count ?? 0}, Comments: ${item.comments_count ?? 0}, Shares: ${item.shares ?? 0}
+Media type: ${item.media_type ?? "?"}`;
+    } else if (kind === "ad") {
+      system = "You are a TikTok ads performance analyst. Return your analysis by calling the report_analysis tool.";
+      userPrompt = `Analyze this TikTok ad for what drives its performance.
+
+Advertiser: ${item.advertiser_name ?? "unknown"}
+Ad text: ${item.ad_text ?? "(none)"}
+Source: ${item.source ?? "?"}, Ad type: ${item.ad_type ?? "?"}
+Countries: ${list(item.countries)}
+Impressions: ${item.impressions ?? "?"}, CTR: ${item.ctr ?? "?"}, Likes: ${item.likes ?? 0}
+First shown: ${item.first_shown_date ?? "?"}, Last shown: ${item.last_shown_date ?? "?"}`;
+    } else if (kind === "meta_ad") {
+      system = "You are a Meta Ads performance analyst (Facebook + Instagram + Audience Network). Return your analysis by calling the report_analysis tool.";
+      userPrompt = `Analyze this Meta ad for what drives its performance.
+
+Advertiser: ${item.page_name ?? "unknown"}
+Body: ${list(item.ad_creative_bodies) || "(none)"}
+Link titles: ${list(item.ad_creative_link_titles)}
+Platforms: ${list(item.platforms)}
+Countries: ${list(item.countries)}
+Run dates: ${item.start_date ?? "?"} → ${item.end_date ?? "?"}
+CTA: ${item.cta_type ?? "?"}`;
+    } else {
+      system = "You are a TikTok virality analyst. Return your analysis by calling the report_analysis tool.";
+      userPrompt = `Analyze this TikTok video for what drives its performance.
+
+Caption: ${item.caption ?? "(none)"}
+Author: @${item.author_username ?? "unknown"} (${item.author_name ?? ""})
+Hashtags: ${list(item.hashtags)}
+Plays: ${item.plays}, Likes: ${item.likes}, Comments: ${item.comments_count}, Shares: ${item.shares}
+Duration: ${item.duration_seconds ?? "?"}s`;
+    }
 
     let message;
     try {
       message = await anthropic.messages.create({
         model: "claude-haiku-4-5",
         max_tokens: 1024,
-        system: "You are a TikTok virality analyst. Return your analysis by calling the report_analysis tool.",
+        system,
         messages: [{ role: "user", content: userPrompt }],
         tools: [{ name: "report_analysis", description: "Report the structured virality analysis of the video.", input_schema: ANALYSIS_SCHEMA as any }],
         tool_choice: { type: "tool", name: "report_analysis" },
       });
     } catch (err: any) {
-      if (err?.status === 429) return json({ error: "Rate limit exceeded. Please try again later." }, 429);
+      if (err?.status === 429 || err?.status === 529) {
+        return json({ error: "The AI service is busy right now. Please try those items again in a moment." }, 429);
+      }
       return json({ error: `AI service error: ${err?.status ?? "unknown"}` }, 500);
     }
 
@@ -74,9 +127,17 @@ Duration: ${video.duration_seconds ?? "?"}s`;
     const analysis = toolUse?.input;
     if (!analysis) return json({ error: "AI did not return an analysis" }, 500);
 
-    await supabase.from("videos")
-      .update({ video_analysis: analysis, analysis_updated_at: new Date().toISOString() })
-      .eq("id", video.id);
+    const now = new Date().toISOString();
+    let update: Record<string, unknown>;
+    if (kind === "meta_ad") {
+      update = { ad_analysis: analysis, analyzed_at: now, analysis_status: "completed" };
+    } else if (kind === "instagram" || kind === "facebook") {
+      update = { video_analysis: analysis, analyzed_at: now, analysis_status: "completed" };
+    } else {
+      // video, ad — these tables use analysis_updated_at (no analysis_status column).
+      update = { video_analysis: analysis, analysis_updated_at: now };
+    }
+    await supabase.from(table).update(update).eq("id", item.id);
 
     return json({ analysis });
   } catch (e) {

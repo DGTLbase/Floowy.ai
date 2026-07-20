@@ -51,9 +51,10 @@ const Onboarding = () => {
       .eq("id", user.id)
       .single();
 
-    // If already completed onboarding, go to home
+    // If already completed onboarding: funnel signups still owe the €1 payment,
+    // so send them to the offer; everyone else goes home.
     if (profile?.onboarding_completed) {
-      navigate("/home");
+      navigate(sessionStorage.getItem("floowy_post_signup") === "1" ? "/pricing-1-euro-offer" : "/home");
       return;
     }
 
@@ -109,7 +110,8 @@ const Onboarding = () => {
       if (onboardingError) throw onboardingError;
 
       toast.success("Welcome to Floowy.ai!");
-      navigate("/home");
+      // €1-funnel signups continue to the offer; everyone else lands on home.
+      navigate(sessionStorage.getItem("floowy_post_signup") === "1" ? "/pricing-1-euro-offer" : "/home");
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
@@ -124,7 +126,7 @@ const Onboarding = () => {
 
   return (
     <div className="h-screen bg-background flex items-center justify-center p-4 overflow-hidden">
-      <div className="w-full max-w-md max-h-[90vh] bg-card border border-border rounded-lg shadow-lg p-8 overflow-y-auto scrollbar-green">
+      <div className="w-full max-w-2xl max-h-[90vh] bg-card border border-border rounded-lg shadow-lg p-8 overflow-y-auto scrollbar-green">
         <div className="text-center mb-8">
           <img 
             src="/favicon.png" 

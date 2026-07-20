@@ -15,6 +15,9 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        // Offer accent — reserved for high-intent offer/conversion CTAs only
+        // (e.g. "Start for €1"). One per view. See offer-color dev briefing.
+        offer: "bg-offer text-offer-foreground hover:bg-offer-hover active:bg-offer-hover",
       },
       size: {
         default: "h-10 px-4 py-2",

@@ -4,12 +4,11 @@
 // NOTE: no model/provider/AI/watermark references appear in any user-facing string
 // or prompt addition (branding rule — the output presents purely as a Floowy tool).
 
-// Limited preview: only these emails may see/open the Fashion Video Studio (tile
-// on the home page + the tool route). Lowercase. Remove to make it public.
-export const FASHION_STUDIO_ALLOWED_EMAILS = ["jefcgealon@gmail.com", "quintin@dgtlbase.com"];
+// Fashion Video Studio is now public — available to everyone. The former
+// limited-preview allowlist is kept for reference; the gate below always allows.
+export const FASHION_STUDIO_ALLOWED_EMAILS = ["jefcgealon@gmail.com", "quintin@dgtlbase.com", "donny@dgtlbase.com"];
 
-export const canAccessFashionStudio = (email?: string | null): boolean =>
-  FASHION_STUDIO_ALLOWED_EMAILS.includes((email ?? "").toLowerCase());
+export const canAccessFashionStudio = (_email?: string | null): boolean => true;
 
 // ── Shared video primitives (mirror Creator Studio) ─────────────────────────
 export type AspectRatioId = "9:16" | "16:9";

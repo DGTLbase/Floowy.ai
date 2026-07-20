@@ -93,7 +93,7 @@ serve(async (req) => {
           partner_email: body.partner_email ?? null,
           user_id: ownerId,
           price_per_credit: body.price_per_credit ?? 0.20,
-          allowed_tools: body.allowed_tools ?? ["ambience", "fashion", "listing", "ads"],
+          allowed_tools: body.allowed_tools ?? ["ambience", "fashion", "listing", "ads", "creator"],
           created_by: adminId,
         }).select("id, key_prefix").single();
         if (e) return json({ error: e.message }, 400);
@@ -160,7 +160,7 @@ serve(async (req) => {
           partner_name: userData.user.email ?? "user",
           partner_email: userData.user.email ?? null,
           user_id: uid,
-          allowed_tools: ["ambience", "fashion", "listing", "ads"],
+          allowed_tools: ["ambience", "fashion", "listing", "ads", "creator"],
           created_by: uid,
         }).select("id, key_prefix").single();
         if (e) return json({ error: e.message }, 400);
@@ -203,6 +203,21 @@ serve(async (req) => {
 
     if (body.action === "status") {
       if (!body.request_id) return json({ error: "request_id required" }, 400);
+      // Which tool produced this request? Video tools (creator) poll a different
+      // model than the image tools, so resolve it from the usage log.
+      const { data: usage } = await db.from("api_usage").select("tool")
+        .eq("request_id", body.request_id).eq("api_key_id", key.id)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+      if (usage?.tool === "creator") {
+        const { data: st } = await db.functions.invoke("generate-ugc-video", {
+          body: { action: "status", requestId: body.request_id },
+        });
+        if (st?.status === "COMPLETED" && st.video_url) return json({ status: "completed", video: st.video_url });
+        if (st?.status === "FAILED") return json({ status: "failed", error: st.error ?? "Generation failed" });
+        return json({ status: (st?.status ?? "processing").toLowerCase() });
+      }
+
       const st = await fetch(`https://queue.fal.run/fal-ai/nano-banana-pro/requests/${body.request_id}/status`,
         { headers: { Authorization: `Key ${FAL_API_KEY}` } });
       const stData = await st.json();
@@ -215,13 +230,15 @@ serve(async (req) => {
       return json({ status: stData.status?.toLowerCase() ?? "unknown" });
     }
 
-    // Generation request. All image tools run on the same fal model; the tool
-    // name drives key permissions, usage logging and (later) per-tool pricing.
-    const TOOLS: Record<string, { maxImages: number }> = {
-      ambience: { maxImages: 2 },  // product [+ scene reference]
-      fashion:  { maxImages: 3 },  // garment [+ model photo(s)]
-      listing:  { maxImages: 2 },  // product [+ style reference]
-      ads:      { maxImages: 2 },  // product [+ brand reference]
+    // Generation request. Image tools share one fal model; `creator` is a video
+    // tool (UGC video from a product image + avatar) and reuses the full
+    // generate-ugc-video pipeline. `cost` = API credits per call.
+    const TOOLS: Record<string, { maxImages: number; cost: number; video?: boolean }> = {
+      ambience: { maxImages: 2, cost: 1 },   // product [+ scene reference]
+      fashion:  { maxImages: 3, cost: 1 },   // garment [+ model photo(s)]
+      listing:  { maxImages: 2, cost: 1 },   // product [+ style reference]
+      ads:      { maxImages: 2, cost: 1 },   // product [+ brand reference]
+      creator:  { maxImages: 2, cost: 10, video: true },  // [product, avatar] -> UGC video
     };
     const tool = body.tool ?? "ambience";
     if (!TOOLS[tool]) {
@@ -240,6 +257,10 @@ serve(async (req) => {
     if (rawInputs.length > TOOLS[tool].maxImages) {
       return json({ error: `${tool} accepts at most ${TOOLS[tool].maxImages} images` }, 400);
     }
+    // creator needs exactly [product, avatar].
+    if (TOOLS[tool].video && rawInputs.length < 2) {
+      return json({ error: "creator requires two images: image_urls: [product_image, avatar_image]" }, 400);
+    }
 
     // Resolve base64 → public URL BEFORE charging, so a failed upload never costs a credit.
     let imageUrls: string[];
@@ -249,35 +270,62 @@ serve(async (req) => {
       return json({ error: e instanceof Error ? e.message : "Image upload failed" }, 400);
     }
 
-    // Atomic charge: rejects if revoked, tool not allowed, or balance empty.
+    // Atomic charge (tool-specific cost): rejects if revoked, tool not allowed, or balance too low.
     const { data: charged, error: chErr } = await db.rpc("api_consume_credit", {
-      p_key_hash: keyHash, p_tool: tool, p_cost: 1,
+      p_key_hash: keyHash, p_tool: tool, p_cost: TOOLS[tool].cost,
     });
     if (chErr || !charged || charged.length === 0) {
-      return json({ error: "Insufficient credits or tool not enabled for this key", credits_remaining: key.credits_balance }, 402);
+      return json({ error: `Insufficient credits (needs ${TOOLS[tool].cost}) or tool not enabled for this key`, credits_remaining: key.credits_balance }, 402);
     }
     const { key_id, new_balance, price } = charged[0];
 
-    const gen = await fetch("https://queue.fal.run/fal-ai/nano-banana-pro/edit", {
-      method: "POST",
-      headers: { Authorization: `Key ${FAL_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt: body.prompt,
-        image_urls: imageUrls,
-        aspect_ratio: body.aspect_ratio ?? "1:1",
-        resolution: body.resolution ?? "1K",
-      }),
-    });
-    const genData = await gen.json();
-    const ok = gen.ok && genData.request_id;
+    let request_id: string | null = null;
+    let ok = false;
+    let detail: unknown = null;
+
+    if (TOOLS[tool].video) {
+      // creator: [product, avatar] -> UGC video via the shared pipeline.
+      const { data: ug, error: ugErr } = await db.functions.invoke("generate-ugc-video", {
+        body: {
+          productName: body.product_name ?? "the product",
+          productImageUrl: imageUrls[0],
+          modelImageUrl: imageUrls[1] ?? "",
+          has_model: imageUrls.length > 1,
+          prompt: body.prompt,
+          voiceover: body.voiceover ?? "",
+          language: body.language ?? "english",
+          duration_seconds: [6, 8, 10].includes(Number(body.duration)) ? Number(body.duration) : 8,
+          aspect_ratio: (body.aspect_ratio === "16:9" || body.aspect_ratio === "9:16") ? body.aspect_ratio : "9:16",
+          generate_audio: body.generate_audio ?? true,
+        },
+      });
+      request_id = ug?.request_id ?? null;
+      ok = !ugErr && !!request_id;
+      detail = ugErr ?? ug;
+    } else {
+      const gen = await fetch("https://queue.fal.run/fal-ai/nano-banana-pro/edit", {
+        method: "POST",
+        headers: { Authorization: `Key ${FAL_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: body.prompt,
+          image_urls: imageUrls,
+          aspect_ratio: body.aspect_ratio ?? "1:1",
+          resolution: body.resolution ?? "1K",
+        }),
+      });
+      const genData = await gen.json();
+      request_id = genData.request_id ?? null;
+      ok = gen.ok && !!request_id;
+      detail = genData;
+    }
 
     await db.from("api_usage").insert({
-      api_key_id: key_id, tool, credits_charged: 1, price_per_credit: price,
-      request_id: genData.request_id ?? null, status: ok ? "ok" : "error",
+      api_key_id: key_id, tool, credits_charged: TOOLS[tool].cost, price_per_credit: price,
+      request_id, status: ok ? "ok" : "error",
     });
 
-    if (!ok) return json({ error: "Generation failed", detail: genData }, 502);
-    return json({ request_id: genData.request_id, status: "queued", credits_remaining: new_balance });
+    if (!ok) return json({ error: "Generation failed", detail }, 502);
+    return json({ request_id, status: "queued", credits_remaining: new_balance });
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, 500);
   }

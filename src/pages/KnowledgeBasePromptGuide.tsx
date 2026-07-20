@@ -522,7 +522,7 @@ const KnowledgeBasePromptGuide = () => {
             <Link to="/auth">
               <Button
                 size="lg"
-                className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow text-lg px-8 h-14"
+                className="bg-offer text-offer-foreground hover:bg-offer-hover shadow-glow text-lg px-8 h-14"
               >
                 Start for €1
               </Button>

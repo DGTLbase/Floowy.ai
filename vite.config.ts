@@ -16,6 +16,15 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     mode !== "development" && seoPrerenderPlugin(),
     VitePWA({
+      // Retire the service worker for good. A precaching SW was the root cause of
+      // users being stuck on stale bundles after a deploy (old login/routing code
+      // kept being served from cache). `selfDestroying` ships a sw.js that, on
+      // every existing client, unregisters itself and clears all caches — so no
+      // browser can ever hold an old version again. Freshness is then handled by
+      // Vercel (short-cached index.html) + content-hashed asset filenames.
+      // Trade-off: no offline/installable PWA. Flip this back to a normal config
+      // (registerType:'autoUpdate' + workbox) if the PWA is wanted again.
+      selfDestroying: true,
       registerType: 'autoUpdate',
       devOptions: {
         enabled: false,
@@ -40,6 +49,12 @@ export default defineConfig(({ mode }) => ({
         ]
       },
       workbox: {
+        // Always ship the latest version: the new service worker activates
+        // immediately (skipWaiting), takes control of open tabs (clientsClaim),
+        // and deletes the previous precache so no stale assets linger.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg}'],
         // Don't let the SW serve the app shell for non-app URLs: crawler/static

@@ -65,7 +65,8 @@ import ScrollingGallery from "@/components/ScrollingGallery";
 import videoDemoStill from "@/assets/video-demo-still.jpg";
 import videoDemoOutput from "@/assets/video-demo-output.mp4";
 import PageMeta from "@/components/PageMeta";
-import ComparisonSection from "@/components/ComparisonSection";
+import EaseOfUseHowItWorks from "@/components/EaseOfUseHowItWorks";
+import BrandComparisonTable from "@/components/BrandComparisonTable";
 
 
 const Landing = () => {
@@ -233,7 +234,7 @@ const Landing = () => {
                 Login
               </Link>
               <Link to="/auth?mode=signup" className="hidden md:block">
-                <Button className="bg-accent text-accent-foreground hover:bg-accent/90 rounded-full h-9 px-5">
+                <Button className="bg-offer text-offer-foreground hover:bg-offer-hover rounded-full h-9 px-5">
                   Start for €1
                   <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
@@ -293,7 +294,7 @@ const Landing = () => {
                       Login
                     </Link>
                     <Link to="/auth?mode=signup" className="w-full">
-                      <Button className="bg-accent text-accent-foreground hover:bg-accent/90 rounded-full w-full">
+                      <Button className="bg-offer text-offer-foreground hover:bg-offer-hover rounded-full w-full">
                         Start for €1
                         <ChevronRight className="w-4 h-4 ml-1" />
                       </Button>
@@ -347,7 +348,7 @@ const Landing = () => {
             
             <div className="flex w-full flex-col items-center gap-3 pt-1 sm:w-auto sm:flex-row sm:justify-center lg:justify-start">
               <Link to="/auth?mode=signup" className="w-full sm:w-auto">
-                <Button size="lg" className="h-12 w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow text-base px-6 sm:h-14 sm:w-auto sm:text-lg sm:px-8">
+                <Button size="lg" className="h-12 w-full bg-offer text-offer-foreground hover:bg-offer-hover shadow-glow text-base px-6 sm:h-14 sm:w-auto sm:text-lg sm:px-8">
                   <Sparkles className="w-5 h-5 mr-2" />
                   Start for €1
                 </Button>
@@ -535,6 +536,9 @@ const Landing = () => {
         </div>
       </section>
 
+      {/* Ease of Use — How It Works (upgraded, above the brand gallery) */}
+      <EaseOfUseHowItWorks />
+
       {/* Scrolling Gallery */}
       <section className="container mx-auto px-4 py-8 md:py-12">
         <div className="max-w-6xl mx-auto text-center mb-8">
@@ -590,7 +594,7 @@ const Landing = () => {
               {/* CTA Buttons */}
               <div className="flex flex-col gap-3 pt-6 items-center lg:items-start">
                 <Link to="/auth?mode=signup">
-                  <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow">
+                  <Button size="lg" className="bg-offer text-offer-foreground hover:bg-offer-hover shadow-glow">
                     Start for €1
                     <ChevronRight className="w-5 h-5 ml-2" />
                   </Button>
@@ -829,7 +833,7 @@ const Landing = () => {
           {/* CTA */}
           <div className="text-center mt-10">
             <Link to="/auth?mode=signup">
-              <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 text-lg px-8 h-14">
+              <Button size="lg" className="bg-offer text-offer-foreground hover:bg-offer-hover text-lg px-8 h-14">
                 Start for €1 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
@@ -837,6 +841,9 @@ const Landing = () => {
         </div>
       </section>
 
+
+      {/* Ease of Use — brand comparison table (replaces old ComparisonSection) */}
+      <BrandComparisonTable />
 
       <IndustriesHighlightSection />
 
@@ -1000,107 +1007,9 @@ const Landing = () => {
 
       <ROICalculator />
 
-      {/* How It Works */}
-      <section className="py-8 md:py-12 bg-background overflow-hidden">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-bold text-header-dark mb-4">
-              How It <span className="bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">Works</span>
-            </h2>
-            <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto">
-              Four simple steps to stunning product visuals
-            </p>
-          </div>
-
-          <div className="max-w-5xl mx-auto relative">
-            {/* Connecting line - desktop */}
-            <div className="hidden md:block absolute top-[60px] left-[10%] right-[10%] h-[2px] bg-gradient-to-r from-primary/20 via-primary to-primary/20 z-0" />
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-6 relative z-10">
-              {[
-                { num: "01", title: "Upload", desc: "Upload your clothing or accessory product photos.", icon: Upload },
-                { num: "02", title: "Select Model", desc: "Choose from our diverse library of professional models.", icon: Users },
-                { num: "03", title: "Customize", desc: "Add accessories, choose backgrounds, and select output size.", icon: Palette },
-                { num: "04", title: "Generate", desc: "Get your professional mockup in seconds, ready to use.", icon: Sparkles },
-              ].map((step, i) => (
-                <div key={i} className="flex flex-col items-center text-center group">
-                  {/* Step circle */}
-                  <div className="relative mb-6">
-                    <div className="w-[120px] h-[120px] rounded-full bg-gradient-to-br from-card to-muted border-2 border-border/50 flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:border-primary/50 transition-all duration-500">
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center group-hover:from-primary/20 group-hover:to-primary/10 transition-all duration-500">
-                        <step.icon className="w-7 h-7 text-primary group-hover:scale-110 transition-transform duration-300" />
-                      </div>
-                    </div>
-                    {/* Step number badge */}
-                    <div className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center shadow-md">
-                      {step.num}
-                    </div>
-                  </div>
-                  <h3 className="text-lg font-bold text-foreground mb-2">{step.title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed max-w-[200px]">{step.desc}</p>
-                  
-                  {/* Mobile connector */}
-                  {i < 3 && (
-                    <div className="md:hidden flex flex-col items-center mt-6">
-                      <div className="w-[2px] h-8 bg-gradient-to-b from-primary to-primary/20" />
-                      <div className="w-6 h-6 rounded-full border-2 border-primary/30 flex items-center justify-center">
-                        <ChevronDown className="w-3 h-3 text-primary" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Callout Block */}
-          <div className="max-w-3xl mx-auto mt-16 rounded-2xl bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border border-primary/20 p-8 md:p-10 text-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,hsl(var(--primary)/0.08),transparent_70%)]" />
-            <div className="relative z-10">
-              <h3 className="text-xl font-bold text-foreground mb-2">Need More Clarity?</h3>
-              <p className="text-muted-foreground mb-6">
-                Check our detailed knowledge base guides for step-by-step instructions and video tutorials.
-              </p>
-              <Link to="/knowledge-base">
-                <Button className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow">
-                  View Knowledge Base <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <div id="pricing">
         <PricingSection />
       </div>
-
-      <ComparisonSection
-        floowyItems={[
-          "A/B testing",
-          "Faster scaling",
-          "Builds trust and recognisability",
-          "Brings personas to life",
-          "No set or team required",
-          "Fast production",
-          "Cost-efficient",
-          "Create any setting",
-          "Respond to trends",
-          "Storytelling",
-        ]}
-        othersItems={[
-          "Expensive freelancers, creators & editors",
-          "Slow shoots, edits, and approvals",
-          "Inconsistent tone & quality",
-          "€300+ per UGC video",
-          "Manual content editing",
-          "Guesswork, delays, and fatigue",
-          "High setup and location costs",
-          "Limited flexibility",
-          "Long turnaround times",
-          "Complex coordination needed",
-        ]}
-      />
 
       
 
@@ -1164,7 +1073,7 @@ const Landing = () => {
             Join 1000+ ecommerce brands creating stunning visuals with AI
           </p>
            <Link to="/auth?mode=signup">
-            <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow text-lg px-8 h-14">
+            <Button size="lg" className="bg-offer text-offer-foreground hover:bg-offer-hover shadow-glow text-lg px-8 h-14">
               Start for €1
             </Button>
           </Link>

@@ -19,6 +19,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOnboardingCheck } from "@/hooks/useOnboardingCheck";
 import GenerationProgressOverlay from "@/components/GenerationProgressOverlay";
+import CameraStylePresetSelect from "@/components/CameraStylePresetSelect";
+import { cameraStylePrompt, CAMERA_STYLE_NONE } from "@/lib/camera-style-presets";
 
 // Pose preview images
 import poseNaturalStanding from "@/assets/poses/pose-natural-standing.jpg";
@@ -155,6 +157,7 @@ const BulkMockupGenerator = () => {
   const [backgroundReference, setBackgroundReference] = useState<File | null>(null);
   const [customBackgroundPrompt, setCustomBackgroundPrompt] = useState<string>('');
   const [selectedPose, setSelectedPose] = useState<string>('natural-standing');
+  const [cameraStyle, setCameraStyle] = useState<string>(CAMERA_STYLE_NONE);
   const [showCreditsPurchase, setShowCreditsPurchase] = useState(false);
   const [currentBatchId, setCurrentBatchId] = useState<string | null>(null);
   const [batchStatus, setBatchStatus] = useState<any>(null);
@@ -749,7 +752,9 @@ const BulkMockupGenerator = () => {
         'sage': 'muted sage green background'
       };
       // Use custom prompt if provided, otherwise use preset mappings
-      const backgroundText = customBackgroundPrompt || (backgroundMap[selectedBackground] || backgroundMap['light-grey']);
+      const basePrompt = customBackgroundPrompt || (backgroundMap[selectedBackground] || backgroundMap['light-grey']);
+      const cam = cameraStylePrompt(cameraStyle);
+      const backgroundText = cam ? `${basePrompt}. ${cam}` : basePrompt;
 
       // Determine which views to generate based on uploaded model views
       const viewsToGenerate: Array<'front' | 'back' | 'left' | 'right'> = [];
@@ -1692,6 +1697,9 @@ const BulkMockupGenerator = () => {
                         )}
                       </button>
                     ))}
+                  </div>
+                  <div className="mt-6 max-w-xs">
+                    <CameraStylePresetSelect value={cameraStyle} onChange={setCameraStyle} />
                   </div>
                 </div>
 

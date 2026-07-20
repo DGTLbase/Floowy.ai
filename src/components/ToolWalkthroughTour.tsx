@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Lightbulb, ChevronRight, Check } from "lucide-react";
+import { computeTooltipPosition } from "@/lib/tour-position";
 
 export interface ToolTourStep {
   /** Value of the `data-walkthrough-target` attribute on the page. */
@@ -134,6 +135,21 @@ const ToolWalkthroughTour = ({ toolKey, route, steps }: Props) => {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [active, handleNext, handleBack]);
 
+  // Desktop tooltip position — measured after render so it can never overflow
+  // the viewport (which would push the Next/Finish button off-screen).
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ left: number; top: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!active || isMobile || !targetRect || !current) {
+      setTooltipPos(null);
+      return;
+    }
+    const el = tooltipRef.current;
+    if (!el) return;
+    setTooltipPos(computeTooltipPosition(targetRect, current.placement, el.offsetWidth, el.offsetHeight));
+  }, [active, isMobile, targetRect, current, stepIndex]);
+
   if (!active || !onRoute || !current) return null;
 
   const TOTAL = steps.length;
@@ -208,52 +224,6 @@ const ToolWalkthroughTour = ({ toolKey, route, steps }: Props) => {
 
   const tooltipWidth = 360;
   const pad = 10;
-  const gap = 18;
-  let left: number;
-  let top: number;
-  let transform = "none";
-  if (current.placement === "top") {
-    left = targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
-    top = targetRect.top - gap;
-    transform = "translateY(-100%)";
-    left = Math.max(12, Math.min(left, window.innerWidth - tooltipWidth - 12));
-  } else if (current.placement === "bottom") {
-    left = targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
-    top = targetRect.bottom + gap;
-    left = Math.max(12, Math.min(left, window.innerWidth - tooltipWidth - 12));
-  } else if (current.placement === "left" || current.placement === "right" || current.placement === "side") {
-    const targetCenterX = targetRect.left + targetRect.width / 2;
-    const preferRight =
-      current.placement === "right" ||
-      (current.placement === "side" && targetCenterX < window.innerWidth / 2);
-    top = targetRect.top + targetRect.height / 2;
-    transform = "translateY(-50%)";
-    if (preferRight) {
-      left = targetRect.right + gap;
-      if (left + tooltipWidth + 12 > window.innerWidth) {
-        left = Math.max(12, targetRect.left - gap - tooltipWidth);
-      }
-    } else {
-      left = targetRect.left - gap - tooltipWidth;
-      if (left < 12) {
-        left = Math.min(targetRect.right + gap, window.innerWidth - tooltipWidth - 12);
-      }
-    }
-  } else {
-    left = targetRect.right + gap;
-    top = targetRect.top + targetRect.height / 2;
-    transform = "translateY(-50%)";
-    if (left + tooltipWidth + 12 > window.innerWidth) {
-      const leftSide = targetRect.left - gap - tooltipWidth;
-      if (leftSide >= 12) left = leftSide;
-      else {
-        left = targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
-        top = targetRect.bottom + gap;
-        transform = "none";
-        left = Math.max(12, Math.min(left, window.innerWidth - tooltipWidth - 12));
-      }
-    }
-  }
 
   return createPortal(
     <>
@@ -271,7 +241,18 @@ const ToolWalkthroughTour = ({ toolKey, route, steps }: Props) => {
           }}
         />
       </div>
-      <div className="fixed z-[9999] animate-in fade-in-0 zoom-in-95 duration-200" style={{ left, top, width: tooltipWidth, transform }}>
+      <div
+        ref={tooltipRef}
+        className="fixed z-[9999] animate-in fade-in-0 zoom-in-95 duration-200"
+        style={{
+          left: tooltipPos?.left ?? -9999,
+          top: tooltipPos?.top ?? -9999,
+          width: tooltipWidth,
+          maxHeight: "calc(100vh - 24px)",
+          overflowY: "auto",
+          visibility: tooltipPos ? "visible" : "hidden",
+        }}
+      >
         <div className="bg-popover border border-border rounded-xl shadow-2xl p-5 relative">
           <div className="flex items-start gap-3 mb-2">
             <div className="w-9 h-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">

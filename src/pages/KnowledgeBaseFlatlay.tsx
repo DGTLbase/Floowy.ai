@@ -332,7 +332,7 @@ const KnowledgeBaseFlatlay = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/auth?mode=signup">
-                <Button size="lg" className="bg-gradient-to-r from-primary to-primary-glow hover:shadow-glow text-primary-foreground border-0 w-full sm:w-auto">
+                <Button size="lg" className="bg-offer hover:shadow-glow text-offer-foreground border-0 w-full sm:w-auto">
                   Start for €1
                 </Button>
               </Link>

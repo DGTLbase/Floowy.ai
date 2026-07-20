@@ -6,6 +6,7 @@ import { Check, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { SUBSCRIPTION_PLANS, PROMO_COUPONS, EURO1_OFFER } from "@/lib/stripe-config";
+import TierPlanCard from "@/components/pricing/TierPlanCard";
 
 type OfferKind = "euro1" | "fifty_off";
 
@@ -31,7 +32,6 @@ const planFeatures = (plan: PlanKey, monthlyCredits: number, monthlyImages: numb
   if (plan === "lite") {
     return [
       ...baseTrue,
-      { text: "Access to core Floowy tools", included: true },
       { text: "Priority generation queue", included: false },
       { text: "Priority support", included: false },
       { text: "Account manager", included: false },
@@ -40,7 +40,6 @@ const planFeatures = (plan: PlanKey, monthlyCredits: number, monthlyImages: numb
   if (plan === "starter") {
     return [
       ...baseTrue,
-      { text: "Access to all Floowy tools", included: true },
       { text: "Priority generation queue", included: false },
       { text: "Priority support", included: false },
       { text: "Account manager", included: false },
@@ -48,7 +47,6 @@ const planFeatures = (plan: PlanKey, monthlyCredits: number, monthlyImages: numb
   }
   return [
     ...baseTrue,
-    { text: "Access to all Floowy tools", included: true },
     { text: "Priority generation queue", included: true },
     { text: "Priority support", included: true },
     { text: "Account manager", included: false },
@@ -148,95 +146,62 @@ const OfferPricingSection = ({ offerKind, returnPath }: OfferPricingSectionProps
         <p className="mb-4 text-center text-xs font-semibold uppercase tracking-wide text-primary">
           Step 1 of 3 — choose your plan
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+        {/* Extra top gap so the Starter card's floating "Best Value" pill clears
+            the text above it instead of overlapping it. */}
+        <div className="mt-8 md:mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
           {planKeys.map((key) => {
             const plan = SUBSCRIPTION_PLANS[key];
             const monthlyPrice = plan.monthly.price;
             const monthlyCredits = plan.monthly.credits;
             const isPopular = key === "starter";
 
-            return (
-              <Card
-                key={key}
-                className={`relative transition-all duration-300 flex flex-col overflow-hidden ${
-                  isPopular
-                    ? "shadow-glow md:scale-105 border-2 border-primary bg-primary/[0.04] z-10"
-                    : "border border-border/50"
-                }`}
-              >
-                {isPopular && (
-                  <div className="absolute top-0 inset-x-0 bg-primary text-primary-foreground text-center py-2 text-xs font-bold uppercase tracking-wider">
-                    Most Popular
+            const halfPrice = (monthlyPrice / 2).toFixed(monthlyPrice % 2 === 0 ? 0 : 2);
+            const priceContent =
+              offerKind === "euro1" ? (
+                <>
+                  <div className="text-base font-semibold text-muted-foreground line-through">€{monthlyPrice} / month</div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-4xl font-bold text-primary">€1</span>
+                    <span className="text-sm text-muted-foreground">for 3 days</span>
                   </div>
-                )}
-                <CardHeader className={`text-center pb-6 ${isPopular ? "pt-12" : ""}`}>
-                  <CardTitle className="text-2xl mb-2">{plan.name}</CardTitle>
-                  <CardDescription className="text-sm mb-4">{planDescriptions[key]}</CardDescription>
+                </>
+              ) : (
+                <>
+                  <div className="text-base font-semibold text-muted-foreground line-through">€{monthlyPrice} / month</div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-4xl font-bold text-primary">€{halfPrice}</span>
+                    <span className="text-sm text-muted-foreground">/month</span>
+                  </div>
+                </>
+              );
 
-                  {offerKind === "euro1" ? (
-                    <>
-                      <div className="text-base font-semibold text-muted-foreground line-through mb-1">
-                        €{monthlyPrice} / month
-                      </div>
-                      <div className="flex items-baseline justify-center gap-1">
-                        <span className="text-5xl md:text-6xl font-bold text-primary">€1</span>
-                        <span className="text-sm text-muted-foreground">for 3 days</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-3 px-2 leading-relaxed">
-                        Includes 10 credits to test the platform. After the 3-day €1 period, your {plan.name} plan continues at €{monthlyPrice}/month unless cancelled.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-base font-semibold text-muted-foreground line-through mb-1">
-                        €{monthlyPrice} / month
-                      </div>
-                      <div className="flex items-baseline justify-center gap-1">
-                        <span className="text-5xl md:text-6xl font-bold text-primary">
-                          €{(monthlyPrice / 2).toFixed(monthlyPrice % 2 === 0 ? 0 : 2)}
-                        </span>
-                        <span className="text-sm text-muted-foreground">/month</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-3 px-2 leading-relaxed">
-                        50% off your first 3 months. After that, your {plan.name} plan continues at €{monthlyPrice}/month unless cancelled.
-                      </p>
-                    </>
-                  )}
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col">
-                  <ul className="space-y-3 mb-8 flex-1">
-                    {planFeatures(key, monthlyCredits, monthlyImagesFor(key)).map((feature, index) => (
-                      <li key={index} className="flex items-start gap-3">
-                        {feature.included ? (
-                          <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                        ) : (
-                          <X className="w-5 h-5 text-muted-foreground/40 shrink-0 mt-0.5" />
-                        )}
-                        <span className={`text-sm ${feature.included ? "text-muted-foreground" : "text-muted-foreground/40"}`}>
-                          {feature.text}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+            return (
+              <TierPlanCard
+                key={key}
+                tier={key}
+                name={plan.name}
+                description={planDescriptions[key]}
+                price={monthlyPrice}
+                priceContent={priceContent}
+                credits={monthlyCredits}
+                images={monthlyImagesFor(key)}
+                highlighted={isPopular}
+                showEuroTag={false}
+                cta={
                   <Button
                     onClick={() => handleClick(key)}
                     disabled={loadingPlan !== null}
-                    variant={isPopular ? "default" : "outline"}
-                    className={`w-full ${
-                      isPopular
-                        ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
-                        : "border-primary/40 text-foreground hover:bg-primary/10"
-                    }`}
                     size="lg"
+                    className={`w-full shadow-md ${
+                      isPopular
+                        ? "bg-offer text-offer-foreground hover:bg-offer-hover"
+                        : "bg-primary text-primary-foreground hover:bg-primary/90"
+                    }`}
                   >
-                    {loadingPlan === key ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      ctaLabel
-                    )}
+                    {loadingPlan === key ? <Loader2 className="w-4 h-4 animate-spin" /> : ctaLabel}
                   </Button>
-                </CardContent>
-              </Card>
+                }
+              />
             );
           })}
         </div>

@@ -10,6 +10,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useTheme } from "next-themes";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { useSubscriptionGate } from "@/hooks/useSubscriptionGate";
+import { LoadingState } from "@/components/LoadingState";
 import {
   Menu, Wand2, Pencil, UserCircle, Clock, Users, BookOpen, Settings, CreditCard, Sun, Moon,
 } from "lucide-react";
@@ -38,6 +40,10 @@ const BackendLayout = ({ children }: BackendLayoutProps) => {
   const isMobile = useIsMobile();
   const { theme, setTheme } = useTheme();
   const location = useLocation();
+
+  // Subscription gate: unpaid, non-admin users never see the app shell / menu
+  // tabs — they're redirected to the €1 offer. Admins bypass (handled in-hook).
+  const access = useSubscriptionGate();
 
   const isActive = (path: string) => {
     if (path === "/home") return location.pathname === "/home" && !location.search.includes("tab=");
@@ -79,11 +85,47 @@ const BackendLayout = ({ children }: BackendLayoutProps) => {
       if (session?.user) fetchData();
     });
 
-    return () => subscription.unsubscribe();
+    // Live credit balance — no reload needed. Re-fetch on an explicit refresh
+    // event (fired after claiming remaining credits / purchases) and subscribe to
+    // realtime changes on this user's credits row.
+    const onRefresh = () => fetchData();
+    window.addEventListener("credits:refresh", onRefresh);
+
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.user) return;
+      channel = supabase
+        .channel("credits-live")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "credits", filter: `user_id=eq.${session.user.id}` },
+          (payload) => {
+            const bal = (payload.new as any)?.balance;
+            if (typeof bal === "number") setCredits(bal);
+          },
+        )
+        .subscribe();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener("credits:refresh", onRefresh);
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
+  // While the subscription check runs, render only a loader — never the menu
+  // tabs — so an unpaid user can't glimpse the app shell before the redirect.
+  if (access === "checking") {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-background">
+        <LoadingState context="data" message="Loading..." />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen overflow-hidden bg-background flex flex-col">
       {/* Top Navigation */}
       <nav className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -177,10 +219,10 @@ const BackendLayout = ({ children }: BackendLayoutProps) => {
         </div>
       </nav>
 
-      {/* Main area with sidebar */}
-      <div className="flex flex-1">
+      {/* Main area with sidebar — sidebar stays fixed; only the main pane scrolls */}
+      <div className="flex flex-1 min-h-0">
         <AppSidebar />
-        <main className="flex-1 overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
           {children}
         </main>
       </div>

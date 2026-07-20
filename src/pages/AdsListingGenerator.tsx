@@ -14,6 +14,8 @@ import AdTextConfig, { TextElementConfig, LogoConfig } from "@/components/ads/Ad
 import AdOutputSettings from "@/components/ads/AdOutputSettings";
 import AdModelSelector, { ModelMode, HandInteraction, ModelSource } from "@/components/ads/AdModelSelector";
 import AdBackgroundSettings from "@/components/ads/AdBackgroundSettings";
+import CameraStylePresetSelect from "@/components/CameraStylePresetSelect";
+import { cameraStylePrompt, CAMERA_STYLE_NONE } from "@/lib/camera-style-presets";
 import PlanCreditsDisplay from "@/components/PlanCreditsDisplay";
 import UserMenu from "@/components/UserMenu";
 import logoImage from "@/assets/floowy-logo.png";
@@ -75,6 +77,9 @@ const AdsListingGenerator = () => {
   const [selectedModelUrl, setSelectedModelUrl] = useState<string | null>(null);
   const [modelSource, setModelSource] = useState<ModelSource>("floowy");
   const [autoGender, setAutoGender] = useState("female");
+
+  // Camera style preset
+  const [cameraStyle, setCameraStyle] = useState<string>(CAMERA_STYLE_NONE);
 
   // Modal state
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -271,6 +276,11 @@ const AdsListingGenerator = () => {
       const [outputWidth, outputHeight] = outputSize.split('x').map(Number);
       const aspectRatio = `${outputWidth}:${outputHeight}`;
 
+      // Append camera style preset to the main ad-creative prompt (background prompt)
+      const cam = cameraStylePrompt(cameraStyle);
+      const basePrompt = useCustomBackground ? backgroundPrompt : "";
+      const finalPrompt = cam ? `${basePrompt}. ${cam}` : basePrompt;
+
       // Start generation with fal.ai
       setGenStage("generating");
       const { data: startData, error: startError } = await supabase.functions.invoke('generate-ad-image', {
@@ -283,7 +293,7 @@ const AdsListingGenerator = () => {
           output_size: outputSize,
           aspect_ratio: aspectRatio,
           background_color: useCustomBackground ? backgroundColor : null,
-          background_prompt: useCustomBackground ? backgroundPrompt : null,
+          background_prompt: finalPrompt ? finalPrompt : null,
           use_custom_background: useCustomBackground,
           text_config: textElements
             .filter(el => el.type !== 'cta' || ctaEnabled) // Exclude CTA if disabled
@@ -542,6 +552,12 @@ const AdsListingGenerator = () => {
                   backgroundPrompt={backgroundPrompt}
                   setBackgroundPrompt={setBackgroundPrompt}
                 />
+              </Card>
+
+              {/* Camera Style */}
+              <Card className="p-4">
+                <h2 className="text-sm font-medium mb-3">Camera Style</h2>
+                <CameraStylePresetSelect value={cameraStyle} onChange={setCameraStyle} />
               </Card>
 
               {/* Model Selection */}

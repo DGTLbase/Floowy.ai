@@ -23,6 +23,12 @@ export default {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         "header-dark": "hsl(var(--header-dark))",
+        offer: {
+          DEFAULT: "hsl(var(--offer))",
+          hover: "hsl(var(--offer-hover))",
+          foreground: "hsl(var(--offer-foreground))",
+          soft: "hsl(var(--offer-soft))",
+        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -73,6 +79,7 @@ export default {
       boxShadow: {
         elegant: "var(--shadow-elegant)",
         glow: "var(--shadow-glow)",
+        offer: "0 22px 44px rgba(232, 66, 42, 0.14)",
       },
       keyframes: {
         "accordion-down": {

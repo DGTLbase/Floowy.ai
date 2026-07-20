@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Sparkles, Image, Clock, X, Coins, TrendingUp, Zap, Video, Wand2, Download, ChevronLeft, ChevronRight, Lock, LayoutGrid, Crown, Pencil, Film } from "lucide-react";
+import { Sparkles, Image, Clock, X, Coins, TrendingUp, Zap, Video, Wand2, Download, ChevronLeft, ChevronRight, Lock, LayoutGrid, Crown, Pencil, Film, Search } from "lucide-react";
 import ImageEditModal from "@/components/ImageEditModal";
 import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
 import { useToast } from "@/hooks/use-toast";
@@ -15,17 +15,7 @@ import KnowledgeBasePromptModal from "@/components/KnowledgeBasePromptModal";
 import { useKnowledgeBaseBonus } from "@/hooks/useKnowledgeBaseBonus";
 import BackendLayout from "@/components/BackendLayout";
 import CustomModelsPanel from "@/components/CustomModelsPanel";
-import fashionCover from "@/assets/fashion-cover-new-5.png";
-import atmosphericCover from "@/assets/Ambience-6.png";
-import creatorStudioCover from "@/assets/creator-feature-video-new.mp4";
-import fashionVideoDemo from "@/assets/fashion-video-demo.mp4";
-import ideaStudioCover from "@/assets/idea-studio-hero-after.png";
-import fashion2Cover from "@/assets/fashion-pro-cover.png";
-import flatlayStudioCover from "@/assets/Flatlay-2.png";
-import adsStudioPreview from "@/assets/ads-studio-preview.png";
-import listingStudioPreview from "@/assets/listing-studio-preview.png";
-import virtualVideoStudioCover from "@/assets/virtual-studio-cover.mp4";
-import { canAccessFashionStudio } from "@/lib/fashion-video-config";
+import ToolsDashboard from "@/components/dashboard/ToolsDashboard";
 
 const Home = () => {
   const [user, setUser] = useState<any>(null);
@@ -156,6 +146,31 @@ const previewUrl = (gen: any) =>
     };
   }, [user?.id, currentPage]);
 
+  // Live credit balance — updates without a reload after claiming remaining
+  // credits / purchases (via the credits:refresh event) and on any realtime change.
+  useEffect(() => {
+    if (!user?.id) return;
+    const onRefresh = () => fetchCredits(user.id);
+    window.addEventListener("credits:refresh", onRefresh);
+    const channel = supabase
+      .channel("home-credits-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "credits", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const bal = (payload.new as any)?.balance;
+          if (typeof bal === "number") setCredits(bal);
+          const used = (payload.new as any)?.total_credits_used;
+          if (typeof used === "number") setCreditsUsed(used);
+        },
+      )
+      .subscribe();
+    return () => {
+      window.removeEventListener("credits:refresh", onRefresh);
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   const checkOnboardingStatus = async (userId: string) => {
     const { data: profile } = await supabase
       .from("profiles")
@@ -165,9 +180,13 @@ const previewUrl = (gen: any) =>
 
     if (!profile?.onboarding_completed) {
       navigate("/onboarding");
-    } else {
-      setIsCheckingOnboarding(false);
+      return;
     }
+
+    // Subscription gating (plan or €1 trial required, admins exempt) is handled
+    // by BackendLayout via useSubscriptionGate, which wraps this page. Here we
+    // only guard onboarding.
+    setIsCheckingOnboarding(false);
   };
 
   const fetchCredits = async (userId: string) => {
@@ -384,298 +403,8 @@ const previewUrl = (gen: any) =>
           </Card>
         </div>
 
-        <div className="mb-12">
-          <h2 className="text-2xl font-semibold mb-6">
-            <span className="text-foreground">Your AI</span> <span className="text-primary">Tools</span>
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Ads Studio */}
-            <Card 
-              className="cursor-pointer hover:shadow-glow transition-all duration-300 border border-border bg-card hover:-translate-y-1 overflow-hidden group h-[300px] flex flex-col"
-              onClick={() => navigate("/tool/ads-listing-studio")}
-            >
-              <div className="relative h-[200px] overflow-hidden">
-                <img 
-                  src={adsStudioPreview} 
-                  alt="Ads Studio"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
-              <div className="flex-1 p-3 flex flex-col justify-center bg-tool-card-bottom">
-                <p className="text-[10px] text-primary font-semibold uppercase mb-0.5">ADVERTISING</p>
-                <h3 className="text-sm font-bold text-foreground mb-2">Ads Studio</h3>
-                <Button size="sm" variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent">Start Creating</Button>
-              </div>
-            </Card>
+        <ToolsDashboard email={user?.email} hasToolAccess={hasToolAccess} userPlan={userPlan} isAdmin={isAdmin} />
 
-            {/* Ambiance Studio - Always accessible */}
-            <Card 
-              className="cursor-pointer hover:shadow-glow transition-all duration-300 border border-border bg-card hover:-translate-y-1 overflow-hidden group h-[300px] flex flex-col"
-              onClick={() => navigate("/tool/atmospheric")}
-            >
-              <div className="relative h-[200px] overflow-hidden">
-                <img 
-                  src={atmosphericCover} 
-                  alt="Ambiance Studio"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
-              <div className="flex-1 p-3 flex flex-col justify-center bg-tool-card-bottom">
-                <p className="text-[10px] text-primary font-semibold uppercase mb-0.5">PRODUCT PHOTOGRAPHY</p>
-                <h3 className="text-sm font-bold text-foreground mb-2">Ambience Studio</h3>
-                <Button size="sm" variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent">Start Creating</Button>
-              </div>
-            </Card>
-
-            {/* Creator Studio */}
-            <Card 
-              className={`transition-all duration-300 border border-border bg-card overflow-hidden group h-[300px] flex flex-col ${
-                hasToolAccess('creator-studio')
-                  ? 'cursor-pointer hover:shadow-glow hover:-translate-y-1'
-                  : 'opacity-75 relative'
-              }`}
-              onClick={() => hasToolAccess('creator-studio') && navigate("/tool/creator-studio")}
-            >
-              <div className="relative h-[200px] overflow-hidden">
-                <video 
-                  src={creatorStudioCover}
-                  className="w-full h-full object-cover"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                />
-                {!hasToolAccess('creator-studio') && (
-                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
-                    <div className="text-center text-white">
-                      <Lock className="w-8 h-8 mx-auto mb-1" />
-                      <p className="text-xs font-semibold">Upgrade to unlock</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 p-3 flex flex-col justify-center bg-tool-card-bottom">
-                <p className="text-[10px] text-primary font-semibold uppercase mb-0.5">UGC VIDEO</p>
-                <h3 className="text-sm font-bold text-foreground mb-2">Creator Studio</h3>
-                <Button size="sm" variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent" onClick={(e) => { if (!hasToolAccess('creator-studio')) { e.stopPropagation(); navigate("/payment"); } }}>
-                  {hasToolAccess('creator-studio') ? 'Start Creating' : 'Upgrade Plan'}
-                </Button>
-              </div>
-            </Card>
-
-            {/* Fashion Video Studio — limited preview (allowlisted emails only) */}
-            {canAccessFashionStudio(user?.email) && (
-              <Card
-                className="cursor-pointer hover:shadow-glow transition-all duration-300 border border-border bg-card hover:-translate-y-1 overflow-hidden group h-[300px] flex flex-col"
-                onClick={() => navigate("/tool/fashion-video-studio")}
-              >
-                <div className="relative h-[200px] overflow-hidden">
-                  <video
-                    src={fashionVideoDemo}
-                    className="w-full h-full object-cover"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                  />
-                  <div className="absolute right-2 top-2 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                    Preview
-                  </div>
-                </div>
-                <div className="flex-1 p-3 flex flex-col justify-center bg-tool-card-bottom">
-                  <p className="text-[10px] text-primary font-semibold uppercase mb-0.5">FASHION VIDEO</p>
-                  <h3 className="text-sm font-bold text-foreground mb-2">Fashion Video Studio</h3>
-                  <Button size="sm" variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent">Start Creating</Button>
-                </div>
-              </Card>
-            )}
-
-            {/* Fashion Studio - Always accessible */}
-            <Card 
-              className="cursor-pointer hover:shadow-glow transition-all duration-300 border border-border bg-card hover:-translate-y-1 overflow-hidden group h-[300px] flex flex-col"
-              onClick={() => navigate("/tool/fashion")}
-            >
-              <div className="relative h-[200px] overflow-hidden">
-                <img 
-                  src={fashionCover} 
-                  alt="Fashion Studio"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
-              <div className="flex-1 p-3 flex flex-col justify-center bg-tool-card-bottom">
-                <p className="text-[10px] text-primary font-semibold uppercase mb-0.5">E-COMMERCE</p>
-                <h3 className="text-sm font-bold text-foreground mb-2">Fashion Studio</h3>
-                <Button size="sm" variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent">Start Creating</Button>
-              </div>
-            </Card>
-
-            {/* Flatlay Studio */}
-            <Card 
-              className="cursor-pointer hover:shadow-glow transition-all duration-300 border border-border bg-card hover:-translate-y-1 overflow-hidden group h-[300px] flex flex-col"
-              onClick={() => navigate("/tool/flatlay-studio")}
-            >
-              <div className="relative h-[200px] overflow-hidden">
-                <img 
-                  src={flatlayStudioCover} 
-                  alt="Flatlay Studio"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
-              <div className="flex-1 p-3 flex flex-col justify-center bg-tool-card-bottom">
-                <p className="text-[10px] text-primary font-semibold uppercase mb-0.5">SOCIAL MEDIA</p>
-                <h3 className="text-sm font-bold text-foreground mb-2">Flatlay Studio</h3>
-                <Button size="sm" variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent">Start Creating</Button>
-              </div>
-            </Card>
-
-            {/* Idea Studio */}
-            <Card 
-              className={`transition-all duration-300 border border-border bg-card overflow-hidden group h-[300px] flex flex-col ${
-                hasToolAccess('idea-studio')
-                  ? 'cursor-pointer hover:shadow-glow hover:-translate-y-1'
-                  : 'opacity-75 relative'
-              }`}
-              onClick={() => hasToolAccess('idea-studio') && navigate("/tool/idea-studio")}
-            >
-              <div className="relative h-[200px] overflow-hidden">
-                <img 
-                  src={ideaStudioCover} 
-                  alt="Idea Studio"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-                {!hasToolAccess('idea-studio') && (
-                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
-                    <div className="text-center text-white">
-                      <Lock className="w-8 h-8 mx-auto mb-1" />
-                      <p className="text-xs font-semibold">Upgrade to unlock</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 p-3 flex flex-col justify-center bg-tool-card-bottom">
-                <p className="text-[10px] text-primary font-semibold uppercase mb-0.5">AI IDEATION</p>
-                <h3 className="text-sm font-bold text-foreground mb-2">Idea Studio</h3>
-                <Button size="sm" variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent" onClick={(e) => { if (!hasToolAccess('idea-studio')) { e.stopPropagation(); navigate("/payment"); } }}>
-                  {hasToolAccess('idea-studio') ? 'Start Creating' : 'Upgrade Plan'}
-                </Button>
-              </div>
-            </Card>
-
-            {/* Listing Studio */}
-            <Card 
-              className="cursor-pointer hover:shadow-glow transition-all duration-300 border border-border bg-card hover:-translate-y-1 overflow-hidden group h-[300px] flex flex-col"
-              onClick={() => navigate("/tool/listing-studio")}
-            >
-              <div className="relative h-[200px] overflow-hidden">
-                <img 
-                  src={listingStudioPreview} 
-                  alt="Listing Studio"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
-              <div className="flex-1 p-3 flex flex-col justify-center bg-tool-card-bottom">
-                <p className="text-[10px] text-primary font-semibold uppercase mb-0.5">MARKETPLACES</p>
-                <h3 className="text-sm font-bold text-foreground mb-2">Listing Studio</h3>
-                <Button size="sm" variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent">Start Creating</Button>
-              </div>
-            </Card>
-
-            {/* Virtual Tour Studio */}
-            <Card 
-              className="cursor-pointer hover:shadow-glow transition-all duration-300 border border-border bg-card hover:-translate-y-1 overflow-hidden group h-[300px] flex flex-col"
-              onClick={() => navigate("/tool/property-studio")}
-            >
-              <div className="relative h-[200px] overflow-hidden">
-                <video
-                  src={virtualVideoStudioCover}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                />
-              </div>
-              <div className="flex-1 p-3 flex flex-col justify-center bg-tool-card-bottom">
-                <p className="text-[10px] text-primary font-semibold uppercase mb-0.5">REAL ESTATE</p>
-                <h3 className="text-sm font-bold text-foreground mb-2">Virtual Video Studio</h3>
-                <Button size="sm" variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent">Start Creating</Button>
-              </div>
-            </Card>
-
-            {/* Fashion Studio Pro - Special Access Only */}
-            {hasToolAccess('ultimate-outfit-maker') && (
-              <Card 
-                className="cursor-pointer hover:shadow-glow transition-all duration-300 border border-border bg-card hover:-translate-y-1 overflow-hidden group h-[300px] flex flex-col"
-                onClick={() => navigate("/tool/ultimate-outfit-maker")}
-              >
-                <div className="relative h-[200px] overflow-hidden">
-                  <img 
-                    src={fashion2Cover} 
-                    alt="Fashion Studio Pro"
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute top-2 right-2 bg-primary text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                    SPECIAL
-                  </div>
-                </div>
-                <div className="flex-1 p-3 flex flex-col justify-center bg-tool-card-bottom">
-                  <p className="text-[10px] text-primary font-semibold uppercase mb-0.5">BULK PROCESSING</p>
-                  <h3 className="text-sm font-bold text-foreground mb-2">Fashion Studio Pro</h3>
-                  <Button size="sm" variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent">Start Creating</Button>
-                </div>
-              </Card>
-            )}
-
-            {/* Ultimate Outfit Maker V2 - Special Access Only */}
-            {hasToolAccess('ultimate-outfit-maker-v2') && (
-              <Card 
-                className="cursor-pointer hover:shadow-glow transition-all duration-300 border border-border bg-card hover:-translate-y-1 overflow-hidden group h-[300px] flex flex-col"
-                onClick={() => navigate("/tool/ultimate-outfit-maker-v2")}
-              >
-                <div className="relative h-[200px] overflow-hidden">
-                  <img 
-                    src={fashion2Cover} 
-                    alt="Ultimate Outfit Maker 2.0"
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute top-2 right-2 bg-primary text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                    SPECIAL
-                  </div>
-                </div>
-                <div className="flex-1 p-3 flex flex-col justify-center bg-tool-card-bottom">
-                  <p className="text-[10px] text-primary font-semibold uppercase mb-0.5">HAIRSTYLES & POSES</p>
-                  <h3 className="text-sm font-bold text-foreground mb-2">Outfit Maker 2.0</h3>
-                  <Button size="sm" variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent">Start Creating</Button>
-                </div>
-              </Card>
-            )}
-
-            {/* Outfit Maker CK - Special Access Only */}
-            {hasToolAccess('simple_pose_maker') && (
-              <Card 
-                className="cursor-pointer hover:shadow-glow transition-all duration-300 border border-border bg-card hover:-translate-y-1 overflow-hidden group h-[300px] flex flex-col"
-                onClick={() => navigate("/tool/simple-pose-maker")}
-              >
-                <div className="relative h-[200px] overflow-hidden">
-                  <img 
-                    src={fashionCover} 
-                    alt="Outfit Maker CK"
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute top-2 right-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                    SPECIAL
-                  </div>
-                </div>
-                <div className="flex-1 p-3 flex flex-col justify-center bg-tool-card-bottom">
-                  <p className="text-[10px] text-orange-500 font-semibold uppercase mb-0.5">CLOTHING TRANSFER</p>
-                  <h3 className="text-sm font-bold text-foreground mb-2">Outfit Maker CK</h3>
-                  <Button size="sm" variant="outline" className="w-full border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white bg-transparent">Start Creating</Button>
-                </div>
-              </Card>
-            )}
-
-          </div>
-        </div>
 
         </>
         )}

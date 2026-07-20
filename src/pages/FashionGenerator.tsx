@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useUpsell } from "@/hooks/useUpsell";
 import { ArrowLeft, Loader2, Shield, Video, Download, Upload, Wand2, CheckCircle2 } from "lucide-react";
 import GenerationProgressOverlay from "@/components/GenerationProgressOverlay";
 import { useGenerationProgress } from "@/hooks/useGenerationProgress";
@@ -23,8 +24,11 @@ import CreditsPurchaseDialog from "@/components/CreditsPurchaseDialog";
 import { checkAndSendOutOfCreditsEmail, deductCredits } from "@/hooks/useCreditDeduction";
 import FashionVideoModal from "@/components/FashionVideoModal";
 import VideoResultModal from "@/components/VideoResultModal";
+import CameraStylePresetSelect from "@/components/CameraStylePresetSelect";
+import { cameraStylePrompt, CAMERA_STYLE_NONE } from "@/lib/camera-style-presets";
 
 const FashionGenerator = () => {
+  const { trackStudioUse } = useUpsell();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
@@ -45,6 +49,7 @@ const FashionGenerator = () => {
   const [selectedBackground, setSelectedBackground] = useState<string | null>("#F8F8F8");
   const [customBackgroundPrompt, setCustomBackgroundPrompt] = useState<string>("");
   const [selectedPose, setSelectedPose] = useState<string>("standing");
+  const [cameraStyle, setCameraStyle] = useState<string>(CAMERA_STYLE_NONE);
   const [outputSize, setOutputSize] = useState({ width: 1024, height: 1024 });
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
@@ -339,7 +344,9 @@ const FashionGenerator = () => {
 
       const accessoriesText = accessoryFiles.length > 0 ? ` Also incorporate the accessories shown in the reference images (jewelry, bags, watches, etc.) realistically on the person, matching natural placement and proportions.` : '';
 
-      const prompt = `Medium shot portrait of the person from the FIRST reference image, captured as a realistic documentary-style photograph. Edit ONLY their clothing/outfit to match the garments shown in the subsequent product images. Keep the person's face, body, skin tone, hair, and all physical features EXACTLY as they appear — do not modify or alter the person in any way. KEY DETAILS: natural skin texture, authentic expression, genuine pose. SKIN DETAILS: smooth and natural-looking skin with only minimal, subtle texture — no exaggerated pores or blemishes, but avoid artificial airbrushed perfection. HAIR DETAILS: natural texture, baby hairs, stray hairs. The clothing must drape and fold naturally on the body with realistic fabric texture, wrinkles, and shadows maintaining physical consistency.${accessoriesText} Position the person in ${poseText}. Background: ${backgroundText}. Natural LIGHT DIRECTION: soft studio window light with flattering quality. Neutral color science, realistic contrast, no heavy retouching but maintain a clean, polished-natural look. Shot on LENS: 50-85mm, realistic depth of field. CAMERA FEEL: high-quality smartphone photography, organic sharpness, natural color rendering. The person's identity must remain completely unchanged. The image should feel authentic and human — like a well-lit smartphone photo, not AI-generated, not over-processed.`;
+      const basePrompt = `Medium shot portrait of the person from the FIRST reference image, captured as a realistic documentary-style photograph. Edit ONLY their clothing/outfit to match the garments shown in the subsequent product images. Keep the person's face, body, skin tone, hair, and all physical features EXACTLY as they appear — do not modify or alter the person in any way. KEY DETAILS: natural skin texture, authentic expression, genuine pose. SKIN DETAILS: smooth and natural-looking skin with only minimal, subtle texture — no exaggerated pores or blemishes, but avoid artificial airbrushed perfection. HAIR DETAILS: natural texture, baby hairs, stray hairs. The clothing must drape and fold naturally on the body with realistic fabric texture, wrinkles, and shadows maintaining physical consistency.${accessoriesText} Position the person in ${poseText}. Background: ${backgroundText}. Natural LIGHT DIRECTION: soft studio window light with flattering quality. Neutral color science, realistic contrast, no heavy retouching but maintain a clean, polished-natural look. Shot on LENS: 50-85mm, realistic depth of field. CAMERA FEEL: high-quality smartphone photography, organic sharpness, natural color rendering. The person's identity must remain completely unchanged. The image should feel authentic and human — like a well-lit smartphone photo, not AI-generated, not over-processed.`;
+      const cam = cameraStylePrompt(cameraStyle);
+      const prompt = cam ? `${basePrompt}. ${cam}` : basePrompt;
 
       // Determine aspect ratio based on output size
       const determineAspectRatio = (width: number, height: number): string => {
@@ -445,6 +452,9 @@ const FashionGenerator = () => {
             title: "Success!",
             description: "Your fashion mockup has been generated",
           });
+          // Contextual upsell: after a few Fashion Studio generations, nudge
+          // toward Fashion Video / Fashion Pro (respecting frequency caps).
+          trackStudioUse("fashion");
           break;
         } else if (statusData.status === 'FAILED') {
           throw new Error(statusData.error || 'Generation failed');
@@ -738,11 +748,12 @@ const FashionGenerator = () => {
                   />
                 </div>
 
-                <div data-walkthrough-target="fs-pose">
+                <div data-walkthrough-target="fs-pose" className="space-y-4">
                   <PoseSelector
                     selectedPose={selectedPose}
                     onPoseSelect={setSelectedPose}
                   />
+                  <CameraStylePresetSelect value={cameraStyle} onChange={setCameraStyle} />
                 </div>
               </div>
 

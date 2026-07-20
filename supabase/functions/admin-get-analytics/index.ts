@@ -72,6 +72,9 @@ serve(async (req) => {
         lte: endTimestamp,
       },
       limit: 100,
+      // Expand invoice + payment intent so plan/tax detection needs no per-charge
+      // Stripe retrieves (that serial N+1 was a main cause of the hang).
+      expand: ["data.invoice", "data.payment_intent"],
     });
 
     console.log("Charges fetched:", charges.data.length);
@@ -110,61 +113,29 @@ serve(async (req) => {
       "price_1SXv5vKbAjgJzP4OrkY4KQ4S": "credits",       // €175
     };
 
-    // Helper function to get net amount excluding tax and refunds
-    const getNetAmountExcludingTax = async (charge: Stripe.Charge): Promise<number> => {
+    // Net amount excluding tax and refunds. Reads the invoice already expanded on
+    // the charge (see charges.list `expand`) — no per-charge Stripe retrieve.
+    const getNetAmountExcludingTax = (charge: Stripe.Charge): number => {
       const grossAmount = (charge.amount_captured || charge.amount) - (charge.amount_refunded || 0);
-      let taxAmount = 0;
-      
-      // Try to get tax from invoice
-      if (charge.invoice) {
-        try {
-          const invoice = await stripe.invoices.retrieve(charge.invoice as string);
-          taxAmount = invoice.tax || 0;
-        } catch (e) {
-          console.error("Error fetching invoice for tax:", e);
-        }
-      }
-      
-      // Net amount = gross - tax
+      const invoice = charge.invoice && typeof charge.invoice === "object" ? (charge.invoice as Stripe.Invoice) : null;
+      const taxAmount = invoice?.tax || 0;
       return (grossAmount - taxAmount) / 100;
     };
 
-    // Helper function to determine plan from charge
-    const getPlanFromCharge = async (charge: Stripe.Charge): Promise<string | null> => {
-      // Try to get plan from invoice first (for subscription payments)
-      if (charge.invoice) {
-        try {
-          const invoiceData = await stripe.invoices.retrieve(charge.invoice as string);
-          const priceId = invoiceData.lines.data[0]?.price?.id;
-          console.log(`Charge ${charge.id} invoice ${charge.invoice}: priceId=${priceId}, mapped=${priceIdToPlan[priceId] || 'NOT FOUND'}`);
-          if (priceId && priceIdToPlan[priceId]) {
-            return priceIdToPlan[priceId];
-          } else if (priceId) {
-            console.log(`WARNING: Price ID ${priceId} not in mapping!`);
-          }
-        } catch (e) {
-          console.error("Error fetching invoice:", e);
-        }
+    // Determine plan from the invoice / payment intent already expanded on the
+    // charge — no per-charge Stripe retrieves.
+    const getPlanFromCharge = (charge: Stripe.Charge): string | null => {
+      const invoice = charge.invoice && typeof charge.invoice === "object" ? (charge.invoice as Stripe.Invoice) : null;
+      if (invoice) {
+        const priceId = invoice.lines?.data?.[0]?.price?.id;
+        if (priceId && priceIdToPlan[priceId]) return priceIdToPlan[priceId];
       }
-      
-      // Try to get plan from payment intent metadata (for credit purchases)
-      if (charge.payment_intent) {
-        try {
-          const pi = await stripe.paymentIntents.retrieve(charge.payment_intent as string);
-          const priceId = pi.metadata?.priceId || pi.metadata?.price_id;
-          if (priceId && priceIdToPlan[priceId]) {
-            return priceIdToPlan[priceId];
-          }
-          
-          // Check if metadata indicates credits
-          if (pi.metadata?.credits || pi.metadata?.type === "credits") {
-            return "credits";
-          }
-        } catch (e) {
-          console.error("Error fetching payment intent:", e);
-        }
+      const pi = charge.payment_intent && typeof charge.payment_intent === "object" ? (charge.payment_intent as Stripe.PaymentIntent) : null;
+      if (pi) {
+        const priceId = pi.metadata?.priceId || pi.metadata?.price_id;
+        if (priceId && priceIdToPlan[priceId]) return priceIdToPlan[priceId];
+        if (pi.metadata?.credits || pi.metadata?.type === "credits") return "credits";
       }
-      
       return null;
     };
 
@@ -205,17 +176,8 @@ serve(async (req) => {
     
     for (const charge of charges.data) {
       if (!charge.paid || charge.refunded) continue;
-      const netAmount = await getNetAmountExcludingTax(charge);
-      let plan = await getPlanFromCharge(charge);
-      
-      // If plan is still null, try to infer from amount
-      if (!plan) {
-        plan = inferPlanFromAmount(netAmount);
-        console.log(`Charge ${charge.id}: inferred plan from amount €${netAmount} -> ${plan}`);
-      } else {
-        console.log(`Charge ${charge.id}: detected plan from invoice/metadata -> ${plan} (€${netAmount})`);
-      }
-      
+      const netAmount = getNetAmountExcludingTax(charge);
+      const plan = getPlanFromCharge(charge) ?? inferPlanFromAmount(netAmount);
       chargeData.set(charge.id, { netAmount, plan, created: charge.created });
       totalSales += netAmount;
     }
@@ -278,46 +240,50 @@ serve(async (req) => {
       }
     }
 
-    // Top customers (by ALL-TIME total spent) - fetch all charges with pagination
+    // Top customers (by ALL-TIME total spent). We expand the customer on each
+    // charge so the email comes back inline — no per-customer Stripe retrieve
+    // (that serial N+1 in an unbounded loop was the main cause of the hang). The
+    // page scan is also bounded so runtime stays predictable as the account grows.
     const customerSpending: Record<string, { email: string; total: number }> = {};
-    
+
     let hasMore = true;
     let startingAfter: string | undefined = undefined;
-    
-    while (hasMore) {
-      const params: any = { limit: 100 };
+    let pagesScanned = 0;
+    const MAX_PAGES = 50; // up to 5,000 charges
+
+    while (hasMore && pagesScanned < MAX_PAGES) {
+      const params: any = { limit: 100, expand: ["data.customer"] };
       if (startingAfter) params.starting_after = startingAfter;
-      
+
       const allCharges = await stripe.charges.list(params);
-      
+      pagesScanned++;
+
       for (const charge of allCharges.data) {
         if (!charge.paid || charge.refunded || !charge.customer) continue;
-        
-        const customerId = charge.customer as string;
+
+        const customerObj = typeof charge.customer === "object" ? charge.customer : null;
+        const customerId = customerObj ? customerObj.id : (charge.customer as string);
+        const email =
+          (customerObj && !customerObj.deleted ? customerObj.email : null) ||
+          charge.billing_details?.email ||
+          charge.receipt_email;
+        if (!email) continue;
+
         const grossAmount = ((charge.amount_captured || charge.amount) - (charge.amount_refunded || 0)) / 100;
-        
+
         if (!customerSpending[customerId]) {
-          try {
-            const customer = await stripe.customers.retrieve(customerId);
-            if (!customer.deleted && customer.email) {
-              customerSpending[customerId] = { email: customer.email, total: 0 };
-            }
-          } catch (e) {
-            console.error("Error fetching customer:", e);
-          }
+          customerSpending[customerId] = { email, total: 0 };
         }
-        
-        if (customerSpending[customerId]) {
-          customerSpending[customerId].total += grossAmount;
-        }
+        customerSpending[customerId].total += grossAmount;
       }
-      
+
       hasMore = allCharges.has_more;
-      if (allCharges.data.length > 0) {
-        startingAfter = allCharges.data[allCharges.data.length - 1].id;
-      } else {
-        hasMore = false;
-      }
+      startingAfter = allCharges.data.length > 0 ? allCharges.data[allCharges.data.length - 1].id : undefined;
+      if (!startingAfter) hasMore = false;
+    }
+
+    if (hasMore) {
+      console.log(`admin-get-analytics: top-customer scan capped at ${MAX_PAGES} pages`);
     }
 
     const topCustomers = Object.values(customerSpending)
