@@ -36,6 +36,11 @@ const OfferStickyBar = () => {
   // see the logged-out acquisition bar there).
   if (pathname.startsWith("/admin")) return null;
 
+  // The dedicated €1-funnel landing carries its own single, localized CTA
+  // (briefing: one conversion action, no competing CTAs) — suppress the global
+  // acquisition bar there so it doesn't compete or show English copy.
+  if (pathname === "/scraper") return null;
+
   // Show only to logged-out visitors. While the session is still resolving
   // (null) keep it hidden so existing users never see a flash of the offer.
   if (loggedIn !== false) return null;

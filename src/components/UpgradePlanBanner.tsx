@@ -104,6 +104,8 @@ const UpgradePlanBanner = () => {
   };
 
   if (pathname.startsWith("/admin")) return null;
+  // Keep the dedicated €1-funnel landing single-CTA (see OfferStickyBar note).
+  if (pathname === "/scraper") return null;
   if (!visible || !plan) return null;
 
   const total = SUBSCRIPTION_PLANS[plan].monthly.credits;
