@@ -60,12 +60,14 @@ upload_one() {
 
   echo "→ $dir  →  $skill_id"
 
-  # Build one -F part per file, named `files`, with the in-skill path as the
-  # part filename. __pycache__ is build junk from the author's machine and must
-  # not ship (it also masks edits to template.py if it ever went stale).
+  # Build one -F part per file, named `files[]` — the API rejects a bare `files`
+  # with "files[]: Field required", despite the docs example showing `files`.
+  # The part filename carries the path within the skill folder; the API derives
+  # the skill's `directory` from it. __pycache__ is build junk from the author's
+  # machine and must not ship (a stale .pyc can also shadow template.py).
   local -a args=()
   while IFS= read -r rel; do
-    args+=(-F "files=@$tmp/$rel;filename=$rel")
+    args+=(-F "files[]=@$tmp/$rel;filename=$rel")
     echo "   + $rel"
   done < <(cd "$tmp" && find "$dir" -type f \
              -not -path '*/__pycache__/*' -not -name '*.pyc' -not -name '.DS_Store' | sort)
