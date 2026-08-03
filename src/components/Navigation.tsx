@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import logoImage from "@/assets/floowy-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import UserMenu from "./UserMenu";
+import { isOfferBarSuppressedPath } from "./OfferStickyBar";
 import PlanCreditsDisplay from "./PlanCreditsDisplay";
 import CreditsPurchaseDialog from "./CreditsPurchaseDialog";
 
@@ -34,10 +35,11 @@ const Navigation = () => {
   const [authResolved, setAuthResolved] = useState(false);
 
   // The global €1 offer bar (OfferStickyBar) is only shown to confirmed
-  // logged-out visitors off the admin panel. Reserve the 40px sticky offset for
-  // it only when it's actually visible — otherwise the nav floats with an empty
-  // band above it (e.g. for logged-in users).
-  const offerBarVisible = authResolved && !user && !location.pathname.startsWith("/admin");
+  // logged-out visitors, and never on the admin panel or the dedicated €1
+  // landings. Reserve the 40px sticky offset for it only when it's actually
+  // visible — otherwise the nav floats with an empty band above it (e.g. for
+  // logged-in users, or on /scraper and /google-ads).
+  const offerBarVisible = authResolved && !user && !isOfferBarSuppressedPath(location.pathname);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {

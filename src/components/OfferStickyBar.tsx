@@ -14,6 +14,17 @@ import { supabase } from "@/integrations/supabase/client";
  * Gated to NON-existing users only: the €1 acquisition offer is shown to
  * logged-out visitors and hidden from anyone with an account/session.
  */
+/**
+ * Paths where the global offer bar is suppressed: the dedicated €1-funnel
+ * landings carry their own single, localized CTA (briefing: one conversion
+ * action, no competing CTAs).
+ *
+ * Exported because Navigation reserves a 40px sticky offset for this bar — it
+ * must consult the same list, or those pages get an empty band above the nav.
+ */
+export const isOfferBarSuppressedPath = (pathname: string) =>
+  pathname.startsWith("/admin") || pathname === "/scraper" || pathname === "/google-ads";
+
 const OfferStickyBar = () => {
   const { pathname } = useLocation();
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
@@ -32,14 +43,9 @@ const OfferStickyBar = () => {
     };
   }, []);
 
-  // Never on the admin panel (admins use their own auth and would otherwise
-  // see the logged-out acquisition bar there).
-  if (pathname.startsWith("/admin")) return null;
-
-  // The dedicated €1-funnel landing carries its own single, localized CTA
-  // (briefing: one conversion action, no competing CTAs) — suppress the global
-  // acquisition bar there so it doesn't compete or show English copy.
-  if (pathname === "/scraper") return null;
+  // Never on the admin panel (admins use their own auth and would otherwise see
+  // the logged-out acquisition bar there), nor on the dedicated €1 landings.
+  if (isOfferBarSuppressedPath(pathname)) return null;
 
   // Show only to logged-out visitors. While the session is still resolving
   // (null) keep it hidden so existing users never see a flash of the offer.

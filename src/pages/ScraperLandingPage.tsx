@@ -13,6 +13,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import Navigation from "@/components/Navigation";
 import PricingSection from "@/components/PricingSection";
 
 import logoShopify from "@/assets/logo-shopify.svg";
@@ -54,10 +55,15 @@ const INDUSTRIES = [
   { img: indRetail, label: "Retail", h: "Retail", p: "Retailers groeien sneller als elk product eruitziet alsof het verkoopt." },
 ];
 
+// `knockout: true` = the artwork is already light-on-dark, so it must NOT get
+// the white-out filter. Welhof is a white wordmark inside a black ellipse:
+// brightness(0) + invert(1) would flatten the whole logo into a white blob and
+// swallow the wordmark. Marcel's and ICON are black-on-transparent and do need
+// the filter to read on the dark gradients.
 const CASES = [
-  { logo: logoWelhof, grad: "cwelhof", name: "Welhof", blurb: "Hogere conversie met AI-gegenereerde sfeerbeelden.", metrics: ["+22% conversie", "+22% orders", "+40% ROAS"] },
-  { logo: logoMarcels, grad: "cmarcel", name: "Marcel's Green Soap", blurb: "On-brand content in-house schalen, van refill-uitleg tot landelijke campagnes.", metrics: ["+36% contentoutput", "-60% productiekosten", "+28% engagement"] },
-  { logo: logoIcon, grad: "cicon", name: "ICON Amsterdam", blurb: "Schaalt on-brand ad-creatives met Floowy.ai, zonder fotoshoots.", metrics: ["-72% productiekosten", "+90% snellere flatlays", "+75% tijd bespaard"] },
+  { logo: logoWelhof, grad: "cwelhof", name: "Welhof", slug: "welhof", knockout: true, blurb: "Hogere conversie met AI-gegenereerde sfeerbeelden.", metrics: ["+22% conversie", "+22% orders", "+40% ROAS"] },
+  { logo: logoMarcels, grad: "cmarcel", name: "Marcel's Green Soap", slug: "marcels-green-soap", knockout: false, blurb: "On-brand content in-house schalen, van refill-uitleg tot landelijke campagnes.", metrics: ["+36% contentoutput", "-60% productiekosten", "+28% engagement"] },
+  { logo: logoIcon, grad: "cicon", name: "ICON Amsterdam", slug: "icon-amsterdam", knockout: false, blurb: "Schaalt on-brand ad-creatives met Floowy.ai, zonder fotoshoots.", metrics: ["-72% productiekosten", "+90% snellere flatlays", "+75% tijd bespaard"] },
 ];
 
 const REVIEWS = [
@@ -109,16 +115,12 @@ export default function ScraperLandingPage() {
 
   return (
     <>
+      {/* Site-wide header/navigation (same as /google-ads and the rest of the
+          site). Rendered OUTSIDE .floowy-scr — the scoped reset zeroes every
+          margin/padding and would wipe its Tailwind styling. */}
+      <Navigation />
     <div className="floowy-scr">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-
-      {/* NAV — minimal, no competing exits (CRO) */}
-      <div className="wrap">
-        <nav>
-          <div className="logo"><span className="mark">F</span> Floowy.ai</div>
-          <Link to="/auth?mode=login" className="login">Inloggen</Link>
-        </nav>
-      </div>
 
       {/* HERO */}
       <header className="hero">
@@ -249,14 +251,14 @@ export default function ScraperLandingPage() {
           <h2>Echte merken, <span className="g">echte cijfers</span></h2>
           <div className="cases">
             {CASES.map((c) => (
-              <div className="case" key={c.name}>
-                <div className={`top ${c.grad}`}><img src={c.logo} alt={c.name} /></div>
+              <Link className="case" to={`/cases/${c.slug}`} key={c.name} aria-label={`Bekijk de case van ${c.name}`}>
+                <div className={`top ${c.grad}`}><img className={c.knockout ? "asis" : undefined} src={c.logo} alt={c.name} /></div>
                 <div className="cbody">
                   <h3>{c.name}</h3>
                   <p>{c.blurb}</p>
                   <div className="metrics">{c.metrics.map((m) => <div className="pill" key={m}>{m}</div>)}</div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -345,10 +347,6 @@ const CSS = `
 .floowy-scr .eyebrow{text-align:center;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:10px;}
 .floowy-scr .cta{display:inline-block;background:var(--coral);color:#fff;font-weight:700;font-size:16px;border:none;border-radius:12px;padding:15px 34px;cursor:pointer;text-decoration:none;box-shadow:0 10px 22px var(--coral-shadow);transition:transform .15s ease,box-shadow .15s ease;}
 .floowy-scr .cta:hover{transform:translateY(-2px);box-shadow:0 14px 28px var(--coral-shadow);background:var(--coral-deep);}
-.floowy-scr nav{display:flex;align-items:center;justify-content:space-between;padding:18px 0;}
-.floowy-scr .logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:17px;}
-.floowy-scr .logo .mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--green-deep),var(--vivid));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;}
-.floowy-scr nav .login{font-size:14px;font-weight:600;color:var(--body);text-decoration:none;}
 .floowy-scr .hero{background:linear-gradient(180deg,var(--mint),#fff);padding:26px 0 50px;text-align:center;}
 .floowy-scr .offerpill{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid #C7E6D4;border-radius:999px;padding:7px 14px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green-deep);margin-bottom:18px;}
 .floowy-scr .offerpill .clock{color:var(--green-timer);font-variant-numeric:tabular-nums;}
@@ -403,9 +401,13 @@ const CSS = `
 .floowy-scr .ind p{font-size:13.5px;color:var(--body);min-height:40px;}
 .floowy-scr .ind a{display:inline-flex;align-items:center;gap:7px;margin-top:12px;background:var(--green);color:#fff;font-size:13px;font-weight:700;padding:9px 16px;border-radius:10px;text-decoration:none;}
 .floowy-scr .cases{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:1000px;margin:34px auto 0;}
-.floowy-scr .case{border-radius:18px;overflow:hidden;box-shadow:0 8px 24px rgba(14,26,20,.06);background:#fff;}
+.floowy-scr .case{display:block;text-decoration:none;color:inherit;border-radius:18px;overflow:hidden;box-shadow:0 8px 24px rgba(14,26,20,.06);background:#fff;transition:transform .15s ease,box-shadow .15s ease;}
+.floowy-scr .case:hover{transform:translateY(-3px);box-shadow:0 14px 32px rgba(14,26,20,.12);}
+.floowy-scr .case:focus-visible{outline:3px solid var(--green);outline-offset:3px;}
 .floowy-scr .case .top{height:150px;position:relative;display:flex;align-items:center;justify-content:center;}
 .floowy-scr .case .top img{max-height:52px;max-width:62%;width:auto;filter:brightness(0) invert(1);opacity:.95;}
+/* Already light-on-dark artwork — keep it as-is (see CASES knockout note). */
+.floowy-scr .case .top img.asis{filter:none;max-height:64px;}
 .floowy-scr .cwelhof{background:linear-gradient(150deg,#173A6B,#2E5C8A);}
 .floowy-scr .cmarcel{background:linear-gradient(150deg,#C6742E,#E0A05A);}
 .floowy-scr .cicon{background:linear-gradient(150deg,#4A3B31,#7A6656);}
