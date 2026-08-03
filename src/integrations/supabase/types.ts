@@ -14,6 +14,94 @@ export type Database = {
   }
   public: {
     Tables: {
+      report_generations: {
+        Row: {
+          brand_name: string
+          claude_message_id: string | null
+          completed_at: string | null
+          created_at: string
+          credits_charged: number
+          error: string | null
+          generation_id: string | null
+          id: string
+          idempotency_key: string | null
+          is_bundle_price: boolean
+          pdf_path: string | null
+          pdf_url: string | null
+          project_id: string | null
+          report_type: string
+          scrape_run_id: string | null
+          scrape_source: string | null
+          status: string
+          user_id: string
+          website_url: string
+        }
+        Insert: {
+          brand_name: string
+          claude_message_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          credits_charged?: number
+          error?: string | null
+          generation_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          is_bundle_price?: boolean
+          pdf_path?: string | null
+          pdf_url?: string | null
+          project_id?: string | null
+          report_type: string
+          scrape_run_id?: string | null
+          scrape_source?: string | null
+          status?: string
+          user_id: string
+          website_url: string
+        }
+        Update: {
+          brand_name?: string
+          claude_message_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          credits_charged?: number
+          error?: string | null
+          generation_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          is_bundle_price?: boolean
+          pdf_path?: string | null
+          pdf_url?: string | null
+          project_id?: string | null
+          report_type?: string
+          scrape_run_id?: string | null
+          scrape_source?: string | null
+          status?: string
+          user_id?: string
+          website_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_generations_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: false
+            referencedRelation: "generations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_generations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_generations_scrape_run_id_fkey"
+            columns: ["scrape_run_id"]
+            isOneToOne: false
+            referencedRelation: "scrape_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_accounts: {
         Row: {
           created_at: string | null
@@ -1091,6 +1179,10 @@ export type Database = {
           plan: string
           referral_source: string | null
           role: string | null
+          privacy_version: string | null
+          subscription_paused: boolean
+          terms_accepted_at: string | null
+          terms_version: string | null
           tool_walkthroughs_seen: Json
           updated_at: string | null
           walkthrough_completed: boolean
@@ -1111,6 +1203,10 @@ export type Database = {
           plan?: string
           referral_source?: string | null
           role?: string | null
+          privacy_version?: string | null
+          subscription_paused?: boolean
+          terms_accepted_at?: string | null
+          terms_version?: string | null
           tool_walkthroughs_seen?: Json
           updated_at?: string | null
           walkthrough_completed?: boolean
@@ -1129,8 +1225,12 @@ export type Database = {
           onboarding_completed?: boolean | null
           phone?: string | null
           plan?: string
+          privacy_version?: string | null
           referral_source?: string | null
           role?: string | null
+          subscription_paused?: boolean
+          terms_accepted_at?: string | null
+          terms_version?: string | null
           tool_walkthroughs_seen?: Json
           updated_at?: string | null
           walkthrough_completed?: boolean

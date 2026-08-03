@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, Chrome, Eye, EyeOff, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
 import { z } from "zod";
+// Version labels are recorded alongside the consent, so we can prove which
+// document the user actually agreed to.
+import { termsConditions, privacyPolicy } from "@/content/legal";
+import TermsConsentCheckbox from "@/components/TermsConsentCheckbox";
+import { stashConsent, redeemStashedConsent, needsConsent } from "@/lib/terms-consent";
 import logoImage from "@/assets/floowy-logo.png";
 import authBackground from "@/assets/auth-background.png";
 import googleIcon from "@/assets/google-icon.png";
@@ -53,7 +58,14 @@ const Auth = () => {
   
   // Signup flow state
   const [signupStep, setSignupStep] = useState<SignupStep>('details');
-  
+
+  // T&C + Privacy consent. Unchecked by default is a hard legal requirement:
+  // pre-ticked boxes are not valid consent under GDPR, so never seed this from
+  // storage or props.
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsError, setTermsError] = useState(false);
+  const termsCheckboxRef = useRef<HTMLInputElement>(null);
+
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -128,7 +140,16 @@ const Auth = () => {
       }, 500);
       return;
     }
-    
+
+    // OAuth returns here. If the user ticked consent before the redirect, redeem
+    // it now — this is the only path that records consent for Google signups.
+    // If there is nothing to redeem (abandoned mid-OAuth, or "Login" → Google
+    // with no account), they stay unconsented and the onboarding gate catches
+    // them. Admins are exempt: they are staff, not consumer signups.
+    if (!data && await needsConsent(userId)) {
+      await redeemStashedConsent();
+    }
+
     // Existing/admin/onboarded accounts are not in the €1 signup funnel — drop
     // any funnel flags a Google signup-button click may have set.
     const clearFunnelFlags = () => {
@@ -256,7 +277,16 @@ const Auth = () => {
   // Step 4: Create account with email and password
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // The submit button is disabled until the box is ticked, so this is the
+    // safety net for implicit submission (Enter in a field) and any future
+    // caller — consent must never be bypassable.
+    if (!acceptedTerms) {
+      setTermsError(true);
+      termsCheckboxRef.current?.focus();
+      return;
+    }
+
     if (password !== confirmPassword) {
       toast({
         title: "Passwords don't match",
@@ -288,6 +318,13 @@ const Auth = () => {
           emailRedirectTo: redirectUrl,
           data: {
             full_name: fullName.trim(),
+            // Consent metadata. The handle_new_user trigger copies this onto
+            // the profile in the same transaction as the account insert, and
+            // stamps the accepted-at time server-side (see migration
+            // 20260803120000_terms_consent_on_signup.sql).
+            terms_accepted: true,
+            terms_version: termsConditions.version,
+            privacy_version: privacyPolicy.version,
           }
         }
       });
@@ -397,6 +434,18 @@ const Auth = () => {
   };
 
   const handleGoogleSignIn = async () => {
+    // Consent must be given before we hand off — the account is created during
+    // the OAuth callback and signInWithOAuth carries no metadata, so this is the
+    // last moment we control. Stash it now and redeem it on return.
+    if (!isLogin) {
+      if (!acceptedTerms) {
+        setTermsError(true);
+        termsCheckboxRef.current?.focus();
+        return;
+      }
+      stashConsent();
+    }
+
     setIsLoading(true);
     // €1 funnel: when signing UP with Google, flag so the post-OAuth redirect
     // lands on the €1 page with the "You're in 5%" popup. Cleared again in
@@ -542,17 +591,35 @@ const Auth = () => {
             </p>
           </div>
 
-          {/* Google Sign In */}
+          {/* Google Sign In. In SIGNUP mode this is gated on the same consent
+              state as the email form: OAuth cannot carry consent into account
+              creation, so it has to be given before we hand off to Google. */}
           <Button
             type="button"
             variant="outline"
             className="w-full h-14 mb-6 text-base font-medium"
             onClick={handleGoogleSignIn}
-            disabled={isLoading}
+            disabled={isLoading || (!isLogin && !acceptedTerms)}
           >
             <img src={googleIcon} alt="Google" className="w-6 h-6 mr-2" />
             {isLogin ? "Sign in with Google" : "Sign up with Google"}
           </Button>
+
+          {/* Consent for the Google path. Rendered on the first signup step only
+              — on the password step the same control sits above "Create
+              Account" (briefed placement) and shares this state. */}
+          {!isLogin && signupStep === 'details' && (
+            <TermsConsentCheckbox
+              id="terms-consent-oauth"
+              checked={acceptedTerms}
+              error={termsError}
+              onChange={(next) => {
+                setAcceptedTerms(next);
+                if (next) setTermsError(false);
+              }}
+              className="-mt-2 mb-6"
+            />
+          )}
 
           {/* Divider */}
           <div className="relative mb-6">
@@ -660,10 +727,23 @@ const Auth = () => {
                 </button>
               </div>
 
+              {/* T&C consent — required, never pre-ticked. Shares state with the
+                  Google gate above, so ticking either satisfies both. */}
+              <TermsConsentCheckbox
+                ref={termsCheckboxRef}
+                id="terms-consent"
+                checked={acceptedTerms}
+                error={termsError}
+                onChange={(next) => {
+                  setAcceptedTerms(next);
+                  if (next) setTermsError(false);
+                }}
+              />
+
               <Button
                 type="submit"
                 className="w-full h-14 text-base font-semibold"
-                disabled={isLoading}
+                disabled={isLoading || !acceptedTerms}
               >
                 {isLoading ? (
                   <>

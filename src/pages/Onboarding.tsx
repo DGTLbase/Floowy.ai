@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
+import TermsConsentCheckbox from "@/components/TermsConsentCheckbox";
+import { recordConsent } from "@/lib/terms-consent";
 
 const onboardingSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
@@ -21,6 +23,13 @@ const onboardingSchema = z.object({
 const Onboarding = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  // Consent backstop for signup paths that could not record it at account
+  // creation (Google OAuth). Starts false so the control never flashes for the
+  // majority who already consented; flipped on once the profile is read.
+  const [consentRequired, setConsentRequired] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsError, setTermsError] = useState(false);
+  const consentRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
     role: "",
@@ -45,15 +54,22 @@ const Onboarding = () => {
     }
 
     // Check if user has onboarding status
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("onboarding_completed, full_name")
+      .select("onboarding_completed, full_name, terms_accepted_at")
       .eq("id", user.id)
       .single();
 
+    // Fail CLOSED: if the consent state can't be read, require it rather than
+    // assume it was given.
+    const missingConsent =
+      !!profileError || !(profile as { terms_accepted_at?: string | null } | null)?.terms_accepted_at;
+    setConsentRequired(missingConsent);
+
     // If already completed onboarding: funnel signups still owe the €1 payment,
-    // so send them to the offer; everyone else goes home.
-    if (profile?.onboarding_completed) {
+    // so send them to the offer; everyone else goes home. Users still owing
+    // consent are held here instead — this is the backstop for OAuth signups.
+    if (profile?.onboarding_completed && !missingConsent) {
       navigate(sessionStorage.getItem("floowy_post_signup") === "1" ? "/pricing-1-euro-offer" : "/home");
       return;
     }
@@ -68,18 +84,37 @@ const Onboarding = () => {
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Consent gate first: nothing is written until it is satisfied.
+    if (consentRequired && !acceptedTerms) {
+      setTermsError(true);
+      consentRef.current?.focus();
+      return;
+    }
+
     try {
       // Validate form data
       onboardingSchema.parse(formData);
-      
+
       setLoading(true);
 
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         toast.error("User not found");
         navigate("/auth");
         return;
+      }
+
+      // Record consent before anything else. If this fails, stop — completing
+      // onboarding would mark the account as set up with no acceptance on file,
+      // and nothing downstream would ever ask again.
+      if (consentRequired) {
+        const recorded = await recordConsent();
+        if (!recorded) {
+          toast.error("Could not save your consent. Please try again.");
+          setLoading(false);
+          return;
+        }
       }
 
       // Update profile with personal info
@@ -286,10 +321,27 @@ const Onboarding = () => {
             </div>
           </div>
 
+          {/* Consent backstop. Shown only when nothing is on record — i.e. the
+              OAuth paths where consent could not be captured at account
+              creation. Email/password signups already consented and never see
+              this twice. */}
+          {consentRequired && (
+            <TermsConsentCheckbox
+              ref={consentRef}
+              id="onboarding-terms-consent"
+              checked={acceptedTerms}
+              error={termsError}
+              onChange={(next) => {
+                setAcceptedTerms(next);
+                if (next) setTermsError(false);
+              }}
+            />
+          )}
+
           <Button
             type="submit"
             className="w-full"
-            disabled={loading}
+            disabled={loading || (consentRequired && !acceptedTerms)}
           >
             {loading ? "Saving..." : "Continue"}
           </Button>
