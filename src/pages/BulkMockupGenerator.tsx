@@ -41,6 +41,7 @@ import poseDynamicAction from "@/assets/poses/pose-dynamic-action.jpg";
 import poseEditorial from "@/assets/poses/pose-editorial.jpg";
 import poseAthletic from "@/assets/poses/pose-athletic.jpg";
 import poseElegant from "@/assets/poses/pose-elegant.jpg";
+import FabricAndDontsFields from "@/components/FabricAndDontsFields";
 const BulkMockupGenerator = () => {
   const navigate = useNavigate();
   const {
@@ -156,6 +157,11 @@ const BulkMockupGenerator = () => {
   const [selectedBackground, setSelectedBackground] = useState<string>('light-grey');
   const [backgroundReference, setBackgroundReference] = useState<File | null>(null);
   const [customBackgroundPrompt, setCustomBackgroundPrompt] = useState<string>('');
+  // Fabric reference + exclusions. All optional; empty leaves the batch
+  // identical to what it produced before these fields existed.
+  const [fabricFile, setFabricFile] = useState<File | null>(null);
+  const [fabricDescription, setFabricDescription] = useState<string>('');
+  const [donts, setDonts] = useState<string>('');
   const [selectedPose, setSelectedPose] = useState<string>('natural-standing');
   const [cameraStyle, setCameraStyle] = useState<string>(CAMERA_STYLE_NONE);
   const [showCreditsPurchase, setShowCreditsPurchase] = useState(false);
@@ -716,6 +722,20 @@ const BulkMockupGenerator = () => {
         }
       }
 
+      // Upload fabric close-up if provided. Ordering inside image_urls is
+      // handled server-side: the background reference must stay LAST because
+      // the prompt refers to it that way, so fabric goes in front of it.
+      let fabricUrl: string | null = null;
+      if (fabricFile) {
+        const { data, error } = await supabase.storage
+          .from("user-uploads")
+          .upload(`${userId}/${timestamp}-fabric-${fabricFile.name}`, fabricFile, { upsert: true });
+        if (!error) {
+          const { data: urlData } = supabase.storage.from("user-uploads").getPublicUrl(data.path);
+          fabricUrl = urlData.publicUrl;
+        }
+      }
+
       // Upload accessories for each product
       const accessoryUrls: string[][] = [];
       for (let i = 0; i < productsWithOutfits.length; i++) {
@@ -794,6 +814,9 @@ const BulkMockupGenerator = () => {
           background: backgroundText,
           custom_background_prompt: customBackgroundPrompt,
           background_reference_url: backgroundReferenceUrl,
+          fabric_url: fabricUrl,
+          fabric_description: fabricDescription,
+          donts,
           selected_pose: selectedPose,
           output_size: outputSize,
           product_urls: productUrls,
@@ -1813,6 +1836,16 @@ const BulkMockupGenerator = () => {
                     </div>
                   </div>
                 </div>
+
+                <FabricAndDontsFields
+                  idPrefix="fashion-pro"
+                  fabricFile={fabricFile}
+                  fabricDescription={fabricDescription}
+                  donts={donts}
+                  onFabricFileChange={setFabricFile}
+                  onFabricDescriptionChange={setFabricDescription}
+                  onDontsChange={setDonts}
+                />
 
                 {/* Output Size - Following Fashion Tool Layout */}
                 <div className="bg-card rounded-xl border border-border p-6" data-walkthrough-target="tool-output">

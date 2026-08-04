@@ -26,6 +26,7 @@ import FashionVideoModal from "@/components/FashionVideoModal";
 import VideoResultModal from "@/components/VideoResultModal";
 import CameraStylePresetSelect from "@/components/CameraStylePresetSelect";
 import { cameraStylePrompt, CAMERA_STYLE_NONE } from "@/lib/camera-style-presets";
+import FabricAndDontsFields from "@/components/FabricAndDontsFields";
 
 const FashionGenerator = () => {
   const { trackStudioUse } = useUpsell();
@@ -43,6 +44,11 @@ const FashionGenerator = () => {
   const [trousersFile, setTrousersFile] = useState<File | null>(null);
   const [shoesFile, setShoesFile] = useState<File | null>(null);
   const [accessoryFiles, setAccessoryFiles] = useState<File[]>([]);
+  // Fabric reference + exclusions. All optional; empty means the generation is
+  // byte-identical to what it was before these fields existed.
+  const [fabricFile, setFabricFile] = useState<File | null>(null);
+  const [fabricDescription, setFabricDescription] = useState<string>("");
+  const [donts, setDonts] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [customModelFile, setCustomModelFile] = useState<File | null>(null);
   const [backgroundColor, setBackgroundColor] = useState<string>("#F8F8F8");
@@ -317,6 +323,17 @@ const FashionGenerator = () => {
         urls.push(accessoryUrl);
       }
 
+      // Fabric close-up goes LAST so the prompt can point the model at a fixed
+      // slot. Fashion Studio has no background-reference image, so "last" is
+      // unambiguous here (Pro has to account for one — see process-batch-mockups).
+      if (fabricFile) {
+        const fabricUrl = await uploadFile(
+          fabricFile,
+          `${userId}/${timestamp}-fabric-${fabricFile.name}`
+        );
+        urls.push(fabricUrl);
+      }
+
       console.log('All image URLs for generation:', urls);
 
       // Determine background for prompt
@@ -383,6 +400,12 @@ const FashionGenerator = () => {
             image_urls: urls,
             aspect_ratio: aspectRatio,
             resolution,
+            // Fabric wording and the exclusions are applied server-side (see
+            // _shared/fabric-donts.ts) so Fashion Studio and Pro phrase them
+            // identically instead of each building their own string.
+            fabric_description: fabricDescription,
+            has_fabric_image: !!fabricFile,
+            donts,
           },
         }
       );
@@ -829,6 +852,16 @@ const FashionGenerator = () => {
                   </label>
                 </div>
               </div>
+
+              <FabricAndDontsFields
+                idPrefix="fashion"
+                fabricFile={fabricFile}
+                fabricDescription={fabricDescription}
+                donts={donts}
+                onFabricFileChange={setFabricFile}
+                onFabricDescriptionChange={setFabricDescription}
+                onDontsChange={setDonts}
+              />
 
               <div>
               <BackgroundSelector

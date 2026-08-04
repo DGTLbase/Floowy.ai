@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { cleanText, fabricPromptSegment, dontsSystemPrompt } from "../_shared/fabric-donts.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,7 +19,12 @@ serve(async (req) => {
       throw new Error('FAL_API_KEY is not configured');
     }
 
-    const { action, requestId, prompt, image_urls, aspect_ratio = "1:1", resolution = "1K", num_images = 2 } = await req.json();
+    const {
+      action, requestId, prompt, image_urls,
+      aspect_ratio = "1:1", resolution = "1K", num_images = 2,
+      // Fabric reference + exclusions (all optional).
+      fabric_description, has_fabric_image, donts,
+    } = await req.json();
 
     // Check status of existing generation
     if (action === 'status' && requestId) {
@@ -109,14 +115,26 @@ serve(async (req) => {
     if (action === 'generate' && prompt && image_urls) {
       console.log('Starting generation:', { prompt, image_urls, aspect_ratio, resolution });
 
+      // The fabric close-up is appended last by the client, so point the model
+      // at that slot. Both are no-ops when the user left the fields empty.
+      const fabricText = fabricPromptSegment(
+        cleanText(fabric_description),
+        has_fabric_image ? "last" : null,
+      );
+      const systemPrompt = dontsSystemPrompt(cleanText(donts));
+
       const requestBody: any = {
-        prompt,
+        prompt: `${prompt}${fabricText}`,
         image_urls,
         num_images,
         aspect_ratio,
         output_format: "png",
         resolution,
       };
+      // Exclusions ride in system_prompt, NOT concatenated into the prompt —
+      // nano-banana-pro has no negative_prompt field, and putting "no buttons"
+      // in the positive prompt is what makes the model draw buttons.
+      if (systemPrompt) requestBody.system_prompt = systemPrompt;
 
       const response = await fetch('https://queue.fal.run/fal-ai/nano-banana-pro/edit', {
         method: 'POST',
