@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Check, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { getAttribution } from "@/lib/ga-attribution";
 import { SUBSCRIPTION_PLANS, PROMO_COUPONS, EURO1_OFFER } from "@/lib/stripe-config";
 import TierPlanCard from "@/components/pricing/TierPlanCard";
 
@@ -113,7 +114,9 @@ const OfferPricingSection = ({ offerKind, returnPath }: OfferPricingSectionProps
         // schedule). Falls back to the first-invoice-€1 flow when disabled.
         if (EURO1_OFFER.trueTrial) {
           const { data, error } = await supabase.functions.invoke("create-euro1-checkout", {
-            body: { plan },
+            // Captured here because checkout.stripe.com cannot see our cookies
+            // and the webhook that reports the sale cannot read them either.
+            body: { plan, ...getAttribution() },
           });
           if (error) throw error;
           if (!data?.url) throw new Error("No checkout URL returned");
@@ -123,7 +126,7 @@ const OfferPricingSection = ({ offerKind, returnPath }: OfferPricingSectionProps
       }
 
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { priceId, couponId, offerType },
+        body: { priceId, couponId, offerType, ...getAttribution() },
       });
 
       if (error) throw error;

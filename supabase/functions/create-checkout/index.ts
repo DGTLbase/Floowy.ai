@@ -24,7 +24,7 @@ serve(async (req) => {
     const user = data.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
 
-    const { priceId, couponId, offerType } = await req.json();
+    const { priceId, couponId, offerType, gaClientId, gclid } = await req.json();
     if (!priceId) throw new Error("Price ID is required");
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
@@ -47,7 +47,7 @@ serve(async (req) => {
         },
       ],
       mode: "subscription",
-      success_url: `${req.headers.get("origin")}/payment?success=true`,
+      success_url: `${req.headers.get("origin")}/payment?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.headers.get("origin")}/payment?canceled=true`,
       billing_address_collection: "required",
       customer_update: {
@@ -59,11 +59,18 @@ serve(async (req) => {
       metadata: {
         userId: user.id,
         ...(offerType ? { offerType } : {}),
+        ...(gaClientId ? { ga_client_id: String(gaClientId) } : {}),
+        ...(gclid ? { gclid: String(gclid) } : {}),
       },
+      // Also on the SUBSCRIPTION, not just the session: renewals have no
+      // session, so this is the only place a later invoice can recover the
+      // client id and stay attributed to the visit that converted.
       subscription_data: {
         metadata: {
           userId: user.id,
           ...(offerType ? { offerType } : {}),
+          ...(gaClientId ? { ga_client_id: String(gaClientId) } : {}),
+          ...(gclid ? { gclid: String(gclid) } : {}),
         },
       },
       custom_text: {

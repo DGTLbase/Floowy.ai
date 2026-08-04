@@ -32,7 +32,7 @@ serve(async (req) => {
     const user = data.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
 
-    const { plan } = await req.json();
+    const { plan, gaClientId, gclid } = await req.json();
     const chosenPriceId = PLAN_TO_PRICE[plan];
     if (!chosenPriceId) throw new Error("Invalid plan");
 
@@ -59,7 +59,15 @@ serve(async (req) => {
       payment_method_types: ["card"],
       success_url: `${req.headers.get("origin")}/payment?euro1_setup={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.headers.get("origin")}/pricing-1-euro-offer?canceled=true`,
-      metadata: { userId: user.id, plan, offerType: "euro1_trial" },
+      // GA attribution rides along so the webhook can report the sale against
+      // the session that drove it (see supabase/functions/_shared/ga4-mp.ts).
+      metadata: {
+        userId: user.id,
+        plan,
+        offerType: "euro1_trial",
+        ...(gaClientId ? { ga_client_id: String(gaClientId) } : {}),
+        ...(gclid ? { gclid: String(gclid) } : {}),
+      },
     });
 
     return new Response(JSON.stringify({ url: session.url }), {

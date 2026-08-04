@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { reportInvoiceToGa4 } from "../_shared/ga4-mp.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
   apiVersion: "2025-08-27.basil",
@@ -587,6 +588,23 @@ serve(async (req) => {
       const userId = profile.id;
       console.log("Matched subscription update to user ID:", userId);
 
+      // Pause handling: a paused subscription (pause_collection set) is not being
+      // billed, so revoke plan access and record the paused flag — and crucially
+      // SKIP the credit-grant / plan-restore logic below, which would otherwise
+      // undo the pause on the very event that Stripe fires when we pause. When
+      // pause_collection is cleared (resume), fall through to restore the plan and
+      // clear the flag. This keeps the DB correct even for out-of-band changes
+      // (Stripe dashboard, or an auto-resume `resumes_at`).
+      if (subscription.pause_collection) {
+        const { error: pauseErr } = await supabaseAdmin
+          .from("profiles")
+          .update({ plan: "free", subscription_paused: true })
+          .eq("id", userId);
+        if (pauseErr) console.error("Error applying paused state:", pauseErr);
+        else console.log("Subscription paused — downgraded to free, no credits granted");
+        return new Response(JSON.stringify({ received: true }), { status: 200 });
+      }
+
       const planMapping: Record<string, { plan: string; credits: number }> = {
         // Monthly plans
         "price_1TYhRdKbAjgJzP4OoKJLuqQT": { plan: "lite", credits: 40 },
@@ -668,6 +686,15 @@ serve(async (req) => {
     if (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") {
       const invoice = event.data.object as Stripe.Invoice;
       console.log("[stripe-webhook] Invoice paid:", invoice.id, "billing_reason:", invoice.billing_reason);
+
+      // GA4 e-commerce, server-side source of truth. Runs BEFORE the
+      // subscription_cycle early-return below, because first invoices — the €1
+      // one included — are exactly the conversions we most need to report.
+      // Gated to invoice.paid: invoice.payment_succeeded fires for the same
+      // invoice and this endpoint subscribes to both.
+      if (event.type === "invoice.paid") {
+        await reportInvoiceToGa4(stripe, invoice);
+      }
 
       // Only process recurring payments, not the first subscription invoice
       if (invoice.billing_reason !== "subscription_cycle") {

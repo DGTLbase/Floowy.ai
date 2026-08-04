@@ -99,7 +99,15 @@ serve(async (req) => {
         items: [{ price: chosenPriceId, quantity: 1 }],
         trial_period_days: 3,
         default_payment_method: paymentMethod,
-        metadata: { userId: user.id, plan, offerType: "euro1_trial" },
+        // Carry GA attribution from the setup session onto the subscription:
+        // the day-3 renewal invoice has no session to read it from.
+        metadata: {
+          userId: user.id,
+          plan,
+          offerType: "euro1_trial",
+          ...(session.metadata?.ga_client_id ? { ga_client_id: session.metadata.ga_client_id } : {}),
+          ...(session.metadata?.gclid ? { gclid: session.metadata.gclid } : {}),
+        },
         expand: ["latest_invoice"],
       });
       // Collect the €1 now. If the create-invoice carrying the €1 item hasn't
