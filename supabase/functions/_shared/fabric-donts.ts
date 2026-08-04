@@ -55,6 +55,42 @@ export function fabricPromptSegment(
 }
 
 /**
+ * Indexed variant, for flows whose prompt addresses reference images as
+ * "Image 1 = …, Image 2 = …" (Flatlay Studio) rather than by position.
+ * `imageIndex` is the 1-based slot the reference will occupy, or null when
+ * only a description was given.
+ *
+ * `kind` selects the wording:
+ *   "fabric" → the outer material of the garment
+ *   "lining" → the inner lining, visible at an open collar / cuff / hem
+ */
+export function referencePromptSegment(
+  kind: "fabric" | "lining",
+  description: string | null,
+  imageIndex: number | null,
+): string {
+  const parts: string[] = [];
+
+  if (imageIndex !== null) {
+    parts.push(
+      kind === "fabric"
+        ? ` Image ${imageIndex} = FABRIC CLOSE-UP. This is a material swatch of the garment's own fabric — it is NOT a separate product, garment or graphic to add. Reproduce its texture, weave, knit structure and sheen across the garment, and do not substitute a different material.`
+        : ` Image ${imageIndex} = LINING / INSIDE REFERENCE. This is the garment's inner lining — it is NOT a separate product to add. Apply it only where the inside is actually visible, such as an open collar, a folded cuff or a turned-up hem. If no inside is visible in the result, ignore it entirely.`,
+    );
+  }
+
+  if (description) {
+    parts.push(
+      kind === "fabric"
+        ? ` The garment fabric is ${description}.`
+        : ` The lining is ${description}, shown only where the inside of the garment is visible.`,
+    );
+  }
+
+  return parts.join("");
+}
+
+/**
  * The `system_prompt` sent to fal. Returns null when the user left Don'ts
  * empty, so the request body is unchanged from today's for existing users.
  */

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { cleanText, referencePromptSegment, dontsSystemPrompt } from "../_shared/fabric-donts.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,6 +33,14 @@ serve(async (req) => {
       mode = "reference", // "reference" | "ai-guess"
       variant = "flatlay", // "flatlay" | "collar-closeup"
       outputType = "flatlay", // "flatlay" | "halo_bust"
+      // New Generation Settings blocks — all optional. Names follow the
+      // briefing's payload spec; the older fields above predate it and keep
+      // their camelCase.
+      fabric_reference_image,
+      fabric_description,
+      lining_reference_image,
+      lining_description,
+      negative_prompt,
     } = await req.json();
 
     // Remove background action - using synchronous API (faster for small images)
@@ -202,6 +211,23 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
         imageUrls.push(labelImageUrl);
       }
 
+      // Fabric close-up and lining reference. Each is added the same way the
+      // label is: work out the 1-based slot it will occupy, name that slot in
+      // the prompt, then push the URL. Description-only is supported too.
+      const fabricDesc = cleanText(fabric_description);
+      const hasFabricImg = typeof fabric_reference_image === 'string' && fabric_reference_image.length > 0;
+      if (hasFabricImg || fabricDesc) {
+        prompt += referencePromptSegment('fabric', fabricDesc, hasFabricImg ? imageUrls.length + 1 : null);
+        if (hasFabricImg) imageUrls.push(fabric_reference_image);
+      }
+
+      const liningDesc = cleanText(lining_description);
+      const hasLiningImg = typeof lining_reference_image === 'string' && lining_reference_image.length > 0;
+      if (hasLiningImg || liningDesc) {
+        prompt += referencePromptSegment('lining', liningDesc, hasLiningImg ? imageUrls.length + 1 : null);
+        if (hasLiningImg) imageUrls.push(lining_reference_image);
+      }
+
       const requestBody: any = {
         prompt,
         image_urls: imageUrls,
@@ -210,6 +236,11 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
         output_format: "webp",
         resolution,
       };
+      // The Don'ts field. nano-banana-pro/edit exposes no negative_prompt
+      // parameter, so the exclusions go in system_prompt — a separate steering
+      // field — rather than being concatenated into the positive prompt.
+      const systemPrompt = dontsSystemPrompt(cleanText(negative_prompt));
+      if (systemPrompt) requestBody.system_prompt = systemPrompt;
 
       console.log('[GENERATION] Request body:', JSON.stringify(requestBody));
 

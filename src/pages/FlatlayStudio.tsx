@@ -11,9 +11,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
   Upload, Sparkles, Download, RotateCcw, Image as ImageIcon, Check,
   ArrowLeft, Shield, Pencil, Wand2, X, ChevronRight, ChevronLeft,
-  Package, Palette, Settings, ListChecks, Lock, Zap, Tag,
+  Package, Palette, Settings, ListChecks, Lock, Zap, Tag, Layers, Shirt, Ban,
 } from "lucide-react";
 import GenerationProgressOverlay from "@/components/GenerationProgressOverlay";
+import ReferenceUploadBlock from "@/components/ReferenceUploadBlock";
 import ImageEditModal from "@/components/ImageEditModal";
 import { AdminToolsSidebar } from "@/components/AdminToolsSidebar";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +45,11 @@ const RESOLUTIONS = [
 ];
 
 const MAX_PRODUCTS = 10;
+
+// Character cap for the free-text fields in Generation Settings. Matches the
+// 250 already used for the custom background prompt elsewhere in the platform,
+// so description-type fields behave consistently.
+const MAX_DESCRIPTION_LEN = 250;
 
 const STAGE_TARGETS = {
   upload: { min: 0, max: 15, label: "Uploading images" },
@@ -85,6 +91,28 @@ const FlatlayStudio = () => {
   const [resolution, setResolution] = useState(1);
   const [transparentBg, setTransparentBg] = useState(false);
   const [bgColor, setBgColor] = useState("#f5f5f0");
+
+  // New Generation Settings blocks. All optional and batch-level, the same
+  // scope as the global neck label: empty fields are simply not sent.
+  const [fabricFile, setFabricFile] = useState<File | null>(null);
+  const [fabricPreview, setFabricPreview] = useState<string | null>(null);
+  const [fabricDescription, setFabricDescription] = useState("");
+  const [liningFile, setLiningFile] = useState<File | null>(null);
+  const [liningPreview, setLiningPreview] = useState<string | null>(null);
+  const [liningDescription, setLiningDescription] = useState("");
+  const [negativePrompt, setNegativePrompt] = useState("");
+  // Same object-URL discipline as setGlobalLabel: revoke the old preview
+  // before replacing it, so long sessions don't leak blob URLs.
+  const setFabricRef = (file: File | null) => {
+    if (fabricPreview) URL.revokeObjectURL(fabricPreview);
+    setFabricFile(file);
+    setFabricPreview(file ? URL.createObjectURL(file) : null);
+  };
+  const setLiningRef = (file: File | null) => {
+    if (liningPreview) URL.revokeObjectURL(liningPreview);
+    setLiningFile(file);
+    setLiningPreview(file ? URL.createObjectURL(file) : null);
+  };
 
   // Global neck label applied to all products (fallback if no per-product label)
   const [globalLabelFile, setGlobalLabelFile] = useState<File | null>(null);
@@ -225,7 +253,9 @@ const FlatlayStudio = () => {
     productUrl: string,
     referenceUrl: string | null,
     labelUrl: string | null,
-    variant: "flatlay" | "collar-closeup" = "flatlay"
+    variant: "flatlay" | "collar-closeup" = "flatlay",
+    fabricUrl: string | null = null,
+    liningUrl: string | null = null
   ) => {
     const { data: startData, error } = await supabase.functions.invoke("generate-flatlay", {
       body: {
@@ -240,6 +270,13 @@ const FlatlayStudio = () => {
         mode: referenceUrl ? "reference" : "ai-guess",
         variant,
         outputType,
+        // Optional Generation Settings blocks. Undefined when unused, so the
+        // payload is unchanged for anyone who leaves them empty.
+        fabric_reference_image: fabricUrl || undefined,
+        fabric_description: fabricDescription.trim() || undefined,
+        lining_reference_image: liningUrl || undefined,
+        lining_description: liningDescription.trim() || undefined,
+        negative_prompt: negativePrompt.trim() || undefined,
       },
     });
     if (error || !startData?.request_id) throw new Error("Failed to start generation");
@@ -277,6 +314,11 @@ const FlatlayStudio = () => {
 
       updateProgress("generate");
       const allRaw: { productUrl: string; image: string }[] = [];
+      // Batch-level references: uploaded once, reused for every product, via
+      // the same imgbb flow as the neck label.
+      const fabricUrl = fabricFile ? await uploadToImgbb(fabricFile) : null;
+      const liningUrl = liningFile ? await uploadToImgbb(liningFile) : null;
+
       for (let i = 0; i < productUrls.length; i++) {
         const product = products[i];
         const sel = selections[product.id];
@@ -285,7 +327,7 @@ const FlatlayStudio = () => {
           : sel.image_url;
         const labelSource = product.labelFile || globalLabelFile;
         const labelUrl = labelSource ? await uploadToImgbb(labelSource) : null;
-        const imgs = await generateOne(productUrls[i], refUrl, labelUrl, "flatlay");
+        const imgs = await generateOne(productUrls[i], refUrl, labelUrl, "flatlay", fabricUrl, liningUrl);
         imgs.forEach((image) => allRaw.push({ productUrl: productUrls[i], image }));
         const pct = STAGE_TARGETS.generate.min +
           ((i + 1) / productUrls.length) *
@@ -865,6 +907,65 @@ const FlatlayStudio = () => {
                           <span>Upload label</span>
                         </label>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Fabric Close-up → Lining / Inside → Don'ts. Fixed order,
+                      below Neck Collar Label, above the footer nav. */}
+                  <ReferenceUploadBlock
+                    icon={<Layers className="h-4 w-4" />}
+                    title="Fabric Close-up (optional)"
+                    description="Upload a close-up reference of the fabric and/or describe the material. We'll use this to render accurate texture, weave and sheen on the product."
+                    inputLabel="Material description"
+                    placeholder="e.g. wool, ribbed knit, recycled cotton"
+                    file={fabricFile}
+                    preview={fabricPreview}
+                    onFileChange={(f) => setFabricRef(f)}
+                    value={fabricDescription}
+                    onValueChange={setFabricDescription}
+                    maxLength={MAX_DESCRIPTION_LEN}
+                  />
+
+                  <ReferenceUploadBlock
+                    icon={<Shirt className="h-4 w-4" />}
+                    title="Lining / Inside (optional)"
+                    description="Upload a reference of the inner lining and/or describe it. Used when the product shot shows an open collar, cuff or hem."
+                    inputLabel="Lining description"
+                    placeholder="e.g. striped lining, mesh interior"
+                    file={liningFile}
+                    preview={liningPreview}
+                    onFileChange={(f) => setLiningRef(f)}
+                    value={liningDescription}
+                    onValueChange={setLiningDescription}
+                    maxLength={MAX_DESCRIPTION_LEN}
+                  />
+
+                  {/* Exclusions. Styled apart from the two blocks above so it
+                      reads as "what to leave out", not "what to include". */}
+                  <div className="rounded-xl border border-destructive/30 bg-destructive/[0.03] p-5 space-y-3">
+                    <div>
+                      <Label className="text-base font-semibold flex items-center gap-2">
+                        <Ban className="h-4 w-4" /> Don&apos;ts (optional negative prompt)
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Describe what should NOT appear on the generated product. Sent to the model
+                        separately from the rest of the prompt, never merged into it.
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="flatlay-negative-prompt" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Negative prompt
+                      </Label>
+                      <Textarea
+                        id="flatlay-negative-prompt"
+                        value={negativePrompt}
+                        onChange={(e) => setNegativePrompt(e.target.value.slice(0, MAX_DESCRIPTION_LEN))}
+                        placeholder="e.g. no buttons, no zipper, no logo on the chest"
+                        rows={3}
+                      />
+                      <div className="text-right text-[11px] text-muted-foreground">
+                        {negativePrompt.length}/{MAX_DESCRIPTION_LEN}
+                      </div>
                     </div>
                   </div>
                 </div>
