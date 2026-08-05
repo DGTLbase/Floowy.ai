@@ -359,6 +359,24 @@ const Auth = () => {
         },
       }).catch(err => console.error("Failed to send admin notification:", err));
 
+      // With "Confirm email" enabled, signUp returns a user but NO session —
+      // nobody is signed in yet. Everything below assumes a session: the €1
+      // toast, the funnel flags, and /onboarding, which calls getUser() and
+      // bounces straight back to /auth when it finds nobody. That produced a
+      // "Welcome! One last step..." toast for a user who was not logged in and
+      // then dumped them on the sign-in screen. Stop here and tell them what
+      // actually needs to happen instead.
+      if (!signUpData.session) {
+        toast({
+          title: "Check your email",
+          description: `We sent a confirmation link to ${email.trim()}. Confirm your address, then sign in.`,
+        });
+        setIsLoading(false);
+        setIsLogin(true);
+        setSignupStep("details");
+        return;
+      }
+
       // Push dataLayer event for free account signup
       const { pushSignupEvent } = await import("@/lib/gtm-datalayer");
       pushSignupEvent();
