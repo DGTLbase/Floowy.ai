@@ -368,6 +368,18 @@ const Auth = () => {
       // and /onboarding, which calls getUser() and redirects back to /auth when
       // it finds nobody.
       if (!signUpData.session) {
+        // Confirm the address server-side before signing in. When the project
+        // still has "Confirm email" enabled, signInWithPassword refuses with
+        // "Email not confirmed", so without this the sign-in below cannot
+        // succeed. Floowy does not use email confirmation — the €1 payment is
+        // the gate — so the account is confirmed on creation instead.
+        const { error: confirmError } = await supabase.functions.invoke("auto-confirm-user", {
+          body: { userId: signUpData.user.id },
+        });
+        if (confirmError) {
+          console.error("[Auth] auto-confirm failed:", confirmError);
+        }
+
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
@@ -381,9 +393,7 @@ const Auth = () => {
           console.error("[Auth] Auto sign-in after signup failed:", signInError.message);
           toast({
             title: "Almost there",
-            description: /confirm/i.test(signInError.message)
-              ? `Confirm your address at ${email.trim()}, then sign in.`
-              : "Your account was created. Please sign in to continue.",
+            description: "Your account was created. Please sign in to continue.",
           });
           setIsLoading(false);
           setIsLogin(true);
