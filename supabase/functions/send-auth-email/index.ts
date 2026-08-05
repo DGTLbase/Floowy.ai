@@ -10,8 +10,13 @@
 // "email rate limit exceeded" during signup: quota spent on mail nobody got,
 // then retries spending more.
 //
-// Anything not handled here must return a NON-2xx, so GoTrue falls back to its
-// own sender rather than dropping the message.
+// THIS HOOK ALWAYS ANSWERS 2xx.
+// GoTrue turns any non-2xx from a Send Email Hook into a failed auth operation:
+// returning 400/500 here surfaced to users as "Error creating account:
+// Unexpected status code returned from hook: 500" and blocked signup entirely.
+// A delivery failure — rotated Resend key, rate limit, unverified domain — must
+// therefore be logged loudly and swallowed. A missing email is recoverable; a
+// user who cannot create an account is not.
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
@@ -230,11 +235,15 @@ const handler = async (req: Request): Promise<Response> => {
     // Unknown type: fail loudly so GoTrue sends it itself rather than the user
     // silently receiving nothing (the bug this function used to have).
     if (!built) {
-      console.error("Unhandled auth email type, deferring to GoTrue:", email_action_type);
-      return new Response(
-        JSON.stringify({ error: `Unhandled email_action_type: ${email_action_type}` }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      );
+      // Fail OPEN. A non-2xx here makes GoTrue abort the whole auth operation —
+      // returning 400 for an unhandled type once broke account creation outright
+      // ("Unexpected status code returned from hook: 500"). A missing email is
+      // recoverable; a user who cannot sign up is not.
+      console.error("UNHANDLED auth email type, no mail sent:", email_action_type);
+      return new Response(JSON.stringify({ message: "Unhandled type, skipped" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
     const emailResponse = await fetch("https://api.resend.com/emails", {
@@ -252,9 +261,18 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     if (!emailResponse.ok) {
-      const errorData = await emailResponse.json();
-      console.error("Resend API error:", errorData);
-      throw new Error(`Failed to send ${email_action_type} email`);
+      // Log loudly, but still answer 200: GoTrue turns any non-2xx into a failed
+      // signup / login / reset. Delivery problems (bad or rotated Resend key,
+      // Resend rate limit, unverified domain) must never lock users out.
+      const errorText = await emailResponse.text();
+      console.error(
+        `RESEND FAILED for ${email_action_type} — status ${emailResponse.status}:`,
+        errorText.slice(0, 500),
+      );
+      return new Response(
+        JSON.stringify({ message: "Email delivery failed, auth allowed to proceed" }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
     }
 
     const data = await emailResponse.json();
@@ -268,11 +286,14 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
   } catch (error: any) {
-    console.error("Error in auth email webhook:", error);
+    // Same reasoning as above: never hand GoTrue a non-2xx. Signature-verification
+    // failures land here too, so a genuinely bogus caller is simply ignored rather
+    // than being able to take auth down.
+    console.error("ERROR in auth email webhook (auth allowed to proceed):", error?.message ?? error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ message: "Hook error, auth allowed to proceed" }),
       {
-        status: 500,
+        status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       },
     );
