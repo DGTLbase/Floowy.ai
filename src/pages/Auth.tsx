@@ -359,22 +359,37 @@ const Auth = () => {
         },
       }).catch(err => console.error("Failed to send admin notification:", err));
 
-      // With "Confirm email" enabled, signUp returns a user but NO session —
-      // nobody is signed in yet. Everything below assumes a session: the €1
-      // toast, the funnel flags, and /onboarding, which calls getUser() and
-      // bounces straight back to /auth when it finds nobody. That produced a
-      // "Welcome! One last step..." toast for a user who was not logged in and
-      // then dumped them on the sign-in screen. Stop here and tell them what
-      // actually needs to happen instead.
+      // Sign the new user straight in. With "Confirm email" off, signUp already
+      // returns a session and this is a no-op. If it did not, sign in with the
+      // credentials we just used so the account is usable immediately instead of
+      // the user being bounced to the sign-in screen.
+      //
+      // Everything below needs a session: the funnel flags, the profile write,
+      // and /onboarding, which calls getUser() and redirects back to /auth when
+      // it finds nobody.
       if (!signUpData.session) {
-        toast({
-          title: "Check your email",
-          description: `We sent a confirmation link to ${email.trim()}. Confirm your address, then sign in.`,
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
         });
-        setIsLoading(false);
-        setIsLogin(true);
-        setSignupStep("details");
-        return;
+
+        if (signInError) {
+          // The only expected failure is email confirmation still being required
+          // on the project: the account exists but cannot be used until the
+          // address is verified. Say so rather than showing the success toast to
+          // someone who is not signed in.
+          console.error("[Auth] Auto sign-in after signup failed:", signInError.message);
+          toast({
+            title: "Almost there",
+            description: /confirm/i.test(signInError.message)
+              ? `Confirm your address at ${email.trim()}, then sign in.`
+              : "Your account was created. Please sign in to continue.",
+          });
+          setIsLoading(false);
+          setIsLogin(true);
+          setSignupStep("details");
+          return;
+        }
       }
 
       // Push dataLayer event for free account signup
