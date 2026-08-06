@@ -255,17 +255,24 @@ export function itemsFromInvoice(invoice: any): Ga4Item[] {
   }
 
   return lines.map((line) => {
-    const price = line.price ?? line.plan ?? {};
-    const product = typeof price.product === "object" ? price.product : null;
-    const nickname = price.nickname || product?.name;
+    // Basil also moved the price onto line.pricing.price_details and removed the
+    // top-level line.price. Verified against a live invoice: reading only
+    // line.price yielded item_id "il_…" — an invoice LINE id, which is unique
+    // per invoice and so groups with nothing — and item_name "Subscription" for
+    // every product, making the GA4 item report useless.
+    const priceDetails = line.pricing?.price_details ?? null;
+    const legacyPrice = line.price ?? line.plan ?? {};
+    const product = typeof legacyPrice.product === "object" ? legacyPrice.product : null;
     // Stripe's own price id is the most stable identifier we have here; the
     // human-readable plan name is best-effort.
-    const itemId = price.id || line.id || "subscription";
-    const interval = price.recurring?.interval;
+    const itemId = priceDetails?.price || legacyPrice.id || line.id || "subscription";
+    const interval = legacyPrice.recurring?.interval;
 
     return {
       item_id: itemId,
-      item_name: nickname || "Subscription",
+      // line.description is the only human-readable name Basil leaves on the
+      // line itself ("Floowy €1 launch access (3 days)").
+      item_name: line.description || legacyPrice.nickname || product?.name || "Subscription",
       ...(interval ? { item_variant: interval === "year" ? "yearly" : "monthly" } : {}),
       price: (line.amount ?? 0) / 100,
       quantity: line.quantity ?? 1,
