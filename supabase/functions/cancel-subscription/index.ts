@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { findActionableSubscription, cancellationDate } from "../_shared/stripe-subscription.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -55,27 +56,39 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
-    // Find active subscriptions
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customerId,
-      status: "active",
-      limit: 1,
-    });
-
-    if (subscriptions.data.length === 0) {
+    // Find the subscription. NOT an active-only lookup: €1-trial users are in
+    // status "trialing", and an active-only filter reported "No active
+    // subscription found" for them — surfacing as "Failed to cancel" and
+    // leaving a paying customer unable to leave.
+    const subscription = await findActionableSubscription(stripe, customerId);
+    if (!subscription) {
       throw new Error("No active subscription found");
     }
+    logStep("Found subscription", { subscriptionId: subscription.id, status: subscription.status });
 
-    const subscription = subscriptions.data[0];
-    logStep("Found active subscription", { subscriptionId: subscription.id });
+    // Already scheduled to end — treat as success. Re-cancelling is a no-op in
+    // Stripe, and reporting an error to someone who has already cancelled just
+    // sends them to support for no reason.
+    if (subscription.cancel_at_period_end) {
+      logStep("Subscription already set to cancel at period end", { subscriptionId: subscription.id });
+      return new Response(JSON.stringify({
+        success: true,
+        alreadyScheduled: true,
+        cancelAt: cancellationDate(subscription),
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
     // Cancel the subscription at period end
     const canceledSubscription = await stripe.subscriptions.update(subscription.id, {
       cancel_at_period_end: true,
     });
-    logStep("Subscription canceled", { 
+    logStep("Subscription canceled", {
       subscriptionId: canceledSubscription.id,
-      cancelAt: new Date(canceledSubscription.cancel_at! * 1000).toISOString()
+      status: canceledSubscription.status,
+      cancelAt: cancellationDate(canceledSubscription),
     });
 
     // Update user plan to free in Supabase
@@ -107,9 +120,9 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       success: true,
-      cancelAt: new Date(canceledSubscription.cancel_at! * 1000).toISOString()
+      cancelAt: cancellationDate(canceledSubscription),
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
