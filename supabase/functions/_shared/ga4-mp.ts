@@ -128,11 +128,34 @@ export async function sendGa4Purchase(p: Ga4PurchasePayload): Promise<boolean> {
 }
 
 /**
+ * The subscription that generated an invoice, across API versions.
+ *
+ * Basil (2025-03-31 onward) REMOVED `invoice.subscription` and moved it to
+ * `invoice.parent.subscription_details.subscription`. Reading only the old
+ * field yields undefined on any Basil-rendered event, which fails silently:
+ * attribution metadata is never read, so every conversion lands in GA4 with a
+ * random client_id and no gclid — reported, but useless for Ads.
+ *
+ * Webhook payloads are rendered with the ENDPOINT's API version, which can
+ * differ from the version this code pins, so both shapes are checked.
+ */
+export function subscriptionIdFromInvoice(invoice: any): string | null {
+  const parent = invoice?.parent;
+  if (parent?.subscription_details?.subscription) {
+    const sub = parent.subscription_details.subscription;
+    return typeof sub === "string" ? sub : (sub?.id ?? null);
+  }
+  return typeof invoice?.subscription === "string" ? invoice.subscription : null;
+}
+
+/**
  * Reports one paid Stripe invoice to GA4.
  *
- * Call this ONLY for event.type === "invoice.paid". Stripe emits
- * invoice.payment_succeeded for the same invoice, and this endpoint subscribes
- * to both, so handling both would double every conversion.
+ * Safe to call for both invoice.paid and invoice.payment_succeeded. Stripe
+ * emits both for the same invoice, and which of them an endpoint actually
+ * receives is dashboard configuration this code cannot see — gating on one
+ * event name means analytics silently never fire if that name is not
+ * subscribed. Dedup is the ga4_reported stamp below, not the event name.
  *
  * Idempotency without a database: the invoice is stamped with ga4_reported in
  * its own Stripe metadata once sent, which also survives Stripe's at-least-once
@@ -144,7 +167,10 @@ export async function sendGa4Purchase(p: Ga4PurchasePayload): Promise<boolean> {
  */
 export async function reportInvoiceToGa4(stripe: any, invoice: any): Promise<void> {
   try {
-    if (invoice?.status !== "paid") return;
+    if (invoice?.status !== "paid") {
+      console.log("[ga4-mp] invoice not paid, skipping:", invoice?.id, "status:", invoice?.status);
+      return;
+    }
     if (invoice?.metadata?.ga4_reported) {
       console.log("[ga4-mp] invoice already reported, skipping:", invoice.id);
       return;
@@ -160,7 +186,15 @@ export async function reportInvoiceToGa4(stripe: any, invoice: any): Promise<voi
     // Attribution lives on the subscription, because renewals have no session.
     let clientId: string | null = invoice?.metadata?.ga_client_id ?? null;
     let gclid: string | null = invoice?.metadata?.gclid ?? null;
-    const subscriptionId = typeof invoice.subscription === "string" ? invoice.subscription : null;
+    const subscriptionId = subscriptionIdFromInvoice(invoice);
+    if (!subscriptionId) {
+      console.warn(
+        "[ga4-mp] no subscription id on invoice",
+        invoice.id,
+        "— parent.type:", invoice?.parent?.type ?? "(none)",
+        "· conversion will be reported unattributed",
+      );
+    }
     if ((!clientId || !gclid) && subscriptionId) {
       try {
         const sub = await stripe.subscriptions.retrieve(subscriptionId);
@@ -172,6 +206,13 @@ export async function reportInvoiceToGa4(stripe: any, invoice: any): Promise<voi
     }
 
     const eventName = purchaseKindFor(invoice.billing_reason);
+    console.log(
+      `[ga4-mp] reporting ${eventName} invoice=${invoice.id}`,
+      `billing_reason=${invoice.billing_reason}`,
+      `amount=${amount}`,
+      `attributed=${clientId ? "yes" : "no (random client_id)"}`,
+      `gclid=${gclid ? "yes" : "no"}`,
+    );
     const ok = await sendGa4Purchase({
       clientId,
       eventName,

@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { reportInvoiceToGa4 } from "../_shared/ga4-mp.ts";
+import { reportInvoiceToGa4, subscriptionIdFromInvoice } from "../_shared/ga4-mp.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
   apiVersion: "2025-08-27.basil",
@@ -690,11 +690,16 @@ serve(async (req) => {
       // GA4 e-commerce, server-side source of truth. Runs BEFORE the
       // subscription_cycle early-return below, because first invoices — the €1
       // one included — are exactly the conversions we most need to report.
-      // Gated to invoice.paid: invoice.payment_succeeded fires for the same
-      // invoice and this endpoint subscribes to both.
-      if (event.type === "invoice.paid") {
-        await reportInvoiceToGa4(stripe, invoice);
-      }
+      //
+      // Runs for BOTH invoice events. Stripe emits invoice.paid and
+      // invoice.payment_succeeded for the same invoice, but which of them this
+      // endpoint is subscribed to is dashboard configuration the code cannot
+      // see. Gating on invoice.paid alone meant that if only
+      // invoice.payment_succeeded was subscribed, every conversion went
+      // unreported while credits still worked — a silent analytics outage with
+      // no failing symptom. Double-reporting is prevented by the ga4_reported
+      // stamp on the invoice, not by the event name.
+      await reportInvoiceToGa4(stripe, invoice);
 
       // Only process recurring payments, not the first subscription invoice
       if (invoice.billing_reason !== "subscription_cycle") {
@@ -702,9 +707,16 @@ serve(async (req) => {
         return new Response(JSON.stringify({ received: true }), { status: 200 });
       }
 
-      const subscriptionId = invoice.subscription as string | null;
+      // Basil removed invoice.subscription in favour of
+      // parent.subscription_details.subscription. Reading only the old field
+      // made every renewal look like it had no subscription, so the monthly
+      // credit refresh below was skipped outright.
+      const subscriptionId = subscriptionIdFromInvoice(invoice);
       if (!subscriptionId) {
-        console.log("[stripe-webhook] No subscription ID on invoice, skipping");
+        console.log(
+          "[stripe-webhook] No subscription ID on invoice, skipping. parent.type:",
+          (invoice as any)?.parent?.type ?? "(none)",
+        );
         return new Response(JSON.stringify({ received: true }), { status: 200 });
       }
 
