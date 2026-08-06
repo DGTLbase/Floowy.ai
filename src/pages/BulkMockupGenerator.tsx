@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
 import { useAdminToken } from "@/hooks/useAdminToken";
-import { ArrowLeft, Upload, Loader2, CheckCircle2, XCircle, Clock, Download, X, RefreshCw, Check, Shield } from "lucide-react";
+import { ArrowLeft, Upload, Loader2, CheckCircle2, XCircle, Clock, Download, X, RefreshCw, Check, Shield, Video } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import PlanCreditsDisplay from "@/components/PlanCreditsDisplay";
 import UserMenu from "@/components/UserMenu";
@@ -42,6 +42,10 @@ import poseEditorial from "@/assets/poses/pose-editorial.jpg";
 import poseAthletic from "@/assets/poses/pose-athletic.jpg";
 import poseElegant from "@/assets/poses/pose-elegant.jpg";
 import FabricAndDontsFields from "@/components/FabricAndDontsFields";
+import StudioVideoModal from "@/components/StudioVideoModal";
+import VideoResultModal from "@/components/VideoResultModal";
+import { useStudioVideo } from "@/hooks/useStudioVideo";
+import { FASHION_PRO_VIDEO_STYLES } from "@/lib/video-styles";
 const BulkMockupGenerator = () => {
   const navigate = useNavigate();
   const {
@@ -165,6 +169,22 @@ const BulkMockupGenerator = () => {
   const [selectedPose, setSelectedPose] = useState<string>('natural-standing');
   const [cameraStyle, setCameraStyle] = useState<string>(CAMERA_STYLE_NONE);
   const [showCreditsPurchase, setShowCreditsPurchase] = useState(false);
+
+  const VIDEO_CREDIT_COST = 5;
+  const studioVideo = useStudioVideo({
+    toolName: "fashion-pro-video",
+    label: "Fashion Pro video",
+    defaultPrompt:
+      "The model showcases the outfit with smooth, natural movement — a subtle turn and a confident pose transition. Clean background, premium fashion video aesthetic.",
+    user,
+    credits,
+    setCredits,
+    isAdmin: isAdmin || hasAdminToken,
+    onNeedCredits: () => setShowCreditsPurchase(true),
+    userName,
+    creditCost: VIDEO_CREDIT_COST,
+  });
+
   const [currentBatchId, setCurrentBatchId] = useState<string | null>(null);
   const [batchStatus, setBatchStatus] = useState<any>(null);
   const [batchItems, setBatchItems] = useState<any[]>([]);
@@ -1338,6 +1358,12 @@ const BulkMockupGenerator = () => {
                                     }}>
                                       <Download className="w-4 h-4" />
                                     </Button>
+                                    <Button size="sm" variant="secondary" title="Make a Video" onClick={(e) => {
+                                      e.stopPropagation();
+                                      studioVideo.openVideoModal(item.result_url);
+                                    }}>
+                                      <Video className="w-4 h-4" />
+                                    </Button>
                                   </div>
                                   <Button size="sm" variant="outline" className="w-full" onClick={() => handleRegenerateItem(item.id, item.order_index)}>
                                     <RefreshCw className="w-3 h-3 mr-1" />
@@ -2388,6 +2414,40 @@ const BulkMockupGenerator = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <StudioVideoModal
+        open={studioVideo.videoModalOpen}
+        onOpenChange={studioVideo.setVideoModalOpen}
+        onGenerate={prompt => studioVideo.handleMakeVideo(studioVideo.videoModalImageUrl, prompt)}
+        isGenerating={studioVideo.isGeneratingVideo}
+        imageUrl={studioVideo.videoModalImageUrl}
+        styles={FASHION_PRO_VIDEO_STYLES}
+        title="Create Fashion Video"
+        description="Choose a video style for your 6-second fashion clip"
+        creditCost={VIDEO_CREDIT_COST}
+        credits={credits}
+        isAdmin={isAdmin || hasAdminToken}
+      />
+
+      {studioVideo.generatedVideoUrl && <VideoResultModal
+        open={studioVideo.videoResultModalOpen}
+        onOpenChange={studioVideo.setVideoResultModalOpen}
+        videoUrl={studioVideo.generatedVideoUrl}
+        title="Your Fashion Video"
+        onDownload={studioVideo.handleDownloadVideo}
+        onRegenerate={() => studioVideo.openVideoModal(studioVideo.videoModalImageUrl)}
+        isRegenerating={studioVideo.isGeneratingVideo}
+      />}
+
+      <GenerationProgressOverlay
+        open={studioVideo.videoGenProgress.isActive || studioVideo.videoGenProgress.stage === "failed"}
+        stage={studioVideo.videoGenProgress.stage}
+        progress={studioVideo.videoGenProgress.progress}
+        statusMessage={studioVideo.videoGenProgress.statusMessage}
+        title="Creating Your Fashion Video"
+        onRetry={() => studioVideo.videoGenProgress.reset()}
+        onClose={() => studioVideo.videoGenProgress.reset()}
+      />
 
       <CreditsPurchaseDialog open={showCreditsPurchase} onOpenChange={setShowCreditsPurchase} />
     </div>;

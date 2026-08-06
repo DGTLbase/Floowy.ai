@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import Anthropic from "https://esm.sh/@anthropic-ai/sdk@0.69.0";
+import { analyzeStructured } from "../_shared/ai-analyze.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,10 +49,6 @@ serve(async (req) => {
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) return json({ error: "ANTHROPIC_API_KEY is not configured" }, 500);
-    // maxRetries: the SDK retries 429/500/529 with exponential backoff + honours
-    // Retry-After. Bumped from the default 2 so concurrent bulk analysis rides out
-    // transient rate limits instead of surfacing an edge-function error.
-    const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY, maxRetries: 5 });
 
     const list = (v: any) => (Array.isArray(v) ? v.join(", ") : "");
     let system = "You are a social media virality analyst. Return your analysis by calling the report_analysis tool.";
@@ -106,25 +102,24 @@ Plays: ${item.plays}, Likes: ${item.likes}, Comments: ${item.comments_count}, Sh
 Duration: ${item.duration_seconds ?? "?"}s`;
     }
 
-    let message;
+    let analysis: any;
     try {
-      message = await anthropic.messages.create({
-        model: "claude-haiku-4-5",
-        max_tokens: 1024,
+      // Claude first; falls back to Gemini if Anthropic stays rate-limited.
+      const { result } = await analyzeStructured({
+        anthropicKey: ANTHROPIC_API_KEY,
         system,
-        messages: [{ role: "user", content: userPrompt }],
-        tools: [{ name: "report_analysis", description: "Report the structured virality analysis of the video.", input_schema: ANALYSIS_SCHEMA as any }],
-        tool_choice: { type: "tool", name: "report_analysis" },
+        prompt: userPrompt,
+        schema: ANALYSIS_SCHEMA,
+        toolName: "report_analysis",
+        toolDescription: "Report the structured virality analysis of the video.",
       });
+      analysis = result;
     } catch (err: any) {
       if (err?.status === 429 || err?.status === 529) {
         return json({ error: "The AI service is busy right now. Please try those items again in a moment." }, 429);
       }
-      return json({ error: `AI service error: ${err?.status ?? "unknown"}` }, 500);
+      return json({ error: `AI service error: ${err?.message ?? err?.status ?? "unknown"}` }, 500);
     }
-
-    const toolUse = message.content.find((b: any) => b.type === "tool_use");
-    const analysis = toolUse?.input;
     if (!analysis) return json({ error: "AI did not return an analysis" }, 500);
 
     const now = new Date().toISOString();

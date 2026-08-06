@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import Anthropic from "https://esm.sh/@anthropic-ai/sdk@0.69.0";
+import { analyzeStructured } from "../_shared/ai-analyze.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -141,7 +141,6 @@ serve(async (req) => {
       } else {
         const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
         if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
-        const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY, maxRetries: 5 });
         const label = kind === "instagram" ? "Instagram" : kind === "facebook" ? "Facebook" : "TikTok";
         const prompt = `Analyze these ${label} comments and report the audience response by calling the report_comments tool.
 
@@ -151,15 +150,16 @@ Rules:
 
 Comments (${texts.length}):
 ${texts.map((t, i) => `${i + 1}. ${t.slice(0, 280)}`).join("\n")}`;
-        const message = await anthropic.messages.create({
-          model: "claude-haiku-4-5", max_tokens: 1024,
+        // Claude first; falls back to Gemini if Anthropic stays rate-limited.
+        const { result } = await analyzeStructured({
+          anthropicKey: ANTHROPIC_API_KEY,
           system: "You are a social media audience-sentiment analyst. Report by calling the report_comments tool.",
-          messages: [{ role: "user", content: prompt }],
-          tools: [{ name: "report_comments", description: "Report the structured comment analysis.", input_schema: COMMENTS_SCHEMA as any }],
-          tool_choice: { type: "tool", name: "report_comments" },
+          prompt,
+          schema: COMMENTS_SCHEMA,
+          toolName: "report_comments",
+          toolDescription: "Report the structured comment analysis.",
         });
-        const toolUse = message.content.find((b: any) => b.type === "tool_use");
-        analysis = toolUse?.input;
+        analysis = result;
         if (!analysis) throw new Error("AI did not return a comment analysis");
       }
 

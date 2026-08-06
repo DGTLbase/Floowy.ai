@@ -21,6 +21,10 @@ import { useOnboardingCheck } from "@/hooks/useOnboardingCheck";
 import { AdminToolsSidebar } from "@/components/AdminToolsSidebar";
 import CreditsPurchaseDialog from "@/components/CreditsPurchaseDialog";
 import { deductCredits } from "@/hooks/useCreditDeduction";
+import StudioVideoModal from "@/components/StudioVideoModal";
+import VideoResultModal from "@/components/VideoResultModal";
+import { useStudioVideo } from "@/hooks/useStudioVideo";
+import { IDEA_STUDIO_VIDEO_STYLES } from "@/lib/video-styles";
 
 const IdeaStudioGenerator = () => {
   const [user, setUser] = useState<any>(null);
@@ -45,6 +49,20 @@ const IdeaStudioGenerator = () => {
   const genProgress = useGenerationProgress();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const VIDEO_CREDIT_COST = 5;
+  const studioVideo = useStudioVideo({
+    toolName: "idea-studio-video",
+    label: "Idea Studio video",
+    defaultPrompt:
+      "A slow cinematic camera move through the scene that reveals the product in its setting, with soft natural light and subtle ambient motion. The product stays perfectly still.",
+    user,
+    credits,
+    setCredits,
+    isAdmin: isAdmin || adminMode,
+    onNeedCredits: () => setShowCreditsPurchase(true),
+    creditCost: VIDEO_CREDIT_COST,
+  });
 
   useEffect(() => {
     const verifyAdmin = async () => {
@@ -387,13 +405,28 @@ const IdeaStudioGenerator = () => {
           </div>
 
           {generatedImages.length > 0 ? (
-            <ResultDisplay
-              imageUrls={generatedImages}
-              onReset={handleReset}
-              onRegenerate={handleGenerate}
-              isRegenerating={isGenerating}
-              isAdmin={isAdmin || adminMode}
-            />
+            <>
+              <ResultDisplay
+                imageUrls={generatedImages}
+                onReset={handleReset}
+                onRegenerate={handleGenerate}
+                isRegenerating={isGenerating}
+                isAdmin={isAdmin || adminMode}
+                onMakeVideo={studioVideo.openVideoModal}
+              />
+
+              {studioVideo.generatedVideoUrl && (
+                <VideoResultModal
+                  open={studioVideo.videoResultModalOpen}
+                  onOpenChange={studioVideo.setVideoResultModalOpen}
+                  videoUrl={studioVideo.generatedVideoUrl}
+                  title="Your Idea Studio Video"
+                  onDownload={studioVideo.handleDownloadVideo}
+                  onRegenerate={() => studioVideo.openVideoModal(studioVideo.videoModalImageUrl)}
+                  isRegenerating={studioVideo.isGeneratingVideo}
+                />
+              )}
+            </>
           ) : (
             <div className="space-y-6">
               {/* Reference Photo and Upload Product Photo - Equal Size */}
@@ -524,11 +557,35 @@ const IdeaStudioGenerator = () => {
             onRetry={() => { genProgress.reset(); handleGenerate(); }}
             onClose={() => genProgress.reset()}
           />
+
+          <GenerationProgressOverlay
+            open={studioVideo.videoGenProgress.isActive || studioVideo.videoGenProgress.stage === "failed"}
+            stage={studioVideo.videoGenProgress.stage}
+            progress={studioVideo.videoGenProgress.progress}
+            statusMessage={studioVideo.videoGenProgress.statusMessage}
+            title="Creating Your Idea Studio Video"
+            onRetry={() => studioVideo.videoGenProgress.reset()}
+            onClose={() => studioVideo.videoGenProgress.reset()}
+          />
         </div>
       </main>
       </div>
 
-      <CreditsPurchaseDialog 
+      <StudioVideoModal
+        open={studioVideo.videoModalOpen}
+        onOpenChange={studioVideo.setVideoModalOpen}
+        onGenerate={(prompt) => studioVideo.handleMakeVideo(studioVideo.videoModalImageUrl, prompt)}
+        isGenerating={studioVideo.isGeneratingVideo}
+        imageUrl={studioVideo.videoModalImageUrl}
+        styles={IDEA_STUDIO_VIDEO_STYLES}
+        title="Create Scene Video"
+        description="Choose a video style for your 6-second scene clip"
+        creditCost={VIDEO_CREDIT_COST}
+        credits={credits}
+        isAdmin={isAdmin || adminMode}
+      />
+
+      <CreditsPurchaseDialog
         open={showCreditsPurchase}
         onOpenChange={setShowCreditsPurchase}
       />

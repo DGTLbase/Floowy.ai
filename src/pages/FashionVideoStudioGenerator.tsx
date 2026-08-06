@@ -260,9 +260,15 @@ const FashionVideoStudioGenerator = () => {
       trackStudioUse("fashion-video");
     } catch (e) {
       setProgress(0);
+      const raw = e instanceof Error && e.message ? e.message : "Something went wrong.";
+      // Always tell the user WHY and that they weren't charged. Add an actionable
+      // tip for the common "couldn't generate from these inputs" case.
+      const mentionsCredits = /credit/i.test(raw);
       toast({
-        title: "Generation failed",
-        description: e instanceof Error ? e.message : "Please try again — no credits were charged.",
+        title: "Couldn't generate the video",
+        description: mentionsCredits
+          ? raw
+          : `${raw} — no credits were charged. Try different or fewer garment images, or adjust your inputs and generate again.`,
         variant: "destructive",
       });
     } finally {
