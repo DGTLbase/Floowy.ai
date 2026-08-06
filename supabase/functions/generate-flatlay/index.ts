@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { cleanText, referencePromptSegment, exclusionsPromptSegment, CONSTRUCTION_LOCK, PATTERN_LOCK } from "../_shared/fabric-donts.ts";
+import { buildFlatlayBaseV2 } from "../_shared/flatlay-prompt.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,6 +43,7 @@ serve(async (req) => {
       lining_description,
       negative_prompt,
       seed,
+      promptVersion = 1,
     } = await req.json();
 
     // Remove background action - using synchronous API (faster for small images)
@@ -190,6 +192,17 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
         imageUrls = [productImageUrl];
       }
 
+      // Prompt v2 (opt-in A/B). Swaps ONLY the base prompt — image roles, order
+      // and every appended block below stay identical, so a v1/v2 comparison at
+      // a fixed seed isolates the prompt wording and nothing else.
+      const useV2 = Number(promptVersion) === 2;
+      if (useV2) {
+        prompt = buildFlatlayBaseV2({
+          kind: variant === "collar-closeup" ? "collar-closeup" : (isHalo ? "halo_bust" : "flatlay"),
+          hasReference: imageUrls.length > 1,
+        });
+      }
+
       // Background handling — only when transparent flow is NOT requested,
       // we bake the background into the prompt. Transparent removes bg later.
       if (!transparentBackground) {
@@ -232,7 +245,11 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
       // Garment fidelity. These are stated affirmatively in the positive
       // prompt: nano-banana-pro has no negative_prompt, and system_prompt
       // proved too soft — excluded lining kept appearing anyway.
-      prompt += CONSTRUCTION_LOCK + PATTERN_LOCK + exclusionsPromptSegment(cleanText(negative_prompt));
+      // v1 appends both locks. v2 already states construction and pattern
+      // fidelity once in its own FIDELITY block — re-appending them would
+      // reintroduce the duplication the variant exists to test.
+      prompt += (useV2 ? "" : CONSTRUCTION_LOCK + PATTERN_LOCK)
+        + exclusionsPromptSegment(cleanText(negative_prompt));
 
       const requestBody: any = {
         prompt,

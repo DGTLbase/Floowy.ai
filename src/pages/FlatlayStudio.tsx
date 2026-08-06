@@ -88,7 +88,11 @@ const FlatlayStudio = () => {
   const [outputType, setOutputType] = useState<"flatlay" | "halo_bust">("flatlay");
 
   const [aspectRatio, setAspectRatio] = useState("1:1");
-  const [resolution, setResolution] = useState(1);
+  // 2K, not 1K. At 1024px the weave, stitch lines and fine print simply are
+  // not resolvable, so no amount of prompt work recovers that detail.
+  const [resolution, setResolution] = useState(2);
+  const [promptVersion, setPromptVersion] = useState(1);
+  const [seedInput, setSeedInput] = useState("");
   const [transparentBg, setTransparentBg] = useState(false);
   const [bgColor, setBgColor] = useState("#f5f5f0");
 
@@ -263,7 +267,7 @@ const FlatlayStudio = () => {
         productImageUrl: productUrl,
         referenceImageUrl: referenceUrl,
         labelImageUrl: labelUrl,
-        resolution: RESOLUTIONS.find((r) => r.multiplier === resolution)?.label || "1K",
+        resolution: RESOLUTIONS.find((r) => r.multiplier === resolution)?.label || "2K",
         aspectRatio,
         transparentBackground: transparentBg,
         backgroundColor: transparentBg ? undefined : bgColor,
@@ -277,6 +281,8 @@ const FlatlayStudio = () => {
         lining_reference_image: liningUrl || undefined,
         lining_description: liningDescription.trim() || undefined,
         negative_prompt: negativePrompt.trim() || undefined,
+        promptVersion,
+        seed: seedInput ? Number(seedInput) : undefined,
       },
     });
     if (error || !startData?.request_id) throw new Error("Failed to start generation");
@@ -868,6 +874,53 @@ const FlatlayStudio = () => {
                           </button>
                         ))}
                       </div>
+
+                      {/* Admin-only A/B controls. A fixed seed is what makes the
+                          prompt comparison meaningful: without it two runs differ
+                          for reasons unrelated to the wording. */}
+                      {(isAdmin || hasAdminToken) && (
+                        <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 space-y-3">
+                          <Label className="text-sm font-semibold flex items-center gap-2">
+                            <Shield className="h-3.5 w-3.5" /> Prompt A/B (admin only)
+                          </Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {[1, 2].map((v) => (
+                              <button
+                                key={v}
+                                onClick={() => setPromptVersion(v)}
+                                className={cn(
+                                  "rounded-lg border-2 p-2 text-sm transition",
+                                  promptVersion === v
+                                    ? "border-primary bg-primary/10"
+                                    : "border-muted hover:bg-accent",
+                                )}
+                              >
+                                {v === 1 ? "v1 (current)" : "v2 (consolidated)"}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">
+                              Seed — same seed + same inputs makes v1 and v2 comparable
+                            </Label>
+                            <div className="flex gap-2">
+                              <Input
+                                value={seedInput}
+                                onChange={(e) => setSeedInput(e.target.value.replace(/[^0-9]/g, ""))}
+                                placeholder="e.g. 12345 (blank = random)"
+                                className="text-sm"
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSeedInput(String(Math.floor(Math.random() * 1e9)))}
+                              >
+                                Roll
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
