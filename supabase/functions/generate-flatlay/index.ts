@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { cleanText, referencePromptSegment, dontsSystemPrompt } from "../_shared/fabric-donts.ts";
+import { cleanText, referencePromptSegment, exclusionsPromptSegment, CONSTRUCTION_LOCK, PATTERN_LOCK } from "../_shared/fabric-donts.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -228,6 +228,11 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
         if (hasLiningImg) imageUrls.push(lining_reference_image);
       }
 
+      // Garment fidelity. These are stated affirmatively in the positive
+      // prompt: nano-banana-pro has no negative_prompt, and system_prompt
+      // proved too soft — excluded lining kept appearing anyway.
+      prompt += CONSTRUCTION_LOCK + PATTERN_LOCK + exclusionsPromptSegment(cleanText(negative_prompt));
+
       const requestBody: any = {
         prompt,
         image_urls: imageUrls,
@@ -236,11 +241,6 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
         output_format: "webp",
         resolution,
       };
-      // The Don'ts field. nano-banana-pro/edit exposes no negative_prompt
-      // parameter, so the exclusions go in system_prompt — a separate steering
-      // field — rather than being concatenated into the positive prompt.
-      const systemPrompt = dontsSystemPrompt(cleanText(negative_prompt));
-      if (systemPrompt) requestBody.system_prompt = systemPrompt;
 
       console.log('[GENERATION] Request body:', JSON.stringify(requestBody));
 

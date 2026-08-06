@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 import { getUserTier, isAdmin, tierMeets, tierDenied } from '../_shared/tier.ts';
-import { cleanText, fabricPromptSegment, dontsSystemPrompt } from '../_shared/fabric-donts.ts';
+import { cleanText, fabricPromptSegment, exclusionsPromptSegment, CONSTRUCTION_LOCK, PATTERN_LOCK } from '../_shared/fabric-donts.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -67,7 +67,8 @@ Deno.serve(async (req) => {
     // Fabric reference + exclusions (all optional).
     const fabricUrl = settings.fabric_url || null;
     const fabricDescription = cleanText(settings.fabric_description);
-    const dontsSystem = dontsSystemPrompt(cleanText(settings.donts));
+    const constraints =
+      CONSTRUCTION_LOCK + PATTERN_LOCK + exclusionsPromptSegment(cleanText(settings.donts));
     // The background reference must remain the LAST image because the prompt
     // addresses it that way, so a fabric close-up sits directly in front of it.
     const fabricSlot: "last" | "second-to-last" | null = fabricUrl
@@ -247,7 +248,7 @@ Deno.serve(async (req) => {
           // Lighting instruction - minimal shadows and no reflections
           const lightingConsistency = `CRITICAL LIGHTING: Use flat, even lighting with MINIMAL shadows (under 10% opacity). NO floor reflections, NO glossy surfaces, NO harsh shadows. The background should be clean and shadow-free. Lighting should be consistent across all angle views.`;
 
-          return `${facialPreservation} Edit the person in the FIRST reference image by changing ONLY their clothing/outfit to match the garments shown in the product images. ${colorPreservation} ${lightingConsistency} Keep the person's body proportions, skin tone, hair, and all physical features EXACTLY as they appear in the first image. Keep the EXACT same hairstyle from the first image across all angle views. Position the person in ${poseText}, ${viewInstructions[view] || viewInstructions['front']}. Lighting: ${lightingText}. ${backgroundInstruction} The person's identity and face must remain completely unchanged - 100% facial replica is mandatory.${fabricText}`;
+          return `${facialPreservation} Edit the person in the FIRST reference image by changing ONLY their clothing/outfit to match the garments shown in the product images. ${colorPreservation} ${lightingConsistency} Keep the person's body proportions, skin tone, hair, and all physical features EXACTLY as they appear in the first image. Keep the EXACT same hairstyle from the first image across all angle views. Position the person in ${poseText}, ${viewInstructions[view] || viewInstructions['front']}. Lighting: ${lightingText}. ${backgroundInstruction} The person's identity and face must remain completely unchanged - 100% facial replica is mandatory.${fabricText}${constraints}`;
         };
         
         const viewPrompt = buildViewPrompt(currentView);
@@ -339,9 +340,6 @@ Deno.serve(async (req) => {
             aspect_ratio: aspectRatio,
             output_format: "png",
             resolution,
-            // Exclusions go in system_prompt, never merged into the prompt —
-            // nano-banana-pro has no negative_prompt field.
-            ...(dontsSystem ? { system_prompt: dontsSystem } : {}),
           }),
         });
 

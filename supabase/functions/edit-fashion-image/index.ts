@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { cleanText, fabricPromptSegment, dontsSystemPrompt } from "../_shared/fabric-donts.ts";
+import { cleanText, fabricPromptSegment, exclusionsPromptSegment, CONSTRUCTION_LOCK, PATTERN_LOCK } from "../_shared/fabric-donts.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -121,20 +121,18 @@ serve(async (req) => {
         cleanText(fabric_description),
         has_fabric_image ? "last" : null,
       );
-      const systemPrompt = dontsSystemPrompt(cleanText(donts));
+      const constraints =
+        CONSTRUCTION_LOCK + PATTERN_LOCK + exclusionsPromptSegment(cleanText(donts));
 
       const requestBody: any = {
-        prompt: `${prompt}${fabricText}`,
+        prompt: `${prompt}${fabricText}${constraints}`,
         image_urls,
         num_images,
         aspect_ratio,
         output_format: "png",
         resolution,
       };
-      // Exclusions ride in system_prompt, NOT concatenated into the prompt —
-      // nano-banana-pro has no negative_prompt field, and putting "no buttons"
-      // in the positive prompt is what makes the model draw buttons.
-      if (systemPrompt) requestBody.system_prompt = systemPrompt;
+
 
       const response = await fetch('https://queue.fal.run/fal-ai/nano-banana-pro/edit', {
         method: 'POST',

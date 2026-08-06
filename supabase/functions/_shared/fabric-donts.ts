@@ -1,16 +1,19 @@
-// Fabric reference + Don'ts (exclusions) — shared by Fashion Studio
-// (edit-fashion-image) and Fashion Studio Pro (process-batch-mockups) so both
-// flows phrase them identically.
+// Garment fidelity prompting — shared by Flatlay Studio (generate-flatlay),
+// Fashion Studio (edit-fashion-image) and Fashion Studio Pro
+// (process-batch-mockups) so all three phrase things identically.
 //
-// WHY THE DON'TS ARE NOT APPENDED TO THE PROMPT
-// Both studios run fal-ai/nano-banana-pro/edit, whose input schema is:
-//   prompt, resolution, enable_web_search, aspect_ratio, num_images,
-//   system_prompt, safety_tolerance, sync_mode, image_urls,
-//   limit_generations, seed, output_format
-// There is NO negative_prompt field. Concatenating exclusions into `prompt` is
-// exactly the failure the briefing is trying to prevent — "no buttons" sitting
-// in the positive prompt reads to the model as a request for buttons. So the
-// exclusions travel in `system_prompt`, which is a separate steering field.
+// NEGATIVE PROMPTING WAS REMOVED
+// fal-ai/nano-banana-pro/edit has no negative_prompt field — its whole input is
+// prompt, resolution, enable_web_search, aspect_ratio, num_images,
+// system_prompt, safety_tolerance, sync_mode, image_urls, limit_generations,
+// seed and output_format. Exclusions were previously routed through
+// system_prompt, which is a separate steering field but only a soft hint: the
+// model kept adding lining that had been explicitly excluded.
+//
+// Everything is now stated affirmatively in the positive prompt instead. The
+// model responds to descriptions of what the garment IS, not to instructions
+// about what to leave out, so "no lining" becomes "the garment is unlined and
+// the inside is raw and unfinished".
 
 /** Trim + collapse whitespace; empty/whitespace-only becomes null. */
 export const cleanText = (v: unknown): string | null => {
@@ -91,15 +94,54 @@ export function referencePromptSegment(
 }
 
 /**
- * The `system_prompt` sent to fal. Returns null when the user left Don'ts
- * empty, so the request body is unchanged from today's for existing users.
+ * Turns the user's exclusion list into an affirmative constraint.
+ *
+ * Not a negative prompt: the text is folded into the positive prompt, phrased
+ * as a statement about the finished garment. Negation alone ("no buttons") is
+ * what the model kept ignoring, so the exclusions are restated as facts about
+ * what the garment IS, and reinforced by the construction lock below.
+ *
+ * Returns "" when the field is empty, so an untouched form changes nothing.
  */
-export function dontsSystemPrompt(donts: string | null): string | null {
-  if (!donts) return null;
+export function exclusionsPromptSegment(donts: string | null): string {
+  if (!donts) return "";
   return (
-    "The following elements must NOT appear anywhere in the generated image. " +
-    "Treat each as a strict exclusion, never as something to add: " +
-    donts +
-    ". If the reference images contain any of these, omit them from the result."
+    ` GARMENT EXCLUSIONS — treat as fact, not preference: the finished garment` +
+    ` genuinely does not have ${donts}. Render it as a garment that was made` +
+    ` without these features in the first place. If a reference image appears to` +
+    ` show any of them, that reading is wrong — omit them entirely.`
   );
 }
+
+/**
+ * Construction lock. The single biggest failure was the model treating the
+ * product photo as inspiration and inventing plausible detailing — a fly on
+ * trousers, a different closure, moved pockets. This states the opposite as a
+ * hard requirement, affirmatively.
+ *
+ * Always included for garment work; it describes the source photo as the
+ * authority rather than excluding anything.
+ */
+export const CONSTRUCTION_LOCK =
+  ` CONSTRUCTION FIDELITY — the product image is the source of truth, not a` +
+  ` starting point. Reproduce the garment exactly as built: the same closure` +
+  ` type and position, the same number and placement of buttons, zips, studs and` +
+  ` pockets, the same seams, darts, vents, collar and cuff shapes, the same` +
+  ` length, cut and fit. Add nothing that is not visible in the product image —` +
+  ` no fly, no extra pocket, no topstitching, no hardware — and remove or` +
+  ` reposition nothing that is. Where a detail is unclear, reproduce what is` +
+  ` visible rather than inventing what such a garment usually has.`;
+
+/**
+ * Pattern hold. Patterns were surviving only on whichever panel sat sharpest in
+ * frame; the rest went plain. This requires continuity per panel.
+ */
+export const PATTERN_LOCK =
+  ` PATTERN CONTINUITY — if the fabric is patterned (stripe, check, herringbone,` +
+  ` twill, print), that pattern must appear on EVERY panel of the garment: front,` +
+  ` back, sleeves, collar, lapel, cuffs, pockets and any belt or trim. Match the` +
+  ` scale, spacing, colour and direction shown in the product image, following` +
+  ` the natural grain of each panel. The pattern must not fade, blur, simplify or` +
+  ` become plain fabric anywhere, including areas in shadow, at the edges of the` +
+  ` frame, or under folds.`;
+
