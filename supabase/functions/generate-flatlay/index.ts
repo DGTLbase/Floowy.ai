@@ -41,6 +41,7 @@ serve(async (req) => {
       lining_reference_image,
       lining_description,
       negative_prompt,
+      seed,
     } = await req.json();
 
     // Remove background action - using synchronous API (faster for small images)
@@ -238,9 +239,22 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
         image_urls: imageUrls,
         num_images: 1,
         aspect_ratio: aspectRatio,
-        output_format: "webp",
+        // PNG, not WebP. fal's webp encode is lossy, and it was softening
+        // exactly what this tool exists to reproduce — weave, stitch lines,
+        // fine print and subtle tonal steps in the fabric. png is also fal's
+        // own default here, and what the other garment studios already use.
+        // The cost is file size, which matters most at 4K.
+        output_format: "png",
         resolution,
       };
+
+      // Optional seed. Without one, every retry re-rolls the whole composition,
+      // so a user who liked the layout but not one detail cannot ask for "the
+      // same again, fixed" — and neither can we A/B a prompt change, because
+      // two runs differ for reasons unrelated to the edit.
+      if (typeof seed === 'number' && Number.isFinite(seed)) {
+        requestBody.seed = Math.trunc(seed);
+      }
 
       console.log('[GENERATION] Request body:', JSON.stringify(requestBody));
 
