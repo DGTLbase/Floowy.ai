@@ -58,7 +58,7 @@ const UpsellPopup = ({ upsell, open, onDismiss, onUpgrade, onOpenStudio }: Props
         {/* STEP 0 — contextual offer */}
         {step === 0 && (
           <div>
-            <div className="relative mb-4 flex h-36 items-end overflow-hidden rounded-xl bg-gradient-to-br from-[#8A8170] to-[#C9C3B4] p-3">
+            <div className="relative mb-4 flex h-72 items-end overflow-hidden rounded-xl bg-gradient-to-br from-[#8A8170] to-[#C9C3B4] p-3">
               {upsell.previewVideo ? (
                 <video
                   src={upsell.previewVideo}

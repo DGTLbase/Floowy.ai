@@ -3,6 +3,7 @@ import AppSidebar from "@/components/AppSidebar";
 import PlanCreditsDisplay from "@/components/PlanCreditsDisplay";
 import CreditsPurchaseDialog from "@/components/CreditsPurchaseDialog";
 import UserMenu from "@/components/UserMenu";
+import PausedSubscriptionBanner from "@/components/PausedSubscriptionBanner";
 import logoImage from "@/assets/floowy-logo.png";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -224,6 +225,10 @@ const BackendLayout = ({ children }: BackendLayoutProps) => {
       <div className="flex flex-1 min-h-0">
         <AppSidebar />
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          {/* Resume prompt for paused subscribers (renders nothing otherwise). */}
+          <div className="px-4 pt-4 empty:hidden [&:has(>*)]:mb-2">
+            <PausedSubscriptionBanner />
+          </div>
           {children}
         </main>
       </div>

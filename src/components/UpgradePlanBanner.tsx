@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Zap, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SUBSCRIPTION_PLANS, EURO1_OFFER, type PlanKey } from "@/lib/stripe-config";
 import { useToast } from "@/hooks/use-toast";
 
-const SNOOZE_KEY = "floowy_upgrade_banner_snooze";
-const STATUS_KEY = "floowy_upgrade_banner_status";
+export const SNOOZE_KEY = "floowy_upgrade_banner_snooze";
+export const STATUS_KEY = "floowy_upgrade_banner_status";
+// Set right after a €1 subscribe so the banner reveals immediately on home even
+// if a stale status was cached or the banner was snoozed before subscribing.
+export const EURO1_JUST_SUBSCRIBED_KEY = "floowy_euro1_just_subscribed";
 const STATUS_TTL_MS = 15 * 60 * 1000;
 
 const PLAN_KEYS: PlanKey[] = ["lite", "starter", "professional", "enterprise"];
@@ -32,44 +35,77 @@ const UpgradePlanBanner = () => {
   const [plan, setPlan] = useState<PlanKey | null>(null);
   const [visible, setVisible] = useState(false);
   const [paying, setPaying] = useState(false);
+  const retryRef = useRef(0);
   const { toast } = useToast();
 
   const evaluate = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { setVisible(false); return; }
 
-    const snooze = Number(localStorage.getItem(SNOOZE_KEY) || 0);
-    if (snooze > Date.now()) { setVisible(false); return; }
+    // Set right after a €1 subscribe: the claim-credits banner must appear on home
+    // even if a stale "not trialing" status was cached during signup, or the banner
+    // was snoozed earlier. It overrides both, and covers the brief window where
+    // Stripe hasn't reported the new trial yet (retry a few times, show optimistically).
+    const justSubbed = sessionStorage.getItem(EURO1_JUST_SUBSCRIBED_KEY) === "1";
 
-    // Cache the Stripe lookup briefly so the banner doesn't hit the API on
-    // every route change.
+    if (!justSubbed) {
+      const snooze = Number(localStorage.getItem(SNOOZE_KEY) || 0);
+      if (snooze > Date.now()) { setVisible(false); return; }
+    }
+
+    // Cache the Stripe lookup briefly so the banner doesn't hit the API on every
+    // route change — but ALWAYS fetch fresh right after a €1 subscribe.
     let status: { trialing: boolean; trial_price_id: string | null } | null = null;
-    try {
-      const cached = JSON.parse(sessionStorage.getItem(STATUS_KEY) || "null");
-      if (cached && cached.at > Date.now() - STATUS_TTL_MS) status = cached.value;
-    } catch { /* ignore */ }
+    if (!justSubbed) {
+      try {
+        const cached = JSON.parse(sessionStorage.getItem(STATUS_KEY) || "null");
+        if (cached && cached.at > Date.now() - STATUS_TTL_MS) status = cached.value;
+      } catch { /* ignore */ }
+    }
 
     if (!status) {
       const { data, error } = await supabase.functions.invoke("check-subscription");
-      if (error || !data) { setVisible(false); return; }
-      status = { trialing: !!data.trialing, trial_price_id: data.trial_price_id ?? null };
-      sessionStorage.setItem(STATUS_KEY, JSON.stringify({ at: Date.now(), value: status }));
+      if (error || !data) { if (!justSubbed) { setVisible(false); return; } status = { trialing: false, trial_price_id: null }; }
+      else {
+        status = { trialing: !!data.trialing, trial_price_id: data.trial_price_id ?? null };
+        sessionStorage.setItem(STATUS_KEY, JSON.stringify({ at: Date.now(), value: status }));
+      }
     }
 
-    if (!status.trialing) { setVisible(false); return; }
-
+    // Resolve the plan (from the trial price, else the profile's plan).
     let key = planFromPriceId(status.trial_price_id);
     if (!key) {
       const { data: profile } = await supabase
         .from("profiles").select("plan").eq("id", session.user.id).single();
       key = (PLAN_KEYS as string[]).includes(profile?.plan) ? (profile!.plan as PlanKey) : null;
     }
-    if (!key) { setVisible(false); return; }
-    setPlan(key);
-    setVisible(true);
+
+    if (status.trialing) {
+      retryRef.current = 0;
+      sessionStorage.removeItem(EURO1_JUST_SUBSCRIBED_KEY); // trial confirmed — override done
+      if (!key) { setVisible(false); return; }
+      setPlan(key); setVisible(true);
+      return;
+    }
+
+    // Not trialing yet. If we just subscribed to €1, Stripe may not reflect the
+    // trial for a beat — show optimistically from the resolved plan and retry.
+    if (justSubbed && key) {
+      setPlan(key); setVisible(true);
+      if (retryRef.current < 4) { retryRef.current += 1; setTimeout(() => { void evaluate(); }, 2000); }
+      else sessionStorage.removeItem(EURO1_JUST_SUBSCRIBED_KEY);
+      return;
+    }
+
+    if (justSubbed && !key) sessionStorage.removeItem(EURO1_JUST_SUBSCRIBED_KEY);
+    setVisible(false);
   }, []);
 
-  useEffect(() => { evaluate(); }, [evaluate]);
+  // Re-evaluate on every route change too (not just first mount) — the banner is
+  // mounted app-wide, so this is how it reveals when the user lands on /home right
+  // after the €1 subscribe (reads the just-subscribed flag). Cheap: normal
+  // navigations hit the 15-min status cache; only a fresh €1 subscribe refetches.
+  useEffect(() => { void evaluate(); }, [evaluate, pathname]);
 
   const unlock = async () => {
     setPaying(true);
@@ -79,6 +115,7 @@ const UpgradePlanBanner = () => {
       });
       if (error || !data?.activated) throw new Error(error?.message || "Activation failed");
       sessionStorage.removeItem(STATUS_KEY);
+      sessionStorage.removeItem(EURO1_JUST_SUBSCRIBED_KEY);
       setVisible(false);
       // Credits were granted server-side — tell the header/credit displays to
       // refresh immediately so the new balance shows without a reload.
@@ -104,8 +141,8 @@ const UpgradePlanBanner = () => {
   };
 
   if (pathname.startsWith("/admin")) return null;
-  // Keep the dedicated €1-funnel landing single-CTA (see OfferStickyBar note).
-  if (pathname === "/scraper") return null;
+  // Keep the dedicated €1-funnel landings single-CTA (see OfferStickyBar note).
+  if (pathname === "/scraper" || pathname === "/google-ads") return null;
   if (!visible || !plan) return null;
 
   const total = SUBSCRIPTION_PLANS[plan].monthly.credits;
