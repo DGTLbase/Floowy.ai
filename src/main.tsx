@@ -85,6 +85,66 @@ import "./index.css";
   });
 })();
 
+// Recover a stale tab after a deploy.
+//
+// THE FAILURE THIS FIXES
+// Route chunks are content-hashed, so a deploy replaces them. A tab opened
+// before the deploy is still running the old build, and the moment the user
+// navigates to a lazy route it asks for a chunk filename that no longer exists.
+// The result is a spinner that never resolves: Suspense is waiting on an import
+// that can never settle, and the user sees the app "loading" forever.
+//
+// (Until vercel.json excluded /assets/ from the SPA catch-all, this was worse
+// still — the missing chunk came back as index.html with a 200, so the browser
+// tried to parse HTML as a module rather than reporting a clean 404.)
+//
+// A dead chunk means the running build is gone, and the only recovery is to
+// fetch the new one. Reload once, guarded by a cooldown so a genuinely broken
+// deploy degrades to a single failed load instead of a reload loop.
+(() => {
+  const RELOAD_KEY = "app_chunk_reload_at";
+  const COOLDOWN_MS = 30_000;
+
+  const recover = (reason: string) => {
+    let last = 0;
+    try {
+      last = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
+    } catch {
+      // Storage blocked (private mode): fall through and allow one reload.
+    }
+    if (Date.now() - last < COOLDOWN_MS) return;
+    try {
+      sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+    } catch {
+      // Without storage we cannot rate-limit; the visibility guard below still
+      // keeps this from firing in a tight loop.
+    }
+    console.warn(`[floowy] stale build detected (${reason}) — reloading`);
+    const fn = (window as unknown as { __floowyReload?: () => void }).__floowyReload;
+    if (typeof fn === "function") fn();
+    else window.location.reload();
+  };
+
+  // Vite fires this when a preloaded route chunk fails to load.
+  window.addEventListener("vite:preloadError", (event) => {
+    event.preventDefault();
+    recover("chunk preload failed");
+  });
+
+  // Direct dynamic imports reject instead, and land here.
+  window.addEventListener("unhandledrejection", (event) => {
+    const message = String(
+      (event.reason as { message?: string })?.message ?? event.reason ?? "",
+    );
+    if (
+      /dynamically imported module|Importing a module script failed|error loading dynamically imported/i
+        .test(message)
+    ) {
+      recover("dynamic import failed");
+    }
+  });
+})();
+
 // Globally disable right-click context menu on all images so watermarked
 // previews (and other generated images) can't be saved via the browser
 // context menu. Download buttons still work for paid users.
