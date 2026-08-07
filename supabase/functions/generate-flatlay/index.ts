@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { cleanText, referencePromptSegment, exclusionsPromptSegment, CONSTRUCTION_LOCK, PATTERN_LOCK } from "../_shared/fabric-donts.ts";
+import { cleanText, referencePromptSegment, exclusionsPromptSegment, fabricOverrideSegment, CONSTRUCTION_LOCK, PATTERN_LOCK } from "../_shared/fabric-donts.ts";
 import { buildFlatlayBaseV2 } from "../_shared/flatlay-prompt.ts";
 
 const corsHeaders = {
@@ -230,8 +230,13 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
       // the prompt, then push the URL. Description-only is supported too.
       const fabricDesc = cleanText(fabric_description);
       const hasFabricImg = typeof fabric_reference_image === 'string' && fabric_reference_image.length > 0;
+      // Remembered so the override below can name the same slot. Naming it once
+      // here and again at the end is deliberate: the slot has to be introduced
+      // where the image is added, but the instruction only wins if it is last.
+      let fabricImageIndex: number | null = null;
       if (hasFabricImg || fabricDesc) {
-        prompt += referencePromptSegment('fabric', fabricDesc, hasFabricImg ? imageUrls.length + 1 : null);
+        fabricImageIndex = hasFabricImg ? imageUrls.length + 1 : null;
+        prompt += referencePromptSegment('fabric', fabricDesc, fabricImageIndex);
         if (hasFabricImg) imageUrls.push(fabric_reference_image);
       }
 
@@ -249,7 +254,10 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
       // fidelity once in its own FIDELITY block — re-appending them would
       // reintroduce the duplication the variant exists to test.
       prompt += (useV2 ? "" : CONSTRUCTION_LOCK + PATTERN_LOCK)
-        + exclusionsPromptSegment(cleanText(negative_prompt));
+        + exclusionsPromptSegment(cleanText(negative_prompt))
+        // LAST, deliberately. The locks above re-assert that the product image
+        // owns the material; without the final word an uploaded swatch loses.
+        + fabricOverrideSegment(fabricImageIndex, fabricDesc);
 
       const requestBody: any = {
         prompt,

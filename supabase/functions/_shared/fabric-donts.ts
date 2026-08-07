@@ -122,6 +122,42 @@ export function exclusionsPromptSegment(donts: string | null): string {
  * Always included for garment work; it describes the source photo as the
  * authority rather than excluding anything.
  */
+/**
+ * Makes an uploaded fabric swatch actually win.
+ *
+ * THE PROBLEM THIS SOLVES
+ * The base prompts state, in caps and marked highest priority, that the product
+ * image is the source of truth for "fabric type, weave, sheen, texture and
+ * material finish". referencePromptSegment then asks for the swatch's texture
+ * instead — one unemphasised sentence, mid-prompt — and CONSTRUCTION_LOCK
+ * closes by repeating that the product image is the source of truth. The model
+ * hears "product image owns the material" three times with the last word, and
+ * once quietly for the swatch, so it resolves against the swatch and the upload
+ * appears to do nothing.
+ *
+ * This is appended LAST, after the locks, and says explicitly which earlier
+ * instruction it overrides and how far the override reaches. Scope is material
+ * only: colour, print, pattern and construction still come from the product
+ * image, so an uploaded swatch can never silently recolour a garment.
+ */
+export function fabricOverrideSegment(
+  imageIndex: number | null,
+  description: string | null,
+): string {
+  if (imageIndex === null && !description) return "";
+  const source = imageIndex !== null ? `image ${imageIndex}` : "the fabric description above";
+  return ` MATERIAL SOURCE — this overrides every earlier statement about fabric,` +
+    ` including the fidelity rule and the construction rule. Those say to take the` +
+    ` material from the product image; for material ONLY that is wrong here. The` +
+    ` garment's weave, knit structure, surface texture, grain, pile, nap, weight,` +
+    ` drape and sheen come from ${source}. Where the product image and ${source}` +
+    ` disagree about material, ${source} wins — render the garment as though it` +
+    ` were physically cut and sewn from that exact material, at a realistic scale` +
+    ` for a garment of this size. Everything else is unchanged and still comes from` +
+    ` the product image: colour, print, pattern, logos, lettering, seams, closures,` +
+    ` pockets, cut, fit and proportions.`;
+}
+
 export const CONSTRUCTION_LOCK =
   ` CONSTRUCTION FIDELITY — the product image is the source of truth, not a` +
   ` starting point. Reproduce the garment exactly as built: the same closure` +
