@@ -208,14 +208,18 @@ export const SLUB_LOCK =
 export function insideDefaultSegment(hasLiningReference: boolean): string {
   if (hasLiningReference) return "";
   return ` INSIDE OF THE GARMENT — no lining reference was supplied, so the` +
-    ` inside is not yours to invent. Wherever the interior is visible — the neck` +
-    ` opening, an open front or zip, a lapel roll, a folded cuff, a turned hem —` +
-    ` reproduce exactly what the product image shows there: the same colour, the` +
-    ` same material, the same finish. Where the product image does not show the` +
-    ` inside, carry the garment's own outer fabric around to the inside rather` +
-    ` than introducing anything new. Do not add a contrasting lining, and do not` +
-    ` choose black, white, or any colour that does not already appear in the` +
-    ` product image. The interior is a detail to be copied, never designed.`;
+    ` interior is copied, never designed. Wherever the inside is visible — the` +
+    ` neck opening, an open front or zip, a lapel roll, a folded cuff, a turned` +
+    ` hem — reproduce exactly what the product image shows there: the same` +
+    ` colour, the same material, the same finish. If the product image shows a` +
+    ` lining that contrasts with the outer fabric, that lining is a real part of` +
+    ` the garment: keep it, in its own colour, and do NOT replace it by wrapping` +
+    ` the outer fabric around to the inside. A jacket that has a lining must still` +
+    ` have one. Only where the product image genuinely shows no interior at all,` +
+    ` render a plain unobtrusive lining consistent with the garment rather than` +
+    ` inventing a bold or contrasting one. What you must not do is change the` +
+    ` interior from one render to the next: it is whatever the product image says` +
+    ` it is, every time.`;
 }
 
 export const CONSTRUCTION_LOCK =
