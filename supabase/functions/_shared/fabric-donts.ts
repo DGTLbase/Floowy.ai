@@ -82,7 +82,13 @@ export function referencePromptSegment(
         // which reads as permission to leave the lining out — and the interior
         // was both vanishing and changing colour between renders. It now pins
         // the colour and states the stability requirement outright.
-        : ` Image ${imageIndex} = INNER LINING REFERENCE. This is the garment's own inner lining, not a separate product to add. Use it as the exact reference for the lining's colour, depth of tone, material and surface finish. Reproduce that colour precisely and identically in every render — it must not lighten, darken, shift hue, pick up a tint from the outer fabric, or change material from one generation to the next. The lining is visible only where the real garment would expose it: the open collar or neckline, inside an open zip or front, a folded cuff, a turned hem. Where the garment has a lining, it must be present and clearly readable at those openings rather than replaced by the outer fabric.`,
+        // A garment's interior is not one colour. The neck facing and inner
+        // collar stand are frequently a different, lighter cloth from the body
+        // lining, and treating "the lining" as uniform painted the body lining's
+        // colour over the collar too — a jacket whose product photo plainly
+        // showed a pale grey neck came back black at the collar, because the
+        // lining swatch was dark and outranked everything.
+        : ` Image ${imageIndex} = BODY LINING REFERENCE. This is the lining of the garment's BODY — the cloth seen deep inside an open front or zip — and it is not a separate product to add. Use it as the exact reference for that lining's colour, depth of tone, material and finish, and reproduce it identically in every render: it must not lighten, darken, shift hue, pick up a tint from the outer fabric, or change material between generations. It applies ONLY to the body interior. It does NOT govern the inner collar stand, the neck facing, the area behind and around the neck label, or any facing visible at the collar — those surfaces are frequently a different and lighter cloth, and they come from the product image, reproduced in whatever colour the product image actually shows there. Do not paint the body lining's colour across the collar and neck.`,
     );
   }
 
