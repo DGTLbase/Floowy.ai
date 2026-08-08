@@ -188,6 +188,36 @@ export const SLUB_LOCK =
   ` coarse: keep the visible yarn, the woven grain and the surface irregularity` +
   ` rather than smoothing it into a flat printed-looking texture.`;
 
+/**
+ * Stops the inside of the garment being reinvented every run.
+ *
+ * OBSERVED FAILURE
+ * The interior colour changed from generation to generation — black one run,
+ * something else the next — on garments where no lining reference was given.
+ *
+ * The cause is an instruction gap, not a bad instruction. Every fidelity rule
+ * in these prompts is about the garment's outer appearance, and the only clause
+ * that mentions the interior is referencePromptSegment('lining'), which is
+ * emitted ONLY when a lining reference or description was supplied. With
+ * neither, the model has nothing at all to go on for the neck opening, an open
+ * front or a turned cuff, so it invents something — and invention is not stable
+ * across runs.
+ *
+ * Emitted only when there is no lining reference, so it never argues with one.
+ */
+export function insideDefaultSegment(hasLiningReference: boolean): string {
+  if (hasLiningReference) return "";
+  return ` INSIDE OF THE GARMENT — no lining reference was supplied, so the` +
+    ` inside is not yours to invent. Wherever the interior is visible — the neck` +
+    ` opening, an open front or zip, a lapel roll, a folded cuff, a turned hem —` +
+    ` reproduce exactly what the product image shows there: the same colour, the` +
+    ` same material, the same finish. Where the product image does not show the` +
+    ` inside, carry the garment's own outer fabric around to the inside rather` +
+    ` than introducing anything new. Do not add a contrasting lining, and do not` +
+    ` choose black, white, or any colour that does not already appear in the` +
+    ` product image. The interior is a detail to be copied, never designed.`;
+}
+
 export const CONSTRUCTION_LOCK =
   ` CONSTRUCTION FIDELITY — the product image is the source of truth, not a` +
   ` starting point. Reproduce the garment exactly as built: the same closure` +

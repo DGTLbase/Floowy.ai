@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { cleanText, referencePromptSegment, exclusionsPromptSegment, fabricOverrideSegment, SLUB_LOCK, CONSTRUCTION_LOCK, PATTERN_LOCK } from "../_shared/fabric-donts.ts";
+import { cleanText, referencePromptSegment, exclusionsPromptSegment, fabricOverrideSegment, insideDefaultSegment, SLUB_LOCK, CONSTRUCTION_LOCK, PATTERN_LOCK } from "../_shared/fabric-donts.ts";
 import { buildFlatlayBaseV2 } from "../_shared/flatlay-prompt.ts";
 
 const corsHeaders = {
@@ -242,6 +242,7 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
 
       const liningDesc = cleanText(lining_description);
       const hasLiningImg = typeof lining_reference_image === 'string' && lining_reference_image.length > 0;
+      const hasLiningReference = hasLiningImg || !!liningDesc;
       if (hasLiningImg || liningDesc) {
         prompt += referencePromptSegment('lining', liningDesc, hasLiningImg ? imageUrls.length + 1 : null);
         if (hasLiningImg) imageUrls.push(lining_reference_image);
@@ -261,7 +262,9 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
         // After the override on purpose. The override can point material at a
         // swatch, and a plain swatch would otherwise licence dropping flecks
         // that the product image actually has. Applies to v2 as well.
-        + SLUB_LOCK;
+        + SLUB_LOCK
+        // No-op when a lining reference exists, so the two never disagree.
+        + insideDefaultSegment(hasLiningReference);
 
       const requestBody: any = {
         prompt,
