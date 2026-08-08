@@ -255,6 +255,36 @@ export const FRAME_LOCK =
   ` unbroken right to all four edges and into every corner, carrying nothing but` +
   ` the garment's own soft shadow.`;
 
+/**
+ * Stops distinctive proportions being normalised into ordinary ones.
+ *
+ * OBSERVED FAILURE
+ * A bomber whose defining feature is a large, wide collar sweeping across the
+ * shoulders came back with an ordinary shirt collar roughly half the size.
+ * Everything else was faithful. Its brass zip also rendered as cold chrome.
+ *
+ * Same mechanism as the flecks: the model is not ignoring "preserve the collar",
+ * it is regressing toward its prior of what a bomber jacket looks like, and an
+ * exaggerated collar is unusual, so it gets averaged toward typical. Naming
+ * "collar shape and size" in a list is not enough — the instruction has to say
+ * that the unusual proportion is deliberate and must survive at its true scale.
+ */
+export const SILHOUETTE_LOCK =
+  ` DISTINCTIVE PROPORTIONS — this garment's unusual features are deliberate` +
+  ` design, not deviations to be corrected. Reproduce them at their true scale` +
+  ` relative to the body. If the collar is oversized, wide, long or dramatically` +
+  ` pointed, it stays exactly that large and that shape, covering the same span` +
+  ` of the shoulders as in the product image. If the shoulders are gathered or` +
+  ` shirred, the gathers stay as full and as densely packed. If the body is boxy` +
+  ` or cropped, the sleeves full or blouson, the hem or cuffs banded, those` +
+  ` proportions stay. Do not normalise anything toward a conventional garment:` +
+  ` do not shrink an oversized collar to a standard one, do not slim a boxy body,` +
+  ` do not lengthen a cropped one, do not reduce gathering, and do not regularise` +
+  ` a distinctive shape into a generic one. Reproduce metal hardware in its own` +
+  ` finish and tone as well — a warm brass or gold zip, button or buckle stays` +
+  ` warm and gold, a cold nickel or silver one stays cold and silver, matching` +
+  ` the product image exactly rather than defaulting to silver.`;
+
 export const CONSTRUCTION_LOCK =
   ` CONSTRUCTION FIDELITY — the product image is the source of truth, not a` +
   ` starting point. Reproduce the garment exactly as built: the same closure` +
