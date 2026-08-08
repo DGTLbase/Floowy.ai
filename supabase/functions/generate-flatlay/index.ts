@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { cleanText, referencePromptSegment, exclusionsPromptSegment, fabricOverrideSegment, CONSTRUCTION_LOCK, PATTERN_LOCK } from "../_shared/fabric-donts.ts";
+import { cleanText, referencePromptSegment, exclusionsPromptSegment, fabricOverrideSegment, SLUB_LOCK, CONSTRUCTION_LOCK, PATTERN_LOCK } from "../_shared/fabric-donts.ts";
 import { buildFlatlayBaseV2 } from "../_shared/flatlay-prompt.ts";
 
 const corsHeaders = {
@@ -257,7 +257,11 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
         + exclusionsPromptSegment(cleanText(negative_prompt))
         // LAST, deliberately. The locks above re-assert that the product image
         // owns the material; without the final word an uploaded swatch loses.
-        + fabricOverrideSegment(fabricImageIndex, fabricDesc);
+        + fabricOverrideSegment(fabricImageIndex, fabricDesc)
+        // After the override on purpose. The override can point material at a
+        // swatch, and a plain swatch would otherwise licence dropping flecks
+        // that the product image actually has. Applies to v2 as well.
+        + SLUB_LOCK;
 
       const requestBody: any = {
         prompt,

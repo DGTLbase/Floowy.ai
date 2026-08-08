@@ -158,6 +158,36 @@ export function fabricOverrideSegment(
     ` pockets, cut, fit and proportions.`;
 }
 
+/**
+ * Keeps coloured flecks from being averaged away.
+ *
+ * OBSERVED FAILURE
+ * A donegal tweed blazer — charcoal ground with red, blue, yellow and cream
+ * nepps — came back as a flat, uniform grey herringbone. The flecks were the
+ * fabric's entire character and every one of them was gone, despite the prompt
+ * saying "retain 100% of colours, prints and patterns" seven times in capitals.
+ *
+ * Generic fidelity language does not save this, because the model is not
+ * disobeying a rule it understood — it is regressing to its prior of what a
+ * grey blazer looks like, and fine multi-coloured speckle reads to it as noise
+ * worth cleaning up. The instruction has to name the specific thing being lost.
+ *
+ * Harmless on plain cloth: it is conditional on flecks actually being present.
+ */
+export const SLUB_LOCK =
+  ` FLECK AND SLUB PRESERVATION — if the cloth contains coloured flecks, slubs,` +
+  ` nepps or contrasting fibres, as donegal tweed, marl, heather, boucle and` +
+  ` salt-and-pepper weaves do, they are the fabric's identity and must survive.` +
+  ` Reproduce them as discrete, individually visible specks in their own colours` +
+  ` — red, blue, yellow, cream, whatever is present — scattered across every` +
+  ` panel at the same density, size and randomness as the input. They stay` +
+  ` saturated and distinct against the base tone. Do not average them into the` +
+  ` ground colour, do not desaturate them toward grey, do not tidy them into a` +
+  ` regular pattern, and do not substitute a clean uniform weave such as plain` +
+  ` herringbone or twill for a flecked one. Render the cloth coarse where it is` +
+  ` coarse: keep the visible yarn, the woven grain and the surface irregularity` +
+  ` rather than smoothing it into a flat printed-looking texture.`;
+
 export const CONSTRUCTION_LOCK =
   ` CONSTRUCTION FIDELITY — the product image is the source of truth, not a` +
   ` starting point. Reproduce the garment exactly as built: the same closure` +
