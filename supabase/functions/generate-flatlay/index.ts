@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { cleanText, referencePromptSegment, exclusionsPromptSegment, fabricOverrideSegment, insideDefaultSegment, SLUB_LOCK, CONSTRUCTION_LOCK, PATTERN_LOCK } from "../_shared/fabric-donts.ts";
+import { cleanText, referencePromptSegment, exclusionsPromptSegment, fabricOverrideSegment, insideDefaultSegment, SLUB_LOCK, FRAME_LOCK, CONSTRUCTION_LOCK, PATTERN_LOCK } from "../_shared/fabric-donts.ts";
 import { buildFlatlayBaseV2 } from "../_shared/flatlay-prompt.ts";
 
 const corsHeaders = {
@@ -163,15 +163,17 @@ serve(async (req) => {
 ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's original colors, fabric, weave, sheen, texture, stitching color and style exactly as in the input. Do NOT recolor, restyle or reinterpret any detail.`;
         imageUrls = [productImageUrl];
       } else if (isHalo && referenceImageUrl) {
-        prompt = `Professional e-commerce GHOST-MANNEQUIN ("halo bust" / invisible mannequin) product photo. Image 1 = THE GARMENT — the single source of truth for ALL visual properties. Image 2 = POSE / ORIENTATION / SILHOUETTE TEMPLATE ONLY, and nothing else.
+        prompt = `Create a high-end e-commerce halo bust / ghost mannequin product mockup.
 
-ABSOLUTE ORIENTATION & POSE RULE (HIGHEST PRIORITY — DO NOT VIOLATE): Match image 2's orientation pixel-for-pixel. This includes view angle (strictly front / strict back / strict 3/4 left / strict 3/4 right / strict side — pick whichever image 2 shows and replicate exactly), camera height and tilt, vertical axis, body rotation around the vertical axis, shoulder line angle, asymmetry, lean, twist, sleeve position (down at sides / one raised / crossed / behind / on hips — copy exactly), hem line angle, garment crop and framing within the frame, scale and centering on the canvas. Do NOT mirror, flip, rotate, re-pose, straighten, "normalize", front-ify, or change the viewing angle of image 2 in any way. If image 2 shows the back, output the back. If image 2 shows a 3/4 view from the left, output a 3/4 view from the left at the exact same degree of rotation. If image 2 shows the garment tilted, output it tilted at the same angle. Treat image 2's silhouette as a hard constraint that the garment from image 1 must be re-skinned onto without altering shape, angle or proportions.
+IMAGE 1 — PRIMARY PRODUCT REFERENCE: This is the actual garment. Preserve its design exactly: silhouette, proportions, collar shape and size, shoulder construction, sleeve shape and volume, cuffs, hem treatment, closure type, zipper or button placement and hardware, pockets, seams, darts and every construction detail. Do not redesign, simplify, tidy or alter the garment in any way.
 
-ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY — DO NOT VIOLATE): The garment in the output MUST be a pixel-faithful, 1:1 reproduction of the garment in image 1. Retain 100% of: every color, hue, saturation, brightness, contrast, tone, undertone, color temperature, gradient, ombré, color block, stripe, panel color, trim color, print, pattern, motif, graphic, text, typography, logo, label, tag, emblem, badge, stitching color and style, button color, zipper teeth and pulls, hardware, fabric type, weave, sheen, texture and material finish exactly as in image 1. Do NOT recolor, tint, shift hue, desaturate, oversaturate, restyle, simplify, smooth, "clean up", reinterpret, stylize, or invent any visual property. Completely IGNORE all colors, prints, patterns, materials, trims, hardware, stitching, logos and labels from image 2 — image 2 contributes ZERO visual/color/identity information. If any detail is ambiguous, copy it 1:1 from image 1. Do NOT add or hallucinate any stitching, branding, logos, badges, buttons, zippers, pockets or trims that are not present in image 1.
+IMAGE 2 — POSE / COMPOSITION REFERENCE ONLY: Copy only the presentation, pose and overall arrangement. Recreate the garment from image 1 as a clean, symmetrical halo bust / ghost mannequin presentation, front-facing and centred, with the sleeves positioned as in image 2. Do NOT copy image 2's colour, pattern, print, fabric, texture, weave, trims, hardware, collar design or construction. Image 2 contributes arrangement and nothing else — if it shows a different garment, that garment is irrelevant.
 
-HALO-BUST SHAPE RULE (STRICT): Render the garment from image 1 as if worn by an invisible human body — natural three-dimensional body shape, realistic volume in the chest/shoulders/torso/arms (and legs/hips for bottoms), correctly draped fabric, soft inner shadow at the neckline opening, inside the sleeves and at the hem, and gentle shading along seams and folds to convey depth. The garment must look filled-out and lifelike, NOT flat. ZERO model, mannequin, person, hands, skin, hair, head, neck, legs or feet may be visible anywhere — only the garment, floating in space with realistic body-shaped volume. The collar, zipper, buttons, plackets, cuffs, pockets and hem must sit in the correct anatomical position and proportion as defined by the garment in image 1, while the overall pose and viewing angle remain identical to image 2.
+HALO-BUST SHAPE: Render the garment as if worn by an invisible body — realistic volume through chest, shoulders, torso and sleeves, fabric draping under its own weight, soft inner shadow at the neck opening, inside the sleeves and at the hem. It reads as filled out, not flat. No person, mannequin, hands, skin, hair or limbs are visible anywhere.
 
-FINAL REINFORCEMENT (HIGHEST PRIORITY): The output must copy image 2's POSITION, POSE, ORIENTATION, ANGLE, ROTATION, FRAMING, SCALE and CENTERING EXACTLY — pixel-for-pixel, 1:1, with zero deviation. Treat image 2 as a hard positional template. The ONLY thing that may change versus image 2 is the garment identity (which comes 100% from image 1). Do not re-pose, re-angle, re-frame, re-center, rescale, mirror, flip or "normalize" image 2 in any way.`;
+PRODUCT PHOTOGRAPHY STYLE: Preserve the authentic product-image appearance of image 1. The finished result must look like the same physical garment professionally photographed for an online fashion store, not a newly designed or reinterpreted one. Soft diffused studio lighting, subtle realistic contact shadow, crisp fabric detail, accurate proportions, premium catalogue finish.
+
+PRIORITY: Product identity and fabric accuracy outrank the pose reference. Wherever image 1 and image 2 disagree about anything other than pose, arrangement and framing, image 1 wins.`;
         imageUrls = [productImageUrl, referenceImageUrl];
       } else if (isHalo) {
         prompt = `Professional e-commerce GHOST-MANNEQUIN ("halo bust" / invisible mannequin) product photo of the garment shown in the input image. Render it as if worn by an invisible human body: natural three-dimensional shape with realistic volume in the chest/shoulders/torso/arms (and legs/hips for bottoms), correctly draped fabric, soft inner shadow at the neckline opening, inside the sleeves and at the hem, and gentle shading along seams and folds to convey depth. The garment must look filled-out and lifelike, NOT flat. ZERO model, mannequin, person, hands, skin, hair, head, neck, legs or feet may be visible — only the garment with realistic body-shaped volume, shot front-on at eye level for a clean e-commerce look.
@@ -264,7 +266,10 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
         // that the product image actually has. Applies to v2 as well.
         + SLUB_LOCK
         // No-op when a lining reference exists, so the two never disagree.
-        + insideDefaultSegment(hasLiningReference);
+        + insideDefaultSegment(hasLiningReference)
+        // Applies in both prompt versions: reference images have roles but were
+        // never told their pixels must stay out of the canvas.
+        + FRAME_LOCK;
 
       const requestBody: any = {
         prompt,

@@ -78,7 +78,11 @@ export function referencePromptSegment(
     parts.push(
       kind === "fabric"
         ? ` Image ${imageIndex} = FABRIC CLOSE-UP. This is a material swatch of the garment's own fabric — it is NOT a separate product, garment or graphic to add. Reproduce its texture, weave, knit structure and sheen across the garment, and do not substitute a different material.`
-        : ` Image ${imageIndex} = LINING / INSIDE REFERENCE. This is the garment's inner lining — it is NOT a separate product to add. Apply it only where the inside is actually visible, such as an open collar, a folded cuff or a turned-up hem. If no inside is visible in the result, ignore it entirely.`,
+        // The old wording ended "if no inside is visible, ignore it entirely",
+        // which reads as permission to leave the lining out — and the interior
+        // was both vanishing and changing colour between renders. It now pins
+        // the colour and states the stability requirement outright.
+        : ` Image ${imageIndex} = INNER LINING REFERENCE. This is the garment's own inner lining, not a separate product to add. Use it as the exact reference for the lining's colour, depth of tone, material and surface finish. Reproduce that colour precisely and identically in every render — it must not lighten, darken, shift hue, pick up a tint from the outer fabric, or change material from one generation to the next. The lining is visible only where the real garment would expose it: the open collar or neckline, inside an open zip or front, a folded cuff, a turned hem. Where the garment has a lining, it must be present and clearly readable at those openings rather than replaced by the outer fabric.`,
     );
   }
 
@@ -221,6 +225,29 @@ export function insideDefaultSegment(hasLiningReference: boolean): string {
     ` interior from one render to the next: it is whatever the product image says` +
     ` it is, every time.`;
 }
+
+/**
+ * Keeps fragments of the reference images out of the canvas.
+ *
+ * OBSERVED FAILURE
+ * A soft pink/peach blob appeared in the top-left corner of an otherwise clean
+ * flatlay — foreign material, most likely bled in from one of the reference or
+ * swatch images.
+ *
+ * The prompts ask for a "clean, neutral background" but never state that the
+ * frame may contain ONLY the garment. Reference images are described by role
+ * ("layout template", "fabric close-up") without ever saying their pixels must
+ * not appear, so a stray corner of one is not obviously a violation.
+ */
+export const FRAME_LOCK =
+  ` FRAME CONTENTS — the finished image contains the garment and the specified` +
+  ` background, and nothing else at all. No part of any reference, template,` +
+  ` swatch or label image may appear anywhere in the frame: no corner, edge,` +
+  ` fragment, smear or colour bleed from them, and no second copy of the` +
+  ` garment. No hanger, hook, rail, clip, pin, tag, price ticket, packaging,` +
+  ` prop, hand, furniture, floor, wall or window. The background is even and` +
+  ` unbroken right to all four edges and into every corner, carrying nothing but` +
+  ` the garment's own soft shadow.`;
 
 export const CONSTRUCTION_LOCK =
   ` CONSTRUCTION FIDELITY — the product image is the source of truth, not a` +
