@@ -252,27 +252,29 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
         if (hasLiningImg) imageUrls.push(lining_reference_image);
       }
 
-      // Garment fidelity. These are stated affirmatively in the positive
-      // prompt: nano-banana-pro has no negative_prompt, and system_prompt
-      // proved too soft — excluded lining kept appearing anyway.
-      // v1 appends both locks. v2 already states construction and pattern
-      // fidelity once in its own FIDELITY block — re-appending them would
-      // reintroduce the duplication the variant exists to test.
-      prompt += (useV2 ? "" : CONSTRUCTION_LOCK + PATTERN_LOCK)
+      // PROMPT WEIGHT — deliberately light for the halo + reference path.
+      //
+      // These clauses were added one at a time, each fixing a real observed
+      // failure, and each was appended LAST because last position is what made
+      // it win. But last position is zero-sum: the collar fix worked while it
+      // held the final slot and regressed the moment another block took it.
+      // The stack reached 6,471 always-on characters across nine blocks.
+      //
+      // A four-line prompt then outperformed the whole stack on the same
+      // garment — correct pale collar facing, wide collar, faithful weave. The
+      // clauses were not adding fidelity, they were competing for it.
+      //
+      // So the halo + reference path now runs light: the roles are stated in
+      // the base prompt and only the two findings that never came for free are
+      // kept — flecks averaging into flat colour, and distinctive proportions
+      // being normalised. Everything else is left to the base prompt.
+      const heavyLocks = !(isHalo && referenceImageUrl);
+
+      prompt += (useV2 || !heavyLocks ? "" : CONSTRUCTION_LOCK + PATTERN_LOCK + FRAME_LOCK)
         + exclusionsPromptSegment(cleanText(negative_prompt))
-        // LAST, deliberately. The locks above re-assert that the product image
-        // owns the material; without the final word an uploaded swatch loses.
-        + fabricOverrideSegment(fabricImageIndex, fabricDesc)
-        // After the override on purpose. The override can point material at a
-        // swatch, and a plain swatch would otherwise licence dropping flecks
-        // that the product image actually has. Applies to v2 as well.
+        + (heavyLocks ? fabricOverrideSegment(fabricImageIndex, fabricDesc) : "")
+        + (heavyLocks ? insideDefaultSegment(hasLiningReference) : "")
         + SLUB_LOCK
-        // No-op when a lining reference exists, so the two never disagree.
-        + insideDefaultSegment(hasLiningReference)
-        // Applies in both prompt versions: reference images have roles but were
-        // never told their pixels must stay out of the canvas.
-        + FRAME_LOCK
-        // Unusual proportions are the design, not an error to be corrected.
         + SILHOUETTE_LOCK;
 
       const requestBody: any = {
