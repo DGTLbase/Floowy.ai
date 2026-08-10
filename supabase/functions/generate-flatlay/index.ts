@@ -155,6 +155,9 @@ serve(async (req) => {
       let prompt: string;
       let imageUrls: string[];
       const isHalo = outputType === "halo_bust" && variant !== "collar-closeup";
+      // Declared here because the background line is deferred on this path.
+      const simple = isHalo && !!referenceImageUrl;
+      let deferredBackground = "";
 
       if (variant === "collar-closeup") {
         // Closeup of the inner back neck / collar to showcase the brand label
@@ -163,11 +166,11 @@ serve(async (req) => {
 ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's original colors, fabric, weave, sheen, texture, stitching color and style exactly as in the input. Do NOT recolor, restyle or reinterpret any detail.`;
         imageUrls = [productImageUrl];
       } else if (isHalo && referenceImageUrl) {
-        prompt = `Create a high-end e-commerce halo bust / ghost mannequin product photo of the garment in image 1.
+        prompt = `Create a high-end e-commerce halo bust (ghost mannequin) product photo of the garment in image 1.
 
-Keep image 1's exact design and appearance: silhouette, proportions, collar size and shape, shoulder construction, sleeves, cuffs, hem, closure and hardware, and its exact colours, weave, texture and any flecks — including the colours of its interior surfaces wherever they are visible, such as the inner collar stand and neck facing.
-
-Use image 2 as reference for how the clothing pose is — arrangement, framing and sleeve position only. Take nothing else from image 2: not its colour, pattern, fabric or construction.`;
+IMAGE ROLES
+Image 1 is the garment, and the only source of how it looks.
+Image 2 sets the presentation only: the pose, arrangement, framing, sleeve position, and how far the closure is done up or left open. Take nothing else from image 2 — not its colour, pattern, fabric, collar shape or construction.`;
         imageUrls = [productImageUrl, referenceImageUrl];
       } else if (isHalo) {
         prompt = `Professional e-commerce GHOST-MANNEQUIN ("halo bust" / invisible mannequin) product photo of the garment shown in the input image. Render it as if worn by an invisible human body: natural three-dimensional shape with realistic volume in the chest/shoulders/torso/arms (and legs/hips for bottoms), correctly draped fabric, soft inner shadow at the neckline opening, inside the sleeves and at the hem, and gentle shading along seams and folds to convey depth. The garment must look filled-out and lifelike, NOT flat. ZERO model, mannequin, person, hands, skin, hair, head, neck, legs or feet may be visible — only the garment with realistic body-shaped volume, shot front-on at eye level for a clean e-commerce look.
@@ -203,9 +206,11 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
       // we bake the background into the prompt. Transparent removes bg later.
       if (!transparentBackground) {
         if (backgroundColor) {
-          prompt += ` Background: a clean solid ${backgroundColor} surface, evenly lit, no texture, no shadows beyond a soft natural drop shadow under the garment.`;
+          const bg = ` A clean solid ${backgroundColor} background, evenly lit, with no texture.`;
+          if (simple) deferredBackground = bg; else prompt += bg;
         } else {
-          prompt += ` Clean, neutral background only.`;
+          const bg = ` A clean, neutral background.`;
+          if (simple) deferredBackground = bg; else prompt += bg;
         }
       } else {
         prompt += ` Clean, neutral background only.`;
@@ -224,12 +229,6 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
       // Fabric close-up and lining reference. Each is added the same way the
       // label is: work out the 1-based slot it will occupy, name that slot in
       // the prompt, then push the URL. Description-only is supported too.
-      // "Use that exact prompt" — on the halo + reference path the roles are
-      // stated in one short sentence each, exactly as the hand-written prompt
-      // that outperformed the clause stack did. Indices are computed from the
-      // slots actually present, so 2, 3 or 4 references all read correctly.
-      const simple = isHalo && !!referenceImageUrl;
-
       const fabricDesc = cleanText(fabric_description);
       const hasFabricImg = typeof fabric_reference_image === 'string' && fabric_reference_image.length > 0;
       // Remembered so the override below can name the same slot. Naming it once
@@ -239,7 +238,7 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
       if (hasFabricImg || fabricDesc) {
         fabricImageIndex = hasFabricImg ? imageUrls.length + 1 : null;
         prompt += simple
-          ? (fabricImageIndex ? ` Use image ${fabricImageIndex} for fabric style.` : ``)
+          ? (fabricImageIndex ? `\nImage ${fabricImageIndex} is a close-up of the fabric — match its weave and surface.` : ``)
             + (fabricDesc ? ` The fabric is ${fabricDesc}.` : ``)
           : referencePromptSegment('fabric', fabricDesc, fabricImageIndex);
         if (hasFabricImg) imageUrls.push(fabric_reference_image);
@@ -280,6 +279,22 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
         + (heavyLocks ? fabricOverrideSegment(fabricImageIndex, fabricDesc) : "")
         + (heavyLocks ? insideDefaultSegment(hasLiningReference) : "")
         + (heavyLocks ? SLUB_LOCK + SILHOUETTE_LOCK : "")
+        // One coherent closing section rather than separate competing blocks.
+        // Each rule is stated once and names the specific failure it prevents,
+        // because generic emphasis ("retain 100% of colours", seven times) is
+        // what failed all along.
+        + (simple ? `
+
+THE GARMENT
+Reproduce image 1 exactly as it is built and as it looks. Its distinctive proportions are deliberate design: an oversized or wide collar keeps its full span across the shoulders, gathered shoulders stay as full, a boxy or cropped body keeps that shape. Nothing is normalised toward a more ordinary jacket.
+
+Render the cloth as woven fabric rather than a printed surface: keep the weave's direction, scale and contrast, the visible yarn and surface irregularity, and any coloured flecks as discrete specks in their own colours. Do not smooth, denoise, blur or flatten it, and do not replace a distinct weave with a faint or generic one. Hardware keeps its own metal tone — a brass zip stays warm, a nickel one stays cold.
+
+THE INSIDE
+Wherever the interior is visible it comes from image 1: the inner collar stand, the neck facing and the area around the label keep exactly the colour and lightness image 1 shows there. A lining reference describes the body lining seen down the opening; it never repaints the collar or neck.
+
+THE SHOT
+Worn by an invisible body with natural volume through the shoulders, chest and sleeves, fabric draping under its own weight, soft shadow inside the neck opening and cuffs. ${deferredBackground} Soft even studio light and one natural contact shadow. Only the garment is in frame — no hanger, hook, prop, hand, or fragment of any reference image.` : "")
         // Closing line only, matching the hand-written prompt's shape.
         + (simple ? ` Render it as if worn by an invisible body, on a clean studio background, with only the garment in frame.` : "");
 
