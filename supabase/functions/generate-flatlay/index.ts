@@ -163,11 +163,7 @@ serve(async (req) => {
 ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's original colors, fabric, weave, sheen, texture, stitching color and style exactly as in the input. Do NOT recolor, restyle or reinterpret any detail.`;
         imageUrls = [productImageUrl];
       } else if (isHalo && referenceImageUrl) {
-        prompt = `Create a high-end e-commerce halo bust / ghost mannequin product photo of the garment in image 1.
-
-Keep image 1's exact design and appearance: silhouette, proportions, collar size and shape, shoulder construction, sleeves, cuffs, hem, closure and hardware, and its exact colours, weave, texture and any flecks — including the colours of its interior surfaces wherever they are visible, such as the inner collar stand and neck facing.
-
-Use image 2 as reference for how the clothing pose is — arrangement, framing and sleeve position only. Take nothing else from image 2: not its colour, pattern, fabric or construction.`;
+        prompt = `Create a halo bust / ghost mannequin product photo of the garment in image 1. Use image 2 as reference for how the clothing pose is.`;
         imageUrls = [productImageUrl, referenceImageUrl];
       } else if (isHalo) {
         prompt = `Professional e-commerce GHOST-MANNEQUIN ("halo bust" / invisible mannequin) product photo of the garment shown in the input image. Render it as if worn by an invisible human body: natural three-dimensional shape with realistic volume in the chest/shoulders/torso/arms (and legs/hips for bottoms), correctly draped fabric, soft inner shadow at the neckline opening, inside the sleeves and at the hem, and gentle shading along seams and folds to convey depth. The garment must look filled-out and lifelike, NOT flat. ZERO model, mannequin, person, hands, skin, hair, head, neck, legs or feet may be visible — only the garment with realistic body-shaped volume, shot front-on at eye level for a clean e-commerce look.
@@ -251,7 +247,7 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
       if (hasLiningImg || liningDesc) {
         const liningIdx = hasLiningImg ? imageUrls.length + 1 : null;
         prompt += simple
-          ? (liningIdx ? ` Use image ${liningIdx} for the lining only, but retain the current inner clothing colour.` : ``)
+          ? (liningIdx ? ` Use image ${liningIdx} for the lining only but retain the current inner clothing color.` : ``)
             + (liningDesc ? ` The lining is ${liningDesc}.` : ``)
           : referencePromptSegment('lining', liningDesc, liningIdx);
         if (hasLiningImg) imageUrls.push(lining_reference_image);
@@ -280,8 +276,7 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
         + (heavyLocks ? fabricOverrideSegment(fabricImageIndex, fabricDesc) : "")
         + (heavyLocks ? insideDefaultSegment(hasLiningReference) : "")
         + (heavyLocks ? SLUB_LOCK + SILHOUETTE_LOCK : "")
-        // Closing line only, matching the hand-written prompt's shape.
-        + (simple ? ` Render it as if worn by an invisible body, on a clean studio background, with only the garment in frame.` : "");
+        + "";
 
       const requestBody: any = {
         prompt,
