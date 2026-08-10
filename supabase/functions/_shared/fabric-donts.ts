@@ -285,6 +285,35 @@ export const SILHOUETTE_LOCK =
   ` warm and gold, a cold nickel or silver one stays cold and silver, matching` +
   ` the product image exactly rather than defaulting to silver.`;
 
+/**
+ * The product image is the authority on interior COLOUR. Appended last.
+ *
+ * OBSERVED FAILURE
+ * A jacket whose product photo plainly shows a pale heather collar stand kept
+ * rendering it black, because the uploaded lining reference is genuinely
+ * near-black and the model's own default for jacket interiors is black too.
+ * Instruction and prior were pushing the same way, and scoping the lining
+ * clause to "the body" was not enough to win.
+ *
+ * The rule is now simple and absolute rather than a boundary to be reasoned
+ * about: any interior surface visible in the product image takes its colour
+ * from the product image. A lining reference contributes material and finish,
+ * and colour only where the product image shows nothing.
+ */
+export const INTERIOR_COLOUR_LOCK =
+  ` INTERIOR COLOUR — the product image is the authority on the colour of every` +
+  ` interior surface, and this outranks any lining reference. Wherever an inside` +
+  ` surface is visible in the product image — the inner collar stand, the neck` +
+  ` facing, the area behind and around the neck label, the front facings beside a` +
+  ` zip or placket, a folded cuff, a turned hem, an open lapel — reproduce that` +
+  ` surface in exactly the colour, lightness and tone the product image shows` +
+  ` there. If the product image shows a pale, heather or light grey collar` +
+  ` facing, that facing is pale in the output, no matter how dark any lining` +
+  ` reference is. A lining reference supplies the lining's material, weave and` +
+  ` finish, and supplies colour ONLY for interior areas the product image never` +
+  ` shows. It never repaints a colour the product image already establishes, and` +
+  ` a dark body lining is never carried up into a pale collar or neck facing.`;
+
 export const CONSTRUCTION_LOCK =
   ` CONSTRUCTION FIDELITY — the product image is the source of truth, not a` +
   ` starting point. Reproduce the garment exactly as built: the same closure` +

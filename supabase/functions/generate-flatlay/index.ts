@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { cleanText, referencePromptSegment, exclusionsPromptSegment, fabricOverrideSegment, insideDefaultSegment, SLUB_LOCK, SILHOUETTE_LOCK, FRAME_LOCK, CONSTRUCTION_LOCK, PATTERN_LOCK } from "../_shared/fabric-donts.ts";
+import { cleanText, referencePromptSegment, exclusionsPromptSegment, fabricOverrideSegment, insideDefaultSegment, SLUB_LOCK, SILHOUETTE_LOCK, FRAME_LOCK, INTERIOR_COLOUR_LOCK, CONSTRUCTION_LOCK, PATTERN_LOCK } from "../_shared/fabric-donts.ts";
 import { buildFlatlayBaseV2 } from "../_shared/flatlay-prompt.ts";
 
 const corsHeaders = {
@@ -273,7 +273,11 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
         // never told their pixels must stay out of the canvas.
         + FRAME_LOCK
         // Unusual proportions are the design, not an error to be corrected.
-        + SILHOUETTE_LOCK;
+        + SILHOUETTE_LOCK
+        // ABSOLUTELY LAST. It has to outrank the lining reference introduced
+        // hundreds of words earlier, and the model's own default of a black
+        // jacket interior, both of which were beating the scoped version.
+        + INTERIOR_COLOUR_LOCK;
 
       const requestBody: any = {
         prompt,
