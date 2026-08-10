@@ -163,19 +163,11 @@ serve(async (req) => {
 ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's original colors, fabric, weave, sheen, texture, stitching color and style exactly as in the input. Do NOT recolor, restyle or reinterpret any detail.`;
         imageUrls = [productImageUrl];
       } else if (isHalo && referenceImageUrl) {
-        prompt = `Create a high-end e-commerce halo bust / ghost mannequin product mockup.
+        prompt = `Create a high-end e-commerce halo bust / ghost mannequin product photo of the garment in image 1.
 
-IMAGE 1 — PRIMARY PRODUCT REFERENCE: This is the actual garment. Preserve its design exactly: silhouette, proportions, collar shape and size, shoulder construction, sleeve shape and volume, cuffs, hem treatment, closure type, zipper or button placement and hardware, pockets, seams, darts and every construction detail. Do not redesign, simplify, tidy or alter the garment in any way.
+Keep image 1's exact design and appearance: silhouette, proportions, collar size and shape, shoulder construction, sleeves, cuffs, hem, closure and hardware, and its exact colours, weave, texture and any flecks — including the colours of its interior surfaces wherever they are visible, such as the inner collar stand and neck facing.
 
-Image 1 is equally the source of truth for how the garment LOOKS. Reproduce its exact colours, shades and tonal contrast, its weave structure and the direction and scale of that weave, its pattern, print, motifs and any coloured flecks or slubs, its surface texture, visible yarn, grain, pile and irregularity, its sheen and material finish, and its stitching, trims and hardware colours. Render the cloth as woven fabric at the same crispness and contrast as image 1 — do NOT smooth, soften, blur, denoise, flatten, de-texture or "clean up" the surface, do not reduce a distinct weave to a faint one, and never substitute a generic even grey or plain flat cloth for a structured or flecked one. This covers the inside as well: wherever an interior surface is visible in image 1 — the inner collar stand, the neck facing, the area around the label, the front facings beside the zip — reproduce it in the colour and lightness image 1 shows there, even where a separate lining reference is darker. If a detail is ambiguous, copy it rather than interpret it.
-
-IMAGE 2 — POSE / COMPOSITION REFERENCE ONLY: Copy only the presentation, pose and overall arrangement. Recreate the garment from image 1 as a clean, symmetrical halo bust / ghost mannequin presentation, front-facing and centred, with the sleeves positioned as in image 2. Do NOT copy image 2's colour, pattern, print, fabric, texture, weave, trims, hardware, collar design or construction. Image 2 contributes arrangement and nothing else — if it shows a different garment, that garment is irrelevant.
-
-HALO-BUST SHAPE: Render the garment as if worn by an invisible body — realistic volume through chest, shoulders, torso and sleeves, fabric draping under its own weight, soft inner shadow at the neck opening, inside the sleeves and at the hem. It reads as filled out, not flat. No person, mannequin, hands, skin, hair or limbs are visible anywhere.
-
-PRODUCT PHOTOGRAPHY STYLE: Preserve the authentic product-image appearance of image 1. The finished result must look like the same physical garment professionally photographed for an online fashion store, not a newly designed or reinterpreted one. Soft diffused studio lighting, subtle realistic contact shadow, crisp fabric detail, accurate proportions, premium catalogue finish.
-
-PRIORITY: Product identity and fabric accuracy outrank the pose reference. Wherever image 1 and image 2 disagree about anything other than pose, arrangement and framing, image 1 wins.`;
+Use image 2 as reference for how the clothing pose is — arrangement, framing and sleeve position only. Take nothing else from image 2: not its colour, pattern, fabric or construction.`;
         imageUrls = [productImageUrl, referenceImageUrl];
       } else if (isHalo) {
         prompt = `Professional e-commerce GHOST-MANNEQUIN ("halo bust" / invisible mannequin) product photo of the garment shown in the input image. Render it as if worn by an invisible human body: natural three-dimensional shape with realistic volume in the chest/shoulders/torso/arms (and legs/hips for bottoms), correctly draped fabric, soft inner shadow at the neckline opening, inside the sleeves and at the hem, and gentle shading along seams and folds to convey depth. The garment must look filled-out and lifelike, NOT flat. ZERO model, mannequin, person, hands, skin, hair, head, neck, legs or feet may be visible — only the garment with realistic body-shaped volume, shot front-on at eye level for a clean e-commerce look.
@@ -232,6 +224,12 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
       // Fabric close-up and lining reference. Each is added the same way the
       // label is: work out the 1-based slot it will occupy, name that slot in
       // the prompt, then push the URL. Description-only is supported too.
+      // "Use that exact prompt" — on the halo + reference path the roles are
+      // stated in one short sentence each, exactly as the hand-written prompt
+      // that outperformed the clause stack did. Indices are computed from the
+      // slots actually present, so 2, 3 or 4 references all read correctly.
+      const simple = isHalo && !!referenceImageUrl;
+
       const fabricDesc = cleanText(fabric_description);
       const hasFabricImg = typeof fabric_reference_image === 'string' && fabric_reference_image.length > 0;
       // Remembered so the override below can name the same slot. Naming it once
@@ -240,7 +238,10 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
       let fabricImageIndex: number | null = null;
       if (hasFabricImg || fabricDesc) {
         fabricImageIndex = hasFabricImg ? imageUrls.length + 1 : null;
-        prompt += referencePromptSegment('fabric', fabricDesc, fabricImageIndex);
+        prompt += simple
+          ? (fabricImageIndex ? ` Use image ${fabricImageIndex} for fabric style.` : ``)
+            + (fabricDesc ? ` The fabric is ${fabricDesc}.` : ``)
+          : referencePromptSegment('fabric', fabricDesc, fabricImageIndex);
         if (hasFabricImg) imageUrls.push(fabric_reference_image);
       }
 
@@ -248,7 +249,11 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
       const hasLiningImg = typeof lining_reference_image === 'string' && lining_reference_image.length > 0;
       const hasLiningReference = hasLiningImg || !!liningDesc;
       if (hasLiningImg || liningDesc) {
-        prompt += referencePromptSegment('lining', liningDesc, hasLiningImg ? imageUrls.length + 1 : null);
+        const liningIdx = hasLiningImg ? imageUrls.length + 1 : null;
+        prompt += simple
+          ? (liningIdx ? ` Use image ${liningIdx} for the lining only, but retain the current inner clothing colour.` : ``)
+            + (liningDesc ? ` The lining is ${liningDesc}.` : ``)
+          : referencePromptSegment('lining', liningDesc, liningIdx);
         if (hasLiningImg) imageUrls.push(lining_reference_image);
       }
 
@@ -268,14 +273,15 @@ ABSOLUTE COLOR & IDENTITY RULE (HIGHEST PRIORITY): Retain 100% of the garment's 
       // the base prompt and only the two findings that never came for free are
       // kept — flecks averaging into flat colour, and distinctive proportions
       // being normalised. Everything else is left to the base prompt.
-      const heavyLocks = !(isHalo && referenceImageUrl);
+      const heavyLocks = !simple;
 
       prompt += (useV2 || !heavyLocks ? "" : CONSTRUCTION_LOCK + PATTERN_LOCK + FRAME_LOCK)
         + exclusionsPromptSegment(cleanText(negative_prompt))
         + (heavyLocks ? fabricOverrideSegment(fabricImageIndex, fabricDesc) : "")
         + (heavyLocks ? insideDefaultSegment(hasLiningReference) : "")
-        + SLUB_LOCK
-        + SILHOUETTE_LOCK;
+        + (heavyLocks ? SLUB_LOCK + SILHOUETTE_LOCK : "")
+        // Closing line only, matching the hand-written prompt's shape.
+        + (simple ? ` Render it as if worn by an invisible body, on a clean studio background, with only the garment in frame.` : "");
 
       const requestBody: any = {
         prompt,
