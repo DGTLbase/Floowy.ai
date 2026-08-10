@@ -226,9 +226,26 @@ export async function reportInvoiceToGa4(stripe: any, invoice: any): Promise<voi
 
     // Only stamp on success, so a transient failure can be retried by Stripe's
     // redelivery rather than being silently swallowed forever.
+    //
+    // The stamp now records WHICH property the event was sent to and whether it
+    // carried real attribution. `ga4_reported: "purchase"` on its own says the
+    // send returned 2xx — which the Measurement Protocol does even for a
+    // rejected credential — so it could never distinguish "landed in GA4" from
+    // "silently discarded". It also could not reveal that a warm isolate was
+    // still holding a stale GA4_MEASUREMENT_ID and posting to the old property,
+    // which is exactly what happened and cost two days to find.
+    //
+    // Stripe is the one surface here that is readable without log access, so
+    // the invoice is where this belongs: every future invoice now says, on its
+    // own, where its conversion went.
     if (ok) {
       await stripe.invoices.update(invoice.id, {
-        metadata: { ...(invoice.metadata ?? {}), ga4_reported: eventName },
+        metadata: {
+          ...(invoice.metadata ?? {}),
+          ga4_reported: eventName,
+          ga4_measurement_id: Deno.env.get("GA4_MEASUREMENT_ID") ?? "unset",
+          ga4_attributed: clientId ? "yes" : "no",
+        },
       });
     }
   } catch (err) {
