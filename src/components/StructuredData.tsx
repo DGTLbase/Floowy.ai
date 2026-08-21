@@ -5,13 +5,19 @@ interface BreadcrumbItem {
   url: string;
 }
 
-interface StructuredDataProps {
-  type: "organization" | "breadcrumb" | "product" | "article";
-  data?: any;
-  breadcrumbs?: BreadcrumbItem[];
+interface FaqItem {
+  question: string;
+  answer: string;
 }
 
-const StructuredData = ({ type, data, breadcrumbs }: StructuredDataProps) => {
+interface StructuredDataProps {
+  type: "organization" | "breadcrumb" | "product" | "article" | "faq" | "software";
+  data?: any;
+  breadcrumbs?: BreadcrumbItem[];
+  faqs?: FaqItem[];
+}
+
+const StructuredData = ({ type, data, breadcrumbs, faqs }: StructuredDataProps) => {
   const getSchema = () => {
     switch (type) {
       case "organization":
@@ -34,6 +40,39 @@ const StructuredData = ({ type, data, breadcrumbs }: StructuredDataProps) => {
           }
         };
       
+      // FAQPage. The landing brief requires this so the answers can be cited
+      // directly in AI answers and shown as rich results.
+      case "faq":
+        if (!faqs || faqs.length === 0) return null;
+        return {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": faqs.map((f) => ({
+            "@type": "Question",
+            "name": f.question,
+            "acceptedAnswer": { "@type": "Answer", "text": f.answer },
+          })),
+        };
+
+      // SoftwareApplication for a specific tool page, rather than the
+      // site-wide Organization schema.
+      case "software":
+        return {
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          "name": data?.name ?? "Floowy",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web",
+          "url": data?.url ?? "https://floowy.ai",
+          "description": data?.description ?? "",
+          "offers": {
+            "@type": "Offer",
+            "price": data?.price ?? "1",
+            "priceCurrency": data?.currency ?? "EUR",
+            "description": data?.offerDescription ?? "",
+          },
+        };
+
       case "breadcrumb":
         if (!breadcrumbs || breadcrumbs.length === 0) return null;
         return {
