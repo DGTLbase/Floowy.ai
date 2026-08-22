@@ -73,7 +73,7 @@ const Admin = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
-  const [activeTab, setActiveTab] = useState<"users" | "tools" | "team" | "email" | "kb-videos" | "community" | "gallery" | "models" | "flatlay-styles">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "tools" | "team" | "email" | "kb-videos" | "community" | "gallery" | "models" | "flatlay-styles" | "euro1">("users");
   const [adminAccounts, setAdminAccounts] = useState<any[]>([]);
   const [userModalTab, setUserModalTab] = useState("account");
   const [userGenerations, setUserGenerations] = useState<any[]>([]);
@@ -114,7 +114,7 @@ const Admin = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
-    if (tab === 'users' || tab === 'tools' || tab === 'team' || tab === 'email' || tab === 'kb-videos' || tab === 'community' || tab === 'gallery' || tab === 'models' || tab === 'flatlay-styles') {
+    if (tab === 'users' || tab === 'tools' || tab === 'team' || tab === 'email' || tab === 'kb-videos' || tab === 'community' || tab === 'gallery' || tab === 'models' || tab === 'flatlay-styles' || tab === 'euro1') {
       setActiveTab(tab as any);
     } else if (!tab) {
       // Redirect to dashboard if no tab is specified
@@ -2206,6 +2206,10 @@ const Admin = () => {
 
         {activeTab === "models" && (
           <AdminModelsPanel />
+        )}
+
+        {activeTab === "euro1" && (
+          <AdminEuro1Panel />
         )}
 
         {activeTab === "flatlay-styles" && (

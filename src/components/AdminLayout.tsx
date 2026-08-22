@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Users, Wrench, UsersRound, LogOut, BarChart3, FileText, Mail, Video, Globe, ImageIcon, UserCircle, Briefcase, LayoutGrid, Building2 } from "lucide-react";
+import { Users, CreditCard, Wrench, UsersRound, LogOut, BarChart3, FileText, Mail, Video, Globe, ImageIcon, UserCircle, Briefcase, LayoutGrid, Building2 } from "lucide-react";
 import logoImage from "@/assets/floowy-logo.png";
 import { useTheme } from "next-themes";
 
@@ -55,6 +55,18 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <Users className="w-5 h-5" />
         </button>
         
+        <button
+          onClick={() => navigate("/admin?tab=euro1")}
+          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+            isActive("/admin?tab=euro1")
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted"
+          }`}
+          title="€1 subscriptions"
+        >
+          <CreditCard className="w-5 h-5" />
+        </button>
+
         <button
           onClick={() => navigate("/admin?tab=tools")}
           className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
