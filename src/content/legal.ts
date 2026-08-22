@@ -140,6 +140,7 @@ const termDefs: string[] = [
   "<strong>Annex:</strong> Appendix to these Conditions containing specific provisions related to the Services provided.",
   "<strong>Client:</strong> The natural person or legal entity that has entered into, or intends to enter into, an Agreement with Floowy.ai.",
   "<strong>Conditions:</strong> These general terms and conditions of Floowy.ai, including all applicable Annexes.",
+  "<strong>Credit(s):</strong> A prepaid, non-refundable unit purchased by the Client that entitles the Client to use certain features or functionalities of the Service(s), as further specified on the Floowy.ai platform or in the applicable Agreement.",
   "<strong>Floowy.ai:</strong> Contracted party — Floowy AI B.V., acting under the trade name Floowy.ai, including its group companies that have declared these Conditions applicable.",
   "<strong>IP Rights:</strong> All intellectual property rights, including but not limited to copyrights, trade marks, patents, design rights, trade names, database rights, and know-how.",
   "<strong>Parties:</strong> Floowy.ai and the Client.",
@@ -150,7 +151,7 @@ const termDefs: string[] = [
 export const termsConditions: LegalDoc = {
   path: "/terms-conditions",
   title: "Terms & Conditions",
-  version: "Version November 2025",
+  version: "Version July 2026",
   footer: "© 2025 Floowy AI B.V. – All rights reserved.",
   sections: [
     {
@@ -204,6 +205,12 @@ export const termsConditions: LegalDoc = {
         { type: "p", html: "5.4. Late payment incurs statutory commercial interest and collection costs." },
         { type: "p", html: "5.5. Floowy.ai may withhold Services if payment obligations are not met." },
         { type: "p", html: "5.6. Prices may be indexed annually in line with the CBS consumer price index plus a maximum of 25%." },
+        { type: "p", html: "5.7. The Client may purchase Credits for use within the Service(s). The applicable price, package size, and validity of Credits are as stated on the Floowy.ai platform at the time of purchase." },
+        { type: "p", html: "5.8. Credits are prepaid and, once purchased, are final and non-refundable. This applies regardless of whether the Credits have been used, partially used, or remain unused, and regardless of the reason for non-use, including but not limited to termination of the Agreement, suspension of the Client's account, or discontinued use of the Service(s) by the Client." },
+        { type: "p", html: "5.9. Credits have no monetary value outside the Floowy.ai platform, cannot be exchanged for cash, and cannot be transferred to third parties or to another Client account, unless explicitly agreed in writing by Floowy.ai." },
+        { type: "p", html: "5.10. Credits are subject to the validity period (if any) stated at the time of purchase. Credits that are not used within this period expire automatically and without compensation." },
+        { type: "p", html: "5.11. Floowy.ai reserves the right to correct, adjust, or revoke Credits in the event of a technical error, fraud, or abuse of the Service(s), without the Client being entitled to compensation." },
+        { type: "p", html: "5.12. Article 5.8 does not affect any mandatory statutory rights of the Client that cannot be excluded under applicable law." },
       ],
     },
     {

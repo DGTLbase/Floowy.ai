@@ -23,7 +23,6 @@ import socialScraperCover from "@/assets/social-scraper-cover.png";
 
 import { canAccessFashionStudio } from "@/lib/fashion-video-config";
 import { canAccessVideoRecreation } from "@/lib/video-recreation-config";
-import { canAccessSocialScraper } from "@/lib/social-scraper-access";
 
 export type ToolType = "image" | "video";
 export type ToolCategoryId = "fashion" | "product" | "content" | "ads" | "video";
@@ -252,8 +251,9 @@ export const TOOLS: ToolDef[] = [
     access: "coming-soon",
   },
   {
-    // Research tool — limited preview. Not part of the public briefing inventory
-    // but kept working for allowlisted users; hidden for everyone else.
+    // Research tool — publicly listed. The Starter+ plan gate is enforced at the
+    // page level (SocialScraper.tsx redirects below-Starter to /payment) and in
+    // the social-scrape edge function, so the tile is shown to everyone.
     id: "social-scraper",
     name: "Social Scraper",
     categoryLabel: "Content",
@@ -263,8 +263,8 @@ export const TOOLS: ToolDef[] = [
     route: "/tool/social-scraper",
     cover: socialScraperCover,
     coverType: "image",
-    access: "allowlist",
-    allow: canAccessSocialScraper,
+    badge: "Starter",
+    access: "public",
   },
 
   // ── Ads and listings ─────────────────────────────────────────────────────

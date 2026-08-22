@@ -49,26 +49,31 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
-    // Find active subscription
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customerId,
-      status: "active",
-      limit: 1,
-    });
-
+    // Find the subscription. €1-trial users ("€1 first 3 days") are in status
+    // "trialing", NOT "active" yet — so an active-only lookup wrongly reported
+    // "No active subscription found" and the discount failed for trial users.
+    // Check active first, then trialing.
+    let subscriptions = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 });
     if (subscriptions.data.length === 0) {
-      throw new Error("No active subscription found");
+      subscriptions = await stripe.subscriptions.list({ customer: customerId, status: "trialing", limit: 1 });
+    }
+    if (subscriptions.data.length === 0) {
+      throw new Error("No active or trialing subscription found");
     }
 
     const subscription = subscriptions.data[0];
-    logStep("Found active subscription", { subscriptionId: subscription.id });
+    logStep("Found subscription", { subscriptionId: subscription.id, status: subscription.status });
 
-    // Check if subscription already has a discount
-    if (subscription.discount) {
-      logStep("Subscription already has a discount", { coupon: subscription.discount.coupon?.id });
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: "A discount is already applied to your subscription." 
+    // Check if the subscription already has a discount. Stripe API 2025-08-27
+    // exposes discounts as the `discounts` array; the singular `discount` field is
+    // deprecated and comes back null, so rely on `discounts` (fall back to legacy).
+    const existingDiscounts = (subscription as any).discounts as unknown[] | undefined;
+    const alreadyDiscounted = (Array.isArray(existingDiscounts) && existingDiscounts.length > 0) || !!subscription.discount;
+    if (alreadyDiscounted) {
+      logStep("Subscription already has a discount");
+      return new Response(JSON.stringify({
+        success: false,
+        error: "A discount is already applied to your subscription.",
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -102,10 +107,12 @@ serve(async (req) => {
     const updatedSubscription = await stripe.subscriptions.update(subscription.id, {
       discounts: [{ coupon: couponId }],
     });
+    const appliedCoupon = ((updatedSubscription as any).discounts?.[0]?.coupon?.id)
+      ?? updatedSubscription.discount?.coupon?.id ?? null;
     logStep("Retention discount applied", {
       subscriptionId: updatedSubscription.id,
       coupon: couponId,
-      discount: updatedSubscription.discount?.coupon?.id ?? null,
+      appliedCoupon,
     });
 
     // If subscription was set to cancel, undo it

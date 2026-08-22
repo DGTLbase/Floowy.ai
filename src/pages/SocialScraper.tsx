@@ -14,15 +14,17 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, ArrowRight, Loader2, Plus, RefreshCw, Sparkles, MessagesSquare,
   ExternalLink, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, Instagram, Facebook,
-  Play, Heart, MessageCircle, Share2, Clock, ChevronDown, Lock,
+  Play, Heart, MessageCircle, Share2, Clock, ChevronDown, Lock, Square,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import ReportGenerator from "@/components/scraper/ReportGenerator";
 
 // Brand glyphs lucide doesn't ship (monochrome, inherit currentColor).
 const TikTokIcon = (p: any) => (
@@ -112,11 +114,17 @@ export default function SocialScraper() {
   const [creating, setCreating] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [scraping, setScraping] = useState(false);
+  // Live scrape-progress popup. `scraped`/`target` drive the real portion of the
+  // bar; `tick` (a 1s counter) re-renders so the elapsed-time estimate advances
+  // smoothly between the 5s polls.
+  const [scrapeProg, setScrapeProg] = useState<{ scraped: number; target: number; status: "running" | "done" | "failed"; startedAt: number } | null>(null);
+  const [, setTick] = useState(0);
   const [analyzing, setAnalyzing] = useState<Set<string>>(new Set());
   const [commentsBusy, setCommentsBusy] = useState<Set<string>>(new Set());
   const [queued, setQueued] = useState<Set<string>>(new Set());          // waiting in a bulk run
   const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
   const [bulkKind, setBulkKind] = useState<"content" | "comments" | null>(null);
+  const [stopping, setStopping] = useState(false);   // a bulk run is being stopped
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" }>({ key: "scraped_at", dir: "desc" });
   const [modal, setModal] = useState<{ title: string; data: any; loading?: boolean; loadingMsg?: string } | null>(null);
@@ -125,6 +133,18 @@ export default function SocialScraper() {
   // Serialises ALL content-analyze network calls (single clicks + bulk) so they
   // never fire concurrently and trip the AI provider's rate limit.
   const analyzeGate = useRef<Promise<any>>(Promise.resolve());
+  // Set true to stop a bulk analyze/comments run. The runner checks it between
+  // items (and the comments poll checks it) so the currently-running item finishes
+  // but no further items start.
+  const cancelBulkRef = useRef(false);
+
+  // While a scrape runs, tick once a second so the progress bar's time-based
+  // estimate keeps advancing smoothly between the (slower) status polls.
+  useEffect(() => {
+    if (scrapeProg?.status !== "running") return;
+    const id = window.setInterval(() => setTick((t) => t + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [scrapeProg?.status]);
 
   // create-form
   const [platform, setPlatform] = useState<Platform>("tiktok");
@@ -233,6 +253,7 @@ export default function SocialScraper() {
   const runScrape = async () => {
     if (!selected || !cfg) return;
     setScraping(true);
+    setScrapeProg({ scraped: 0, target: count, status: "running", startedAt: Date.now() });
     const body: Record<string, unknown> = { projectId: selected.id, resultsPerPage: count };
     if (country !== "all") body.countryCode = country;
     if (cfg.isAd) { if (dateFrom) body.dateFrom = dateFrom; if (dateTo) body.dateTo = dateTo; }
@@ -240,21 +261,34 @@ export default function SocialScraper() {
     const { data, error } = await supabase.functions.invoke("social-scrape", { body });
     if (error || data?.error) {
       setScraping(false);
-      toast({ title: "Scrape failed to start", description: data?.error ?? error?.message, variant: "destructive" });
+      setScrapeProg((s) => (s ? { ...s, status: "failed" } : s));
+      const msg = await invokeError(error, data);
+      // A 402 carries the "insufficient credits" prompt from the backend.
+      const lowCredits = /not enough credits/i.test(msg);
+      toast({
+        title: lowCredits ? "Not enough credits" : "Scrape failed to start",
+        description: msg,
+        variant: "destructive",
+      });
       return;
     }
     const runRowId = data.runId as string;
-    toast({ title: "Scraping started", description: "This can take 1–3 minutes…" });
     pollRef.current = window.setInterval(async () => {
-      const { data: p } = await supabase.functions.invoke("social-scrape-poll", { body: { runRowId } });
+      const { data: p } = await supabase.functions.invoke("social-scrape-poll", { body: { runRowId, resultsPerPage: count } });
+      // Live count while running — feeds the real portion of the progress bar.
+      if (p?.status === "running" && typeof p.scraped === "number") {
+        setScrapeProg((s) => (s ? { ...s, scraped: Math.max(s.scraped, p.scraped) } : s));
+      }
       if (p?.status === "completed" || p?.status === "failed") {
         if (pollRef.current) window.clearInterval(pollRef.current);
         setScraping(false);
         loadRuns(selected.id);
         if (p.status === "completed") {
+          setScrapeProg((s) => (s ? { ...s, scraped: p.videoCount ?? s.scraped, status: "done" } : s));
           toast({ title: "Scrape complete", description: `${p.videoCount} ${cfg.noun} ingested` });
           loadItems(selected);
         } else {
+          setScrapeProg((s) => (s ? { ...s, status: "failed" } : s));
           toast({ title: "Scrape failed", description: p.error ?? "Unknown error", variant: "destructive" });
         }
       }
@@ -262,6 +296,20 @@ export default function SocialScraper() {
   };
 
   const getAnalysis = (it: Item) => (cfg ? it[cfg.analysisField] : null);
+
+  // Pull the REAL server error from a supabase.functions.invoke result. On a
+  // non-2xx the body is inside the FunctionsHttpError's `context` Response, not in
+  // `data` — without this the UI only ever shows the generic "edge function
+  // returned a non-2xx status" and the actual reason is lost.
+  const invokeError = async (error: any, data: any): Promise<string> => {
+    if (data?.error) return String(data.error);
+    const ctx = error?.context;
+    if (ctx && typeof ctx.clone === "function") {
+      try { const b = await ctx.clone().json(); if (b?.error) return String(b.error); } catch { /* not json */ }
+      try { const t = await ctx.clone().text(); if (t) return t.slice(0, 400); } catch { /* ignore */ }
+    }
+    return error?.message ?? "Unknown error";
+  };
 
   const analyzeItem = async (it: Item, forceRerun = false) => {
     if (!cfg) return;
@@ -276,8 +324,10 @@ export default function SocialScraper() {
     const { data, error } = await run;
     setAnalyzing((s) => { const n = new Set(s); n.delete(it.id); return n; });
     if (error || data?.error) {
+      const msg = await invokeError(error, data);
+      console.error("[social-analyze] failed:", msg);   // visible even during a bulk run
       // Stay quiet during a bulk run — analyzeSelected shows one summary toast.
-      if (!forceRerun) { setModal(null); toast({ title: "Analysis failed", description: data?.error ?? error?.message, variant: "destructive" }); }
+      if (!forceRerun) { setModal(null); toast({ title: "Analysis failed", description: msg, variant: "destructive" }); }
       return false;
     }
     setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, [cfg.analysisField]: data.analysis } : x)));
@@ -287,7 +337,12 @@ export default function SocialScraper() {
 
   // Shared sequential bulk runner: shows a "Queued" state on every target, flips
   // each to a spinner as it runs, then ✓ — so progress is visible across ALL
-  // selected posts. Sequential (concurrent calls tripped the AI rate limit).
+  // selected posts. Sequential (concurrent calls tripped the AI rate limit), and
+  // for the AI-analysis path additionally SPACED (throttle between calls) with a
+  // one-time backoff retry, so a burst stays under the provider's requests/minute
+  // limit instead of failing items with a 429.
+  const AI_THROTTLE_MS = 900;   // gap between consecutive AI-analysis calls
+  const AI_RETRY_MS = 2500;     // backoff before a single retry of a failed AI call
   const runBulk = async (
     kind: "content" | "comments",
     targets: Item[],
@@ -295,26 +350,48 @@ export default function SocialScraper() {
     noun: string,
   ) => {
     if (targets.length === 0) return;
+    cancelBulkRef.current = false;
+    setStopping(false);
     setBulkKind(kind);
     setQueued(new Set(targets.map((t) => t.id)));
     setBulk({ done: 0, total: targets.length });
+    const throttled = kind === "content"; // the rate-limited AI path
     let ok = 0;
-    for (const it of targets) {
-      if (await run(it)) ok++;
+    let processed = 0;
+    for (let i = 0; i < targets.length; i++) {
+      if (cancelBulkRef.current) break;   // stopped — leave the rest un-run
+      const it = targets[i];
+      processed++;
+      let success = await run(it);
+      // A failed AI analysis is almost always a transient rate-limit — wait out
+      // the window and retry once before giving up on this item (unless stopped).
+      if (!success && throttled && !cancelBulkRef.current) { await sleep(AI_RETRY_MS); success = await run(it); }
+      if (success) ok++;
       setQueued((prev) => { const n = new Set(prev); n.delete(it.id); return n; });
       setBulk((b) => (b ? { ...b, done: b.done + 1 } : b));
+      // Space out the next call so the queue stays under the rate limit.
+      if (throttled && i < targets.length - 1 && !cancelBulkRef.current) await sleep(AI_THROTTLE_MS);
     }
+    const stopped = cancelBulkRef.current;
+    cancelBulkRef.current = false;
+    setStopping(false);
     setQueued(new Set());
     setBulk(null);
     setBulkKind(null);
     setSelectedIds(new Set());
-    const failed = targets.length - ok;
+    const failed = processed - ok;
     toast({
-      title: `${noun} analyzed ${ok}/${targets.length}`,
-      description: failed ? `${failed} didn't finish — select those and try again in a moment.` : "All selected items analyzed.",
-      variant: failed ? "destructive" : undefined,
+      title: stopped ? `Stopped — ${ok}/${targets.length} ${noun.toLowerCase()} analyzed` : `${noun} analyzed ${ok}/${targets.length}`,
+      description: stopped
+        ? `${targets.length - processed} not started. Select any remaining and run again when ready.`
+        : failed ? `${failed} didn't finish — select those and try again in a moment.` : "All selected items analyzed.",
+      variant: failed && !stopped ? "destructive" : undefined,
     });
   };
+
+  // Stop an in-progress bulk analyze/comments run: the current item finishes, no
+  // further items start.
+  const stopBulk = () => { cancelBulkRef.current = true; setStopping(true); };
 
   const analyzeSelected = () =>
     runBulk("content", items.filter((it) => selectedIds.has(it.id) && !getAnalysis(it)), (it) => analyzeItem(it, true) as Promise<boolean>, cfg?.itemNoun ?? "Item");
@@ -341,7 +418,9 @@ export default function SocialScraper() {
       }
       if (!silent) setModal({ title: `Comments · ${primaryText(it)}`, data: null, loading: true, loadingMsg: "Fetching and analyzing comments… this can take 1–3 minutes." });
       for (let i = 0; i < 60 && aliveRef.current; i++) {   // ~5 min at 5s
+        if (cancelBulkRef.current) return false;   // bulk run was stopped
         await sleep(5000);
+        if (cancelBulkRef.current) return false;
         const { data: p } = await supabase.functions.invoke("social-comments", { body: { action: "poll", kind: cfg.kind, id: it.id } });
         if (p?.status === "completed") {
           setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, [cfg.commentField!]: p.analysis } : x)));
@@ -608,8 +687,9 @@ export default function SocialScraper() {
             </div>
             <div className="flex flex-wrap items-end gap-2">
               <div>
-                <label className="block text-xs text-muted-foreground">{cfg.isAd ? "Max ads" : `${cfg.noun} to scrape`}</label>
-                <Input type="number" min={1} className="w-28" value={count} disabled={scraping} onChange={(e) => setCount(Math.max(1, Number(e.target.value) || 1))} />
+                <label className="block text-xs text-muted-foreground">{cfg.isAd ? "Max ads" : `${cfg.noun} to scrape`} <span className="text-muted-foreground/70">(max 200)</span></label>
+                <Input type="number" min={1} max={200} className="w-28" value={count} disabled={scraping} onChange={(e) => setCount(Math.min(200, Math.max(1, Number(e.target.value) || 1)))} />
+                <p className="mt-1 text-[11px] text-muted-foreground">≈ {Math.ceil(count / 10)} credit{Math.ceil(count / 10) === 1 ? "" : "s"} · 1 per 10</p>
               </div>
               {showDays && (
                 <div>
@@ -687,9 +767,14 @@ export default function SocialScraper() {
               <CardTitle className="text-base">{cfg.label} · {items.length} {cfg.noun}</CardTitle>
               <div className="flex flex-wrap items-center gap-2">
                 {bulk ? (
-                  <span className="text-xs font-medium text-primary inline-flex items-center gap-1">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing {bulkKind === "comments" ? "comments " : ""}{bulk.done}/{bulk.total}…
-                  </span>
+                  <div className="inline-flex items-center gap-2">
+                    <span className="text-xs font-medium text-primary inline-flex items-center gap-1">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing {bulkKind === "comments" ? "comments " : ""}{bulk.done}/{bulk.total}…
+                    </span>
+                    <Button size="sm" variant="outline" className="h-7 border-destructive/40 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={stopBulk} disabled={stopping}>
+                      <Square className="mr-1 h-3 w-3 fill-current" /> {stopping ? "Stopping…" : "Stop"}
+                    </Button>
+                  </div>
                 ) : selectedIds.size > 0 ? (
                   <span className="text-xs text-muted-foreground">{selectedIds.size} selected</span>
                 ) : null}
@@ -726,11 +811,21 @@ export default function SocialScraper() {
                     size="sm"
                     variant="outline"
                     onClick={() => navigate("/payment")}
-                    className="border-offer/40 text-offer-hover hover:bg-offer-soft"
+                    className="gap-1.5 border-offer/40 text-offer-hover hover:bg-offer-soft"
+                    title="Export — available on Professional and higher"
                   >
-                    <Lock className="mr-1 h-3.5 w-3.5" /> Export — upgrade to Professional
+                    <Lock className="h-3.5 w-3.5" /> Export
+                    <span className="rounded bg-offer/15 px-1 py-px text-[9px] font-bold uppercase leading-none tracking-wide">Pro</span>
                   </Button>
                 )}
+                {/* Claude-generated PDF reports (Insights Report / Contentplan) —
+                    plan-gated + credit-priced, with the 5-min bundle window. */}
+                <ReportGenerator
+                  projectId={selected.id}
+                  userPlan={userPlan}
+                  isAdmin={isAdmin}
+                  hasData={items.length > 0}
+                />
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -799,6 +894,56 @@ export default function SocialScraper() {
           </Card>
         </>
       )}
+
+      {/* live scrape-progress popup */}
+      <Dialog open={!!scrapeProg} onOpenChange={(o) => { if (!o && scrapeProg?.status !== "running") setScrapeProg(null); }}>
+        <DialogContent className="max-w-md">
+          {scrapeProg && (() => {
+            const elapsed = Math.max(0, Math.floor((Date.now() - scrapeProg.startedAt) / 1000));
+            const noun = cfg?.noun ?? "items";
+            // Time-based estimate (asymptotes to ~90%) and real item-count %, both
+            // monotonically increasing — take the max so the bar never jumps back.
+            const timeEst = Math.min(90, Math.round((elapsed / (elapsed + 45)) * 100));
+            const countPct = scrapeProg.target > 0 ? Math.min(96, Math.round((scrapeProg.scraped / scrapeProg.target) * 100)) : 0;
+            const pct = scrapeProg.status === "done" ? 100 : scrapeProg.status === "failed" ? countPct : Math.max(timeEst, countPct);
+            const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
+            const ss = String(elapsed % 60).padStart(2, "0");
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>
+                    {scrapeProg.status === "done" ? "Scrape complete" : scrapeProg.status === "failed" ? "Scrape failed" : `Scraping ${noun}…`}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {scrapeProg.status === "running"
+                      ? "Fetching from the source — this usually takes 1–3 minutes. You can keep this open or close it; scraping continues either way."
+                      : scrapeProg.status === "done"
+                        ? `${scrapeProg.scraped} ${noun} ingested.`
+                        : "Something went wrong — please try again in a moment."}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2 py-2">
+                  <Progress value={pct} className="h-2.5" />
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      {scrapeProg.status === "running" && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
+                      {scrapeProg.scraped > 0
+                        ? `${scrapeProg.scraped}${scrapeProg.target ? ` / ${scrapeProg.target}` : ""} ${noun} scraped`
+                        : scrapeProg.status === "running" ? "Starting the scraper…" : `0 ${noun}`}
+                    </span>
+                    <span className="tabular-nums">{pct}% · {mm}:{ss}</span>
+                  </div>
+                </div>
+                {scrapeProg.status !== "running" && (
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setScrapeProg(null)}>Close</Button>
+                  </DialogFooter>
+                )}
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* analysis modal */}
       <Dialog open={!!modal} onOpenChange={(o) => !o && setModal(null)}>

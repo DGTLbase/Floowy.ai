@@ -118,7 +118,9 @@ Duration: ${item.duration_seconds ?? "?"}s`;
       if (err?.status === 429 || err?.status === 529) {
         return json({ error: "The AI service is busy right now. Please try those items again in a moment." }, 429);
       }
-      return json({ error: `AI service error: ${err?.message ?? err?.status ?? "unknown"}` }, 500);
+      const detail = `AI service error [name=${err?.name ?? "?"} status=${err?.status ?? "?"}]: ${err?.message ?? err?.error?.message ?? String(err)}`;
+      console.error("[social-analyze]", detail, err?.stack ?? "");
+      return json({ error: detail, stage: "ai" }, 500);
     }
     if (!analysis) return json({ error: "AI did not return an analysis" }, 500);
 
@@ -135,7 +137,9 @@ Duration: ${item.duration_seconds ?? "?"}s`;
     await supabase.from(table).update(update).eq("id", item.id);
 
     return json({ analysis });
-  } catch (e) {
-    return json({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
+  } catch (e: any) {
+    const detail = `[social-analyze] ${e?.name ?? "Error"}: ${e instanceof Error ? e.message : String(e)}`;
+    console.error(detail, e?.stack ?? "");
+    return json({ error: detail, stage: "outer" }, 500);
   }
 });

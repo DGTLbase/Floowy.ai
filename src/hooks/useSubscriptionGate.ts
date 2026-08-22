@@ -105,6 +105,12 @@ export const useSubscriptionGate = (opts: boolean | GateOptions = false): GateAc
         // free plan but with an active Stripe trial.
         if (sub?.subscribed || sub?.trialing) {
           setAccess("allowed");
+        } else if (sub?.paused && !requiredTier) {
+          // Paused subscription: keep the account shell (Home, Subscriptions,
+          // Settings) reachable so the user can resume via the banner. Their plan
+          // is 'free', so tier-gated tool areas (requiredTier) still redirect them
+          // like a free user — they can't use paid tools while paused.
+          setAccess("allowed");
         } else {
           navigate("/pricing-1-euro-offer");
         }

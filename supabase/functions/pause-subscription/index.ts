@@ -12,6 +12,11 @@ const logStep = (step: string, details?: any) => {
   console.log(`[PAUSE-SUBSCRIPTION] ${step}${detailsStr}`);
 };
 
+// Auto-resume window: billing resumes automatically after this many months so a
+// pause can't strand a customer on free indefinitely. Stripe fires
+// customer.subscription.updated when it resumes, which restores the plan.
+const PAUSE_MONTHS = 3;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -49,12 +54,25 @@ serve(async (req) => {
     // Pause billing — the subscription stays but no invoices are collected while
     // paused. The user keeps their library/settings and their current price on
     // return. `void` discards any invoices generated during the pause window.
+    const resumesAt = Math.floor(Date.now() / 1000) + PAUSE_MONTHS * 30 * 24 * 60 * 60;
     await stripe.subscriptions.update(subscription.id, {
-      pause_collection: { behavior: "void" },
+      pause_collection: { behavior: "void", resumes_at: resumesAt },
     });
-    logStep("Subscription paused", { subscriptionId: subscription.id });
+    logStep("Subscription paused", { subscriptionId: subscription.id, resumesAt });
 
-    return new Response(JSON.stringify({ success: true, paused: true }), {
+    // Entitlement: while paused the user is not being billed, so revoke plan
+    // access by downgrading to 'free' (existing tier gating keys off plan) and
+    // mark the downgrade as a *pause* so it can be resumed (vs a cancellation).
+    // reactivate-subscription restores the plan from the Stripe price and clears
+    // this flag. The webhook keeps this in sync if paused/resumed out-of-band.
+    const { error: pauseFlagError } = await supabaseClient
+      .from("profiles")
+      .update({ plan: "free", subscription_paused: true })
+      .eq("id", user.id);
+    if (pauseFlagError) logStep("Error setting paused state", { error: pauseFlagError });
+    else logStep("Profile downgraded + marked paused", { userId: user.id });
+
+    return new Response(JSON.stringify({ success: true, paused: true, resumes_at: new Date(resumesAt * 1000).toISOString() }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

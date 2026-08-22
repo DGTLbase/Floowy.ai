@@ -67,19 +67,19 @@ serve(async (req) => {
     });
     logStep("Subscription reactivated", { subscriptionId: updated.id });
 
-    // Restore the user's plan from the subscription price (cancel set it to free).
+    // Restore the user's plan from the subscription price (cancel/pause set it to
+    // free) and always clear the paused flag now that billing has resumed.
     const priceId = updated.items.data[0]?.price?.id ?? "";
     const mapped = PRICE_TO_PLAN[priceId];
-    if (mapped) {
-      const { error: updateError } = await supabaseClient
-        .from("profiles")
-        .update({ plan: mapped.plan })
-        .eq("id", user.id);
-      if (updateError) logStep("Error restoring plan", { error: updateError });
-      else logStep("Plan restored", { plan: mapped.plan });
-    } else {
-      logStep("Price not mapped — plan not auto-restored", { priceId });
-    }
+    const profileUpdate: { plan?: string; subscription_paused: boolean } = { subscription_paused: false };
+    if (mapped) profileUpdate.plan = mapped.plan;
+    else logStep("Price not mapped — plan not auto-restored (paused flag still cleared)", { priceId });
+    const { error: updateError } = await supabaseClient
+      .from("profiles")
+      .update(profileUpdate)
+      .eq("id", user.id);
+    if (updateError) logStep("Error restoring plan / clearing paused", { error: updateError });
+    else logStep("Plan restored + paused cleared", { plan: mapped?.plan ?? "(unchanged)" });
 
     return new Response(JSON.stringify({ success: true, plan: mapped?.plan ?? null }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

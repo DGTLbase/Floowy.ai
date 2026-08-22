@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Clock, Download, Pencil, ChevronLeft, ChevronRight, Globe, Lock } from "lucide-react";
+import { Clock, Download, Pencil, ChevronLeft, ChevronRight, Globe, Lock, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import BackendLayout from "@/components/BackendLayout";
 import PageMeta from "@/components/PageMeta";
@@ -122,6 +122,15 @@ const MyGenerations = () => {
   const isVideoUrl = (url: string) =>
     url?.includes(".mp4") || url?.includes(".webm") || url?.includes(".mov");
 
+  // PDF reports (Insights Report / Contentplan) are stored in `generations` with
+  // a .pdf url. They render as a document card, not an image, and download freely
+  // (the user already paid credits — no watermark/export gate applies).
+  const isPdfUrl = (url: string | null | undefined) =>
+    !!url && (url.toLowerCase().includes(".pdf") || url.toLowerCase().split("?")[0].endsWith(".pdf"));
+  const isReportTool = (t: string | null | undefined) => t === "insights-report" || t === "contentplan";
+  const reportLabel = (t: string | null | undefined) =>
+    t === "insights-report" ? "Insights Report" : t === "contentplan" ? "Contentplan" : "Report";
+
   const handleDownload = async (url: string, id: string) => {
     try {
       const response = await fetch(url);
@@ -129,7 +138,8 @@ const MyGenerations = () => {
       const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = blobUrl;
-      link.download = `floowy-${id}.${isVideoUrl(url) ? "mp4" : "jpg"}`;
+      const ext = isPdfUrl(url) ? "pdf" : isVideoUrl(url) ? "mp4" : "jpg";
+      link.download = `floowy-${id}.${ext}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -174,10 +184,20 @@ const MyGenerations = () => {
                 <Card key={gen.id} className="overflow-hidden border-border/50 hover:shadow-glow transition-all duration-300 group">
                   <div
                     className="aspect-square relative bg-muted cursor-pointer"
-                    onClick={() => { setSelectedImage(gen); setIsPreviewOpen(true); }}
+                    onClick={() => {
+                      // PDF reports open directly; images/videos use the preview modal.
+                      if (isPdfUrl(gen.generated_image_url)) { window.open(gen.generated_image_url!, "_blank"); return; }
+                      setSelectedImage(gen); setIsPreviewOpen(true);
+                    }}
                   >
                     {gen.generated_image_url ? (
-                      isVideoUrl(gen.generated_image_url) ? (
+                      isPdfUrl(gen.generated_image_url) ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary/10 to-primary-glow/10 p-4 text-center">
+                          <FileText className="h-10 w-10 text-primary" />
+                          <span className="text-xs font-semibold text-foreground">{reportLabel(gen.tool_name)}</span>
+                          <span className="text-[10px] text-muted-foreground">PDF · tap to open</span>
+                        </div>
+                      ) : isVideoUrl(gen.generated_image_url) ? (
                         <video src={gen.generated_image_url} className="w-full h-full object-cover" autoPlay muted loop playsInline />
                       ) : (
                         <img src={displayUrl(gen.generated_image_url)} alt="Generated" className="w-full h-full object-cover" loading="lazy" />
@@ -188,7 +208,7 @@ const MyGenerations = () => {
                       </div>
                     )}
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      {!isVideoUrl(gen.generated_image_url || "") && (
+                      {!isVideoUrl(gen.generated_image_url || "") && !isPdfUrl(gen.generated_image_url) && (
                         <Button size="icon" variant="secondary" onClick={(e) => {
                           e.stopPropagation();
                           if (!canExport) { setUnlockOpen(true); return; }
@@ -201,7 +221,8 @@ const MyGenerations = () => {
                       )}
                       <Button size="icon" variant="secondary" onClick={(e) => {
                         e.stopPropagation();
-                        if (!canExport) { setUnlockOpen(true); return; }
+                        // Reports were paid for with credits — download without the image export gate.
+                        if (!canExport && !isPdfUrl(gen.generated_image_url)) { setUnlockOpen(true); return; }
                         handleDownload(gen.generated_image_url, gen.id);
                       }}>
                         <Download className="w-4 h-4" />

@@ -22,6 +22,18 @@ async function apifyDataset<T = any>(token: string, datasetId: string): Promise<
   return Array.isArray(items) ? items : [];
 }
 
+// Live count of items scraped so far (for the in-progress progress bar). Cheap —
+// reads the dataset metadata, not the items. Best-effort: returns 0 on any error.
+async function apifyDatasetCount(token: string, datasetId: string): Promise<number> {
+  try {
+    const res = await fetch(`https://api.apify.com/v2/datasets/${encodeURIComponent(datasetId)}?token=${encodeURIComponent(token)}`);
+    if (!res.ok) return 0;
+    const j = await res.json();
+    const c = j?.data?.itemCount;
+    return typeof c === "number" && Number.isFinite(c) ? c : 0;
+  } catch { return 0; }
+}
+
 function filterByDays(items: any[], days?: 1 | 7 | 30): any[] {
   if (!days) return items;
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
@@ -181,7 +193,7 @@ serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    const { runRowId, days } = await req.json();
+    const { runRowId, days, resultsPerPage } = await req.json();
     if (!runRowId) return json({ error: "runRowId is required" }, 400);
 
     const { data: runRow, error: rErr } = await supabase.from("scrape_runs").select("*").eq("id", runRowId).single();
@@ -190,21 +202,24 @@ serve(async (req) => {
     if (runRow.status === "completed" || runRow.status === "failed") {
       return json({ status: runRow.status, videoCount: runRow.video_count ?? 0, error: runRow.error ?? null });
     }
-    if (!runRow.apify_run_id) return json({ status: "running", videoCount: 0, error: null });
+    if (!runRow.apify_run_id) return json({ status: "running", videoCount: 0, scraped: 0, error: null });
 
     const APIFY = Deno.env.get("APIFY_API_TOKEN");
     if (!APIFY) return json({ error: "APIFY_API_TOKEN is not configured" }, 500);
 
     let st: { status: string; datasetId?: string };
     try { st = await apifyStatus(APIFY, runRow.apify_run_id); }
-    catch (e) { return json({ status: "running", videoCount: 0, error: null, note: String(e) }); }
+    catch (e) { return json({ status: "running", videoCount: 0, scraped: 0, error: null, note: String(e) }); }
 
     if (st.status === "FAILED" || st.status === "ABORTED" || st.status === "TIMED-OUT") {
       const msg = `Apify run ${st.status.toLowerCase()}`;
       await supabase.from("scrape_runs").update({ status: "failed", error: msg, completed_at: new Date().toISOString() }).eq("id", runRow.id);
       return json({ status: "failed", videoCount: 0, error: msg });
     }
-    if (st.status !== "SUCCEEDED") return json({ status: "running", videoCount: 0, error: null });
+    if (st.status !== "SUCCEEDED") {
+      const scraped = st.datasetId ? await apifyDatasetCount(APIFY, st.datasetId) : 0;
+      return json({ status: "running", videoCount: 0, scraped, error: null });
+    }
 
     // Route ingestion by the project's platform + source type.
     const { data: project } = await supabase.from("projects").select("platform, source_type, usernames").eq("id", runRow.project_id).single();
@@ -217,30 +232,38 @@ serve(async (req) => {
       const raw = await apifyDataset(APIFY, st.datasetId);
       let count = 0;
 
+      // Enforce the requested post count. Apify actors over-fetch (TikTok applies
+      // resultsPerPage PER search query, and most actors return a few extra), so we
+      // hard-cap what we ingest to the number the user set. `Infinity` = no cap when
+      // the caller doesn't pass a count (backward-compatible).
+      const cap = (typeof resultsPerPage === "number" && resultsPerPage > 0)
+        ? Math.min(Math.floor(resultsPerPage), 1000)
+        : Infinity;
+
       const ctx = { projectId: runRow.project_id, userId: user.id, scrapeRunId: runRow.id };
       if (platform === "instagram") {
-        const rows = raw.map((it: any) => mapInstagramItem(it, ctx)).filter((r) => r.ig_id);
+        const rows = raw.map((it: any) => mapInstagramItem(it, ctx)).filter((r) => r.ig_id).slice(0, cap);
         if (rows.length > 0) {
           const { error } = await supabase.from("instagram_posts").upsert(rows, { onConflict: "project_id,ig_id", ignoreDuplicates: false });
           if (error) throw new Error(error.message);
         }
         count = rows.length;
       } else if (platform === "facebook") {
-        const rows = raw.map((it: any) => mapFacebookItem(it, { ...ctx, mode: fbMode })).filter((r) => r.fb_id);
+        const rows = raw.map((it: any) => mapFacebookItem(it, { ...ctx, mode: fbMode })).filter((r) => r.fb_id).slice(0, cap);
         if (rows.length > 0) {
           const { error } = await supabase.from("facebook_posts").upsert(rows, { onConflict: "project_id,fb_id", ignoreDuplicates: false });
           if (error) throw new Error(error.message);
         }
         count = rows.length;
       } else if (platform === "tiktok" && sourceType === "ad") {
-        const rows = raw.map((it: any) => mapTikTokAdItem(it, ctx)).filter((r) => r.ad_id);
+        const rows = raw.map((it: any) => mapTikTokAdItem(it, ctx)).filter((r) => r.ad_id).slice(0, cap);
         if (rows.length > 0) {
           const { error } = await supabase.from("ads").upsert(rows, { onConflict: "project_id,ad_id", ignoreDuplicates: false });
           if (error) throw new Error(error.message);
         }
         count = rows.length;
       } else if (platform === "meta_ads") {
-        const rows = raw.map((it: any) => mapMetaAdItem(it, ctx)).filter((r) => r.ad_archive_id);
+        const rows = raw.map((it: any) => mapMetaAdItem(it, ctx)).filter((r) => r.ad_archive_id).slice(0, cap);
         if (rows.length > 0) {
           const { error } = await supabase.from("meta_ads").upsert(rows, { onConflict: "project_id,ad_archive_id", ignoreDuplicates: false });
           if (error) throw new Error(error.message);
@@ -267,7 +290,7 @@ serve(async (req) => {
           posted_at: it.createTimeISO ?? null,
           thumbnail_url: it.videoMeta?.coverUrl ?? null,
           raw_data: it,
-        })).filter((r) => r.tiktok_id);
+        })).filter((r) => r.tiktok_id).slice(0, cap);
         if (rows.length > 0) {
           const { error } = await supabase.from("videos").upsert(rows, { onConflict: "project_id,tiktok_id", ignoreDuplicates: false });
           if (error) throw new Error(error.message);

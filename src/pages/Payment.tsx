@@ -11,6 +11,7 @@ import DowngradeFlowModal from "@/components/DowngradeFlowModal";
 import Footer from "@/components/Footer";
 import { SUBSCRIPTION_PLANS } from "@/lib/stripe-config";
 import TierPlanCard from "@/components/pricing/TierPlanCard";
+import { STATUS_KEY as UPGRADE_STATUS_KEY, SNOOZE_KEY as UPGRADE_SNOOZE_KEY, EURO1_JUST_SUBSCRIBED_KEY } from "@/components/UpgradePlanBanner";
 import { type PaidTier } from "@/lib/tier-access";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +20,9 @@ import logoImage from "@/assets/floowy-logo.png";
 
 const Payment = () => {
   const [currentPlan, setCurrentPlan] = useState<string>("free");
+  const [paused, setPaused] = useState(false);
+  const [pausedTier, setPausedTier] = useState<string | null>(null);
+  const [resuming, setResuming] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [contactSalesOpen, setContactSalesOpen] = useState(false);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
@@ -168,6 +172,13 @@ const Payment = () => {
               description: "We couldn't collect the €1 for your launch access, so no credits were added. Please try again with a different card.",
               variant: "destructive",
             });
+          } else {
+            // €1 subscribed successfully → force the "claim remaining credits" banner
+            // to always show on home: drop any stale/ snoozed banner state cached
+            // during signup, and flag the fresh subscribe so it reveals immediately.
+            sessionStorage.removeItem(UPGRADE_STATUS_KEY);
+            localStorage.removeItem(UPGRADE_SNOOZE_KEY);
+            sessionStorage.setItem(EURO1_JUST_SUBSCRIBED_KEY, "1");
           }
         } catch (e) {
           console.error("confirm-euro1 failed", e);
@@ -276,18 +287,49 @@ const Payment = () => {
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("plan")
+          .select("plan, subscription_paused")
           .eq("id", user.id)
           .single();
-        
+
         if (profile) {
-          setCurrentPlan(profile.plan);
+          if (profile.subscription_paused) {
+            // Paused: plan is downgraded to "free", so fetch the paused-FROM tier
+            // and surface it as the current plan → its card shows "Resume Plan".
+            setPaused(true);
+            try {
+              const { data: sub } = await supabase.functions.invoke("check-subscription");
+              const t = (sub?.paused_tier as string | undefined) ?? null;
+              setPausedTier(t);
+              setCurrentPlan(t ?? profile.plan);
+            } catch {
+              setCurrentPlan(profile.plan);
+            }
+          } else {
+            setCurrentPlan(profile.plan);
+          }
         }
       }
     } catch (error) {
       console.error("Error fetching current plan:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResume = async () => {
+    setResuming(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("reactivate-subscription");
+      if (!error && data?.success) {
+        toast({ title: "Plan resumed 🎉", description: "Welcome back — your plan is active again." });
+        setTimeout(() => window.location.reload(), 700);
+      } else {
+        toast({ title: "Could not resume", description: data?.error || "Please contact support.", variant: "destructive" });
+        setResuming(false);
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to resume. Please try again.", variant: "destructive" });
+      setResuming(false);
     }
   };
 
@@ -519,19 +561,30 @@ const Payment = () => {
                     highlighted={isHighlighted}
                     enterprise={isEnterprise}
                     cta={
-                      <Button
-                        onClick={() => handlePlanChange(plan.id, billingCycle)}
-                        disabled={isLoading || isCurrent || isChangingPlan}
-                        variant={isHighlighted ? "default" : "outline"}
-                        size="lg"
-                        className={`w-full ${
-                          isHighlighted
-                            ? "bg-offer text-offer-foreground hover:bg-offer-hover shadow-md"
-                            : "border-primary/40 text-foreground hover:bg-primary/10"
-                        }`}
-                      >
-                        {isChangingPlan ? "Processing..." : getButtonText(plan.id)}
-                      </Button>
+                      paused && plan.id === pausedTier ? (
+                        <Button
+                          onClick={handleResume}
+                          disabled={resuming}
+                          size="lg"
+                          className="w-full bg-offer font-bold text-offer-foreground shadow-md hover:bg-offer-hover"
+                        >
+                          {resuming ? "Resuming…" : "Resume Plan"}
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => handlePlanChange(plan.id, billingCycle)}
+                          disabled={isLoading || isCurrent || isChangingPlan}
+                          variant={isHighlighted ? "default" : "outline"}
+                          size="lg"
+                          className={`w-full ${
+                            isHighlighted
+                              ? "bg-offer text-offer-foreground hover:bg-offer-hover shadow-md"
+                              : "border-primary/40 text-foreground hover:bg-primary/10"
+                          }`}
+                        >
+                          {isChangingPlan ? "Processing..." : getButtonText(plan.id)}
+                        </Button>
+                      )
                     }
                   />
                 );

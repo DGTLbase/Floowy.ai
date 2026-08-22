@@ -34,23 +34,20 @@ function toGeminiSchema(s: any): any {
 }
 
 async function analyzeWithGemini(opts: { system: string; prompt: string; schema: any }): Promise<any> {
-  const key = Deno.env.get("GEMINI_API_KEY");
+  const key = (Deno.env.get("GEMINI_API_KEY") || "").trim();
   if (!key) {
-    throw new Error("Claude is rate-limited and no GEMINI_API_KEY is configured for fallback.");
+    throw new Error("GEMINI_API_KEY is not configured for the analysis provider.");
   }
-  const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
+  const model = (Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash").trim();
   const base = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
-  // Standard Gemini API keys look like "AIza..." and go in the ?key= query param.
-  // Anything else (e.g. an OAuth access token) is sent as a bearer token instead.
-  const isApiKey = key.startsWith("AIza");
-  const url = isApiKey ? `${base}?key=${encodeURIComponent(key)}` : base;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (!isApiKey) headers["Authorization"] = `Bearer ${key}`;
-
-  const res = await fetch(url, {
+  // Authenticate with the x-goog-api-key header — the correct method for a Google
+  // AI Studio API key regardless of its prefix. (The old code only used ?key= for
+  // keys starting with "AIza" and otherwise sent an OAuth Bearer token, which
+  // Google rejected with 401 "Expected OAuth 2 access token".)
+  const res = await fetch(base, {
     method: "POST",
-    headers,
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: opts.system }] },
       contents: [{ role: "user", parts: [{ text: opts.prompt }] }],
@@ -92,8 +89,26 @@ export async function analyzeStructured(opts: {
   toolDescription?: string;
   maxTokens?: number;
 }): Promise<{ result: any; provider: Provider }> {
-  const anthropic = new Anthropic({ apiKey: opts.anthropicKey, maxRetries: 5 });
+  const geminiConfigured = !!Deno.env.get("GEMINI_API_KEY");
+  const errors: string[] = [];
+
+  // Gemini is the DEFAULT provider now: the Anthropic account's credit/rate limits
+  // were failing every analysis (a credit-exhaustion error is a 400, not a 429, so
+  // it never triggered a fallback and surfaced as a 500). Gemini runs first when
+  // GEMINI_API_KEY is set; Claude is the fallback (or the primary if Gemini is
+  // unset, preserving the old behaviour).
+  if (geminiConfigured) {
+    try {
+      const result = await analyzeWithGemini({ system: opts.system, prompt: opts.prompt, schema: opts.schema });
+      return { result, provider: "gemini" };
+    } catch (gemErr: any) {
+      errors.push(`gemini: ${gemErr?.message ?? gemErr}`);
+      console.error("[ai-analyze] Gemini failed; falling back to Claude:", gemErr?.message ?? gemErr);
+    }
+  }
+
   try {
+    const anthropic = new Anthropic({ apiKey: opts.anthropicKey, maxRetries: 5 });
     const message = await anthropic.messages.create({
       model: "claude-haiku-4-5",
       max_tokens: opts.maxTokens ?? 1024,
@@ -109,13 +124,13 @@ export async function analyzeStructured(opts: {
     const toolUse = message.content.find((b: any) => b.type === "tool_use");
     if (!toolUse?.input) throw new Error("Claude returned no structured result");
     return { result: toolUse.input, provider: "claude" };
-  } catch (err: any) {
-    const rateLimited =
-      err?.status === 429 || err?.status === 529 || err instanceof Anthropic.RateLimitError;
-    if (!rateLimited) throw err;
-    // Anthropic still busy after retries → hand off to Gemini.
-    console.log("[ai-analyze] Claude rate-limited; falling back to Gemini");
-    const result = await analyzeWithGemini({ system: opts.system, prompt: opts.prompt, schema: opts.schema });
-    return { result, provider: "gemini" };
+  } catch (claudeErr: any) {
+    errors.push(`claude[${claudeErr?.status ?? "?"}]: ${claudeErr?.message ?? claudeErr}`);
+    // Preserve a rate-limit status so the caller can return a friendly 429; else
+    // surface every provider's error together for diagnosis.
+    const rl = claudeErr?.status === 429 || claudeErr?.status === 529 || claudeErr instanceof Anthropic.RateLimitError;
+    const out: any = new Error(`All analysis providers failed — ${errors.join(" | ")}`);
+    out.status = rl ? 429 : claudeErr?.status;
+    throw out;
   }
 }

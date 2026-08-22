@@ -25,6 +25,7 @@ const FashionLanding = lazy(() => import("./pages/FashionLanding"));
 const CreatorStudioLanding = lazy(() => import("./pages/CreatorStudioLanding"));
 const IdeaStudioLanding = lazy(() => import("./pages/IdeaStudioLanding"));
 const AdsStudioLanding = lazy(() => import("./pages/AdsStudioLanding"));
+const AdsLandingPage = lazy(() => import("./pages/AdsLandingPage"));
 const ScraperLandingPage = lazy(() => import("./pages/ScraperLandingPage"));
 const ListingStudio = lazy(() => import("./pages/ListingStudio"));
 const Auth = lazy(() => import("./pages/Auth"));
@@ -114,6 +115,7 @@ const allRoutes = (
     {langRoutes("creator-studio", <CreatorStudioLanding />)}
     {langRoutes("idea-studio", <IdeaStudioLanding />)}
     {langRoutes("ads-studio", <AdsStudioLanding />)}
+    {langRoutes("google-ads", <AdsLandingPage />)}
     {langRoutes("scraper", <ScraperLandingPage />)}
     {langRoutes("listing-studio", <ListingStudio />)}
     {langRoutes("flatlay-studio", <FlatlayLanding />)}

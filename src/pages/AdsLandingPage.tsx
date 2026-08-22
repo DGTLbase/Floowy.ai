@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import PricingSection from "@/components/PricingSection";
+import TestimonialsSection from "@/components/TestimonialsSection";
 import floowyLogo from "@/assets/floowy-logo.png";
 
 // Press logos — the exact base64 image sources decoded from the build mockup.
@@ -14,6 +15,7 @@ import welhofLogo from "@/assets/logo-welhof.png";
 import lothLogo from "@/assets/logo-loth-fabenim.png";
 import curlyGirlLogo from "@/assets/logo-curlygirl.png";
 import cetaphilLogo from "@/assets/logo-cetaphil.png";
+import nimaniLogo from "@/assets/logo-nimani.png";
 // Studio card previews — real Floowy output (product photo, on-model, UGC video).
 import studioProduct from "@/assets/ads-studio-product.png";
 import studioOnModel from "@/assets/ads-studio-onmodel.png";
@@ -132,12 +134,13 @@ const CSS = `
 .floowy-ads .t1{background:linear-gradient(140deg,#1E7C5A,#22C177);}
 .floowy-ads .t2{background:linear-gradient(140deg,#2BBBA7,#7ED9A0);}
 .floowy-ads .t3{background:linear-gradient(140deg,#146C4E,#37C07E);}
-.floowy-ads .problem{text-align:center; font-size:16px; font-weight:600; margin-top:26px; color:var(--ink);}
+.floowy-ads .problem{text-align:center; font-size:clamp(1.25rem,3vw,1.75rem); font-weight:700; line-height:1.3; letter-spacing:-0.5px; margin-top:34px; color:var(--ink);}
 .floowy-ads .matrix-wrap{max-width:760px; margin:34px auto 0; overflow-x:auto;}
 .floowy-ads table.matrix{width:100%; border-collapse:separate; border-spacing:0; font-size:14px; min-width:520px;}
 .floowy-ads table.matrix th, .floowy-ads table.matrix td{padding:13px 16px; border-bottom:1px solid var(--line); vertical-align:middle; text-align:left;}
 .floowy-ads table.matrix thead th{font-size:13px; font-weight:700; vertical-align:bottom; line-height:1.3; color:var(--ink);}
 .floowy-ads table.matrix thead th small{display:block; font-size:10.5px; color:var(--muted); font-weight:500; margin-top:3px;}
+.floowy-ads table.matrix thead .fcol small{color:rgba(255,255,255,.85);}
 .floowy-ads table.matrix td.cap, .floowy-ads table.matrix th.cap{width:32%; font-weight:600; color:var(--ink);}
 .floowy-ads table.matrix .fcol{background:var(--mint);}
 .floowy-ads table.matrix thead .fcol{background:var(--green); color:#fff; border-radius:12px 12px 0 0; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
@@ -253,6 +256,18 @@ const CASES = [
   { logo: marcelsLogo, grad: "cmarcel", name: "Marcel's Green Soap", blurb: "Scaling on-brand content in-house, from refill explainers to national campaigns.", metrics: ["+36% Content Output", "+60% Lower Production Costs", "+28% Engagement Rate"] },
   { logo: iconAmsterdamLogo, grad: "cicon", name: "ICON Amsterdam", blurb: "ICON Amsterdam scales on-brand ad creatives with Floowy.ai, no photoshoots needed.", metrics: ["+72% Production Costs Saved", "+90% Faster Flatlay Production", "+75% Time Saved Per Shoot"] },
 ];
+// Trust-strip logos — customer order: ICON, Cetaphil, Marcel's, Curly, Welhof,
+// Nimani, Loth. Rendered twice for a seamless marquee (same slider as the homepage).
+const TRUST_LOGOS = [
+  { src: iconAmsterdamLogo, alt: "ICON Amsterdam" },
+  { src: cetaphilLogo, alt: "Cetaphil" },
+  { src: marcelsLogo, alt: "Marcel's Green Soap" },
+  { src: curlyGirlLogo, alt: "Curly Girl Movement" },
+  { src: welhofLogo, alt: "Welhof" },
+  { src: nimaniLogo, alt: "Nimani" },
+  { src: lothLogo, alt: "LOTH · Fabenim" },
+];
+
 const studioBg = (img: string) => ({ backgroundImage: `url(${img})`, backgroundSize: "cover", backgroundPosition: "center" });
 const indBg = (img: string) => ({ backgroundImage: `linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.06)), url(${img})`, backgroundSize: "cover", backgroundPosition: "center" });
 
@@ -298,7 +313,6 @@ const AdsLandingPage = () => {
             <span className="b">✓ One platform, not five tools</span>
           </div>
           <div className="herocta"><a href="#pricing" className="cta">Start for €1</a></div>
-          <div className="dyncap">The tool name in the headline adapts to the term someone searched for.</div>
           <div className="authbar">
             <div className="authpill">
               <span className="al">As featured in</span>
@@ -312,16 +326,19 @@ const AdsLandingPage = () => {
         </div>
       </header>
 
-      {/* 2. LOGO STRIP */}
+      {/* 2. LOGO STRIP — scrolling marquee, same as the homepage. */}
       <div className="trustbar">
         <div className="wrap">
-          <div className="inner">
-            <div className="head"><img className="shopmark" src={shopifyLogo} alt="Shopify" /> Trusted by 1000+ brands with €10m in revenue</div>
-            <div className="brands">
-              <img className="brandlogo" src={welhofLogo} alt="Welhof" />
-              <img className="brandlogo" src={lothLogo} alt="LOTH · Fabenim" />
-              <img className="brandlogo" src={curlyGirlLogo} alt="Curly Girl Movement" />
-              <img className="brandlogo" src={cetaphilLogo} alt="Cetaphil" />
+          <div className="head" style={{ justifyContent: "center", marginBottom: "16px" }}>
+            <img className="shopmark" src={shopifyLogo} alt="Shopify" /> Trusted by 1000+ brands with €10m in revenue
+          </div>
+          <div className="relative max-w-2xl overflow-hidden" style={{ marginLeft: "auto", marginRight: "auto" }}>
+            <div className="absolute left-0 top-0 bottom-0 z-10 w-10 bg-gradient-to-r from-[#E8F6EE] to-transparent" />
+            <div className="absolute right-0 top-0 bottom-0 z-10 w-10 bg-gradient-to-l from-[#E8F6EE] to-transparent" />
+            <div className="flex w-max items-center gap-10 animate-[scroll-left_28s_linear_infinite]">
+              {[...TRUST_LOGOS, ...TRUST_LOGOS].map((l, i) => (
+                <img key={i} src={l.src} alt={l.alt} className="h-8 w-auto shrink-0 opacity-90" loading="lazy" decoding="async" />
+              ))}
             </div>
           </div>
         </div>
@@ -343,7 +360,7 @@ const AdsLandingPage = () => {
               </div>
             ))}
           </div>
-          <p className="problem">One platform for all three. No photoshoot, no crew, no editing skills.</p>
+          <h2 className="problem">One platform for all three. No photoshoot, no crew, no editing skills.</h2>
 
           <div className="matrix-wrap">
             <table className="matrix">
@@ -351,7 +368,7 @@ const AdsLandingPage = () => {
                 <tr>
                   <th className="cap"></th>
                   <th className="fcol"><img className="fmark-logo" src={floowyLogo} alt="Floowy" /> Floowy<small>one platform</small></th>
-                  <th>Point tools<small>Pebblely, Botika, Arcads and others</small></th>
+                  <th>Other toolings<small>Separate single-purpose tools</small></th>
                 </tr>
               </thead>
               <tbody>
@@ -411,29 +428,21 @@ const AdsLandingPage = () => {
         </div>
       </section>
 
-      {/* 6. REVIEWS */}
-      <section className="reviews">
-        <div className="wrap">
-          <div className="eyebrow">The results speak for themselves</div>
-          <div className="score">4.7<span className="stars">★★★★★</span><small>out of 5</small></div>
-          <div className="quotes">
-            <div className="quote"><div className="st">★★★★★</div><p>"Floowy helps us scale ad creatives faster than ever. Instead of briefing designers for every small change, we test multiple variations instantly."</p><div className="who"><b>Simon</b>Digital Marketing Manager at ReloadBase</div></div>
-            <div className="quote"><div className="st">★★★★★</div><p>"I was skeptical, but it produces high-quality creatives, is easy to use, and helps us launch campaigns faster without compromising quality."</p><div className="who"><b>Erik</b>Online Marketer at Welhof</div></div>
-            <div className="quote"><div className="st">★★★★★</div><p>"A gamechanger for our bol.com listings. Product visuals in minutes and the consistency noticeably improved our conversion."</p><div className="who"><b>Dirk</b>Founder at iCon</div></div>
-          </div>
-        </div>
-      </section>
-
       </div>
+
+      {/* 6. REVIEWS — homepage testimonials block (header "The Results Speak for
+          Themselves" + "4.7 out of 5" + review carousel), rendered outside the
+          scoped .floowy-ads reset so its Tailwind styling is preserved. */}
+      <TestimonialsSection />
 
       {/* 7. PRICING — the live product's current tiers UI (shared PricingSection,
           rendered outside the scoped .floowy-ads reset so its Tailwind spacing
           is preserved). The €1 offer, credits/images and Best-Value treatment
           all come from the single tier source of truth. */}
-      <div id="pricing" className="bg-background">
-        <div className="floowy-ads"><div className="wrap" style={{ paddingTop: "48px" }}><div className="eyebrow">Simple pricing</div></div></div>
+      <div id="pricing">
         <PricingSection
           title={<>
+            <span className="mb-3 block text-xs font-bold uppercase tracking-[0.15em] text-primary">Simple pricing</span>
             <span className="text-header-dark">Start Creating in </span>
             <span className="bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">Minutes</span>
           </>}

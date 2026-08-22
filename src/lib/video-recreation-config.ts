@@ -12,7 +12,11 @@ export const canAccessVideoRecreation = (email?: string | null): boolean =>
 // Fixed cost per generation (any number of edits).
 export const RECREATION_CREDITS = 8;
 export const MAX_VIDEO_MB = 500;
-export const MAX_VIDEO_SECONDS = 10;
+// Upload duration cap. The recreation backend uses an omni/gemini video-to-video
+// model (not Veo's ~8s ceiling), which handles longer clips; 10s was over-cautious.
+// Safe to raise: a length the model can't process just fails the job, and credits
+// deduct ONLY on a successful render (recreate-video charges nothing on failure).
+export const MAX_VIDEO_SECONDS = 30;
 export const CUSTOM_MAX_CHARS = 300;
 export const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/quicktime"]; // MP4, MOV
 

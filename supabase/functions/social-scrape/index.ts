@@ -249,6 +249,21 @@ serve(async (req) => {
     const { projectId, resultsPerPage = 30, days, countryCode, dateFrom, dateTo } = await req.json();
     if (!projectId) return json({ error: "projectId is required" }, 400);
 
+    // Scraper pricing (Scraper Briefing §5): the "Videos to scrape" input is capped
+    // at 200 per scrape, and scraping costs 1 credit per 10 videos (rounded up).
+    // Balance is checked BEFORE the run starts; admins bypass the credit cost.
+    const MAX_VIDEOS = 200;
+    const requestedCount = Math.max(1, Math.min(Math.floor(Number(resultsPerPage) || 30), MAX_VIDEOS));
+    const creditCost = Math.ceil(requestedCount / 10);
+    const svc = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    if (!admin) {
+      const { data: creditRow } = await svc.from("credits").select("balance").eq("user_id", user.id).maybeSingle();
+      const balance = creditRow?.balance ?? 0;
+      if (balance < creditCost) {
+        return json({ error: `Not enough credits — this scrape needs ${creditCost} (you have ${balance}). Buy more credits or upgrade your plan.`, code: "insufficient_credits", required: creditCost, balance }, 402);
+      }
+    }
+
     const { data: project, error: pErr } = await supabase.from("projects").select("*").eq("id", projectId).single();
     if (pErr || !project) return json({ error: pErr?.message ?? "Project not found" }, 404);
 
@@ -284,15 +299,15 @@ serve(async (req) => {
     const ht = project.hashtags ?? [];
     let apifyRunId: string;
     if (platform === "tiktok" && sourceType === "ad") {
-      apifyRunId = await startTikTokAdsScrape(APIFY, { keywords: kw, usernames, maxResults: resultsPerPage, countryCode, dateFrom, dateTo });
+      apifyRunId = await startTikTokAdsScrape(APIFY, { keywords: kw, usernames, maxResults: requestedCount, countryCode, dateFrom, dateTo });
     } else if (platform === "tiktok") {
-      apifyRunId = await startTikTokScrape(APIFY, { keywords: kw, hashtags: ht, usernames, resultsPerPage, days, countryCode });
+      apifyRunId = await startTikTokScrape(APIFY, { keywords: kw, hashtags: ht, usernames, resultsPerPage: requestedCount, days, countryCode });
     } else if (platform === "instagram") {
-      apifyRunId = await startInstagramScrape(APIFY, { keywords: kw, hashtags: ht, usernames, resultsLimit: resultsPerPage, days });
+      apifyRunId = await startInstagramScrape(APIFY, { keywords: kw, hashtags: ht, usernames, resultsLimit: requestedCount, days });
     } else if (platform === "facebook") {
-      apifyRunId = await startFacebookScrape(APIFY, { keywords: kw, usernames, resultsLimit: resultsPerPage, days, countryCode });
+      apifyRunId = await startFacebookScrape(APIFY, { keywords: kw, usernames, resultsLimit: requestedCount, days, countryCode });
     } else if (platform === "meta_ads") {
-      apifyRunId = await startMetaAdsScrape(APIFY, { keywords: kw, usernames, count: resultsPerPage, countryCode, dateFrom });
+      apifyRunId = await startMetaAdsScrape(APIFY, { keywords: kw, usernames, count: requestedCount, countryCode, dateFrom });
     } else {
       return json({ error: `Platform "${platform}/${sourceType}" is not yet supported in this build.` }, 400);
     }
@@ -303,7 +318,14 @@ serve(async (req) => {
       .select().single();
     if (runErr || !runRow) return json({ error: runErr?.message ?? "Failed to record run" }, 500);
 
-    return json({ runId: runRow.id, apifyRunId, status: "running" });
+    // Charge for the scrape now that the run has started (admins are free). The
+    // balance was already checked above; a rare deduct failure is logged, not fatal.
+    if (!admin && creditCost > 0) {
+      const { error: dedErr } = await svc.rpc("deduct_credits", { p_user_id: user.id, p_amount: creditCost });
+      if (dedErr) console.error("[social-scrape] credit deduction failed:", dedErr.message);
+    }
+
+    return json({ runId: runRow.id, apifyRunId, status: "running", creditsCharged: admin ? 0 : creditCost });
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
   }

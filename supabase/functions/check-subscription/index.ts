@@ -12,6 +12,16 @@ const logStep = (step: string, details?: any) => {
   console.log(`[CHECK-SUBSCRIPTION] ${step}${detailsStr}`);
 };
 
+// Stripe price → plan name, so a PAUSED subscription can report which tier it was
+// paused from (the plan is downgraded to "free" while paused, so the UI otherwise
+// can't tell which tier card to show the "Resume Plan" button on).
+const PRICE_TO_PLAN: Record<string, string> = {
+  price_1TYhRdKbAjgJzP4OoKJLuqQT: "lite", price_1SXv5wKbAjgJzP4OZ4ItVTI6: "starter",
+  price_1SXv5zKbAjgJzP4OvMuBKt2O: "professional", price_1SXv61KbAjgJzP4O6Lk56HVx: "enterprise",
+  price_1TYiClKbAjgJzP4OFk8CfXy9: "lite", price_1SXv5yKbAjgJzP4OvGPL0OSw: "starter",
+  price_1SXv60KbAjgJzP4OvawG7K1A: "professional", price_1SXv62KbAjgJzP4OCvLBVd7K: "enterprise",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -62,16 +72,32 @@ serve(async (req) => {
       status: "active",
       limit: 1,
     });
-    const hasActiveSub = subscriptions.data.length > 0;
+    // A paused subscription (pause_collection set) keeps Stripe status "active"
+    // but is NOT being billed, so it must NOT count as an entitled subscription.
+    // Treat paused as unsubscribed for access, and surface `paused` so the UI can
+    // show a "resume" state instead of an upsell/renew prompt.
+    let hasActiveSub = subscriptions.data.length > 0;
+    let paused = false;
+    let pauseResumesAt: string | null = null;
+    let pausedTier: string | null = null;
     let productId = null;
     let subscriptionEnd = null;
 
     if (hasActiveSub) {
       const subscription = subscriptions.data[0];
-      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
-      productId = subscription.items.data[0].price.product;
-      logStep("Determined subscription tier", { productId });
+      if (subscription.pause_collection) {
+        paused = true;
+        hasActiveSub = false;
+        const ra = subscription.pause_collection.resumes_at;
+        pauseResumesAt = ra ? new Date(ra * 1000).toISOString() : null;
+        pausedTier = PRICE_TO_PLAN[subscription.items.data[0]?.price?.id ?? ""] ?? null;
+        logStep("Subscription is paused — treating as not entitled", { subscriptionId: subscription.id, pauseResumesAt, pausedTier });
+      } else {
+        subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
+        logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
+        productId = subscription.items.data[0].price.product;
+        logStep("Determined subscription tier", { productId });
+      }
     } else {
       logStep("No active subscription found");
     }
@@ -99,6 +125,9 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       subscribed: hasActiveSub,
+      paused,
+      paused_tier: pausedTier,
+      pause_resumes_at: pauseResumesAt,
       product_id: productId,
       subscription_end: subscriptionEnd,
       trialing,
